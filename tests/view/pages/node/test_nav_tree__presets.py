@@ -1,9 +1,9 @@
 """`?nav=` picks which children a level shows, with the path down to the reader left open.
 
-The design's kind x preset table is `trees.py:cell`, and these leaves are what spend it: every
-kind under every preset, the levels an open path keeps whatever the preset filters, the control
-that offers the presets, and the preset riding every link the page mints so a reader who picked
-one keeps it.
+The kind x preset table is `nav_tree.py:LEVELS`, written out independently as
+`tests/view/nav_trees.py:cell`, and these leaves are what spend it: every kind under every
+preset, the levels an open path keeps whatever the preset filters, the control that offers the
+presets, and the preset riding every link the page mints so a reader who picked one keeps it.
 """
 
 from collections.abc import Sequence
