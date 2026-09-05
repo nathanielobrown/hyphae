@@ -53,6 +53,8 @@ Solid edges lead to pages with their own URLs. Dotted edges fetch a fragment int
 
 `build_app` in `src/hyphae/view/app.py` extends the routes of one package per page onto the app, fragments included, and the table above is read back off the app it builds. Nothing renders in the reading pane that a cold GET of its own URL doesn't render whole, NavTree and all.
 
+Eight kinds of node share one page, so the routes above are fewer than the kinds: four are recorded on a thread and read at one URL that names the kind. What a kind's page reads, lists and previews is its own row in `src/hyphae/view/pages/node/kinds.py:KINDS`, and what hangs under it in each preset is its row in `src/hyphae/view/pages/node/nav_tree.py:LEVELS`.
+
 ## The landing page counts projects
 
 `/` lists the projects the store holds sessions for, most recently active first, with sessions and spend over the last 7 days, the last 30, and all time. The page is [bounded](viewer-bounds.md#hard-bounds-cap-every-page-most-at-500-kb) like every other, so a store holding more projects than it shows ends with the number it left out. A row opens the session list filtered to that project. Sessions recorded from a checkout's worktrees count under the checkout, and sessions with no recorded directory gather into an unlinked `(no project)` row. The footer cites the query and `as_of`, the date both windows were measured back from, so the page reproduces tomorrow.

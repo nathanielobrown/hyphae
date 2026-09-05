@@ -1,8 +1,8 @@
 """What a children log heads and fills: one table of columns per shape of log.
 
 A pane lists one kind of child at a time, and each kind is read by different columns — what
-tells two turns apart is not what tells two tool calls apart. This module is that table, plus
-which shape of log lists each kind of node and how wide that log is.
+tells two turns apart is not what tells two tool calls apart. This module is that table alone:
+which shape of log a kind lists in is its own row's to say (`kinds.py:KINDS`).
 
 A column head marked with the same thing a node's own kind is marked with reads it off
 `view/nodes.py:GLYPHS` rather than spelling it again: the `⇄` over a turn's api-call count and
