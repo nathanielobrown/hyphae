@@ -564,8 +564,9 @@ class Node:
         what is under it, so a reader can look inside a child without leaving the parent. The
         node's own path under a prefix, so the two never disagree about where the node sits.
 
-        A kind with no body to serve has no route behind this — the two buckets, and a session
-        — and nothing offers one: a log lists only the kinds `app.BODIES` covers.
+        A kind with no body to serve has no route behind this — the two buckets, a session and
+        a compaction — and nothing offers one: a log lists only the kinds whose row names the
+        shape that lists them (`pages/node/kinds.py:KINDS`).
         """
         return f"{BODY_URL}{self.url}"
 

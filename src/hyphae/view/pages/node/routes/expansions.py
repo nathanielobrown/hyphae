@@ -6,145 +6,98 @@ reading. What it does not open is another level: a count and a link stand in for
 where the level below opens nothing further (`docs/viewer.md`).
 """
 
-from collections.abc import Callable
-from typing import NamedTuple
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from hyphae.analyze.queries import ParamValue
-from hyphae.view import bounds, builders, nodes
+from hyphae.view import bounds, nodes
 from hyphae.view.citation import Ran, cited
 from hyphae.view.deps import Viewer, ViewerDep
-from hyphae.view.enrichment import described
+from hyphae.view.enrichment import Descriptions, described
 from hyphae.view.nodes import Kind, Ref
 from hyphae.view.pages.node import reads
-from hyphae.view.pages.node.columns import Shape
+from hyphae.view.pages.node.columns import COLUMNS
+from hyphae.view.pages.node.kinds import EXPANDED, KINDS, Log
 from hyphae.view.pages.node.knobs import Knobs
 from hyphae.view.pages.node.markup import body as node_body
 from hyphae.view.pages.node.markup import nav_tree
-from hyphae.view.pages.node.markup.logs import Logged
 from hyphae.view.pages.node.markup.nav_tree import NavTreeRow
 from hyphae.view.pages.node.nav_tree import Corpus, children, spread, windowed
 from hyphae.view.pages.node.routes.knobs import KnobsDep
 from hyphae.view.store import (
-    Fragment,
     Page,
-    Row,
     bound,
     open_store,
     page_rows,
 )
 
-
-class Listing(NamedTuple):
-    """The level an expansion lists under the body instead of only counting.
-
-    One kind has one: an api call's expansion lists the tools it called, because a tool call
-    opens nothing further — the rows come with no opener on them, so the level a reader opens
-    is still the last one. `size` is what the query calls its page size, and `build` turns one
-    row into the node its row links to.
-    """
-
-    query: Fragment
-    size: str
-    build: Callable[[str, str, Row], nodes.Node]
-
-
-class Body(NamedTuple):
-    """How one kind answers an expansion: the header it reads, and what it says is under it.
-
-    `children` is the column counting what the full view would have listed, and `shape` names
-    those children the way the full view's log heading does. A kind with neither ends the NavTree.
-    Where `listed` is None the count and a link stand in for the list.
-    """
-
-    page: Page
-    # The binding the header query takes the node's id as.
-    keyed: str
-    build: Callable[[str, str, Row, str | None], nodes.Node]
-    shape: Shape
-    children: str | None
-    # Whether a pass can have described this kind, and so whether the title may be the model's.
-    described: bool
-    listed: Listing | None
-
-
-# Every kind a children log lists, except the run: a run's URL carries its id where the others
-# carry a thread, so it has a mount of its own.
-BODIES: dict[str, Body] = {
-    Kind.TURN: Body(
-        Page.TURN_HEADER,
-        "turn_id",
-        lambda session_id, source, row, text: builders.turn_node(
-            session_id, source, row, nodes.NO_LEDGER, text
-        ),
-        Shape.CALLS,
-        "api_calls",
-        described=True,
-        listed=None,
-    ),
-    Kind.CALL: Body(
-        Page.CALL_HEADER,
-        "api_call_id",
-        lambda session_id, source, row, _: builders.call_node(
-            session_id, source, row, nodes.NO_LEDGER
-        ),
-        Shape.TOOLS,
-        "tool_calls",
-        described=False,
-        listed=Listing(
-            Fragment.CALL_TOOLS,
-            "page_tools",
-            lambda session_id, source, row: builders.tool_node(
-                session_id, source, row, nodes.NO_LEDGER
-            ),
-        ),
-    ),
-    Kind.TOOL: Body(
-        Page.TOOL_HEADER,
-        "tool_call_id",
-        lambda session_id, source, row, _: builders.tool_node(
-            session_id, source, row, nodes.NO_LEDGER
-        ),
-        Shape.NONE,
-        None,
-        described=False,
-        listed=None,
-    ),
-}
-
-
 router = APIRouter()
 
 
-def expanded(
-    viewer: Viewer,
-    node: nodes.Node,
-    row: Row,
-    shape: Shape,
-    children: int | None,
-    marks: str,
-    ran: Ran,
-    under: list[Logged],
-) -> Response:
+def expanded(viewer: Viewer, session_id: str, at: Ref, knobs: Knobs) -> Response:
     """One node's body alone, the way an expansion in someone else's log mounts it.
 
     The same component the full view's pane renders through, so the two cannot drift apart;
     where the page has the crumbs and prev/next, this has the way to the node's own page.
-    `under` is the level the expansion lists, empty for every kind that stops at the count.
-    `marks` is the knobs the page around the expansion was read under, which every link out
-    of here carries on.
+
+    The knobs come along for the links this serves, not for what it reads: the mount carries
+    the page's own query string so a reader who opens an expansion and clicks through it keeps
+    the preset and the sizes they were reading under.
     """
+    spec = KINDS[at.kind]
+    # A kind no children log lists has no expansion — nothing offers one, and there is no row
+    # of anybody's table for it to stand in (`nodes.Node.expansion`). It is the same four kinds
+    # a header names, which is what lets this read `titled` without a second answer for None.
+    if spec.listed_as is None or spec.titled is None:
+        raise HTTPException(404, "No expansion is served for that kind of node.")
+    source = str(at.source)
+    keyed: dict[str, ParamValue] = {"session_id": session_id, "source": source}
+    with open_store(viewer.db) as connection:
+        # An expansion prices nothing and lists no runs: every node it builds carries the empty
+        # ledger, and what it wants of a corpus is the session it is in and the words a pass
+        # wrote. Read for the thread in the URL — which for a run is the run's own id, the
+        # source its rows carry — so the title is the one the log row that opened this had.
+        corpus = Corpus(
+            session_id=session_id,
+            held=nodes.NO_LEDGER,
+            runs=[],
+            described=(
+                described(connection, session_id, source)
+                if spec.describe is not None
+                else Descriptions()
+            ),
+            source=source,
+        )
+        found = spec.header(connection, corpus, at, EXPANDED)
+        if found is None:
+            raise HTTPException(404, spec.missing)
+        # The level the expansion lists, where its kind lists one: the first page of it, at the
+        # size the reader is reading logs under. Which page is not a question an expansion
+        # asks — the way past the first is the link to the node's own page.
+        under = (
+            spec.log(connection, corpus, at, 1, knobs.log)
+            if spec.opens and spec.log is not None
+            else Log([], 0, [])
+        )
+    ran: Ran = [*found.ran, *under.ran]
+    if corpus.described.queried:
+        ran.append((Page.ENRICHMENT, keyed))
+    node = spec.titled(corpus, at, found.row)
     return viewer.html(
         node_body.expansion(
             node=node,
-            facts=reads.node_facts(node, row),
-            suffix=marks,
-            shape=shape,
-            children=children,
-            rows=under,
-            citations={named.value: cited(named, bound) for named, bound in ran},
+            facts=reads.node_facts(node, found.row),
+            suffix=knobs.suffix,
+            shape=spec.under,
+            # What the full view would have listed, counted: the column beside the row, where
+            # the kind has one to count.
+            children=found.row[spec.counts] if spec.counts else None,
+            rows=under.rows,
+            citations={named.value: cited(named, binding) for named, binding in ran},
+            # An expansion arrives as a row of the log it opened under, spanning every column
+            # that log fills. A kind lists in one shape of log wherever it lists at all, which
+            # is what makes the width answerable from the child alone.
+            span=len(COLUMNS[spec.listed_as]),
         )
     )
 
@@ -160,59 +113,13 @@ def thread_body(
 ) -> Response:
     """The body of a turn, an api call, or a tool call, for an expansion in its parent.
 
-    The knobs come along for the links this serves, not for what it reads: the mount
-    carries the page's own query string so a reader who opens an expansion and clicks
-    through it keeps the preset and the sizes they were reading under.
+    `KINDS` is total over `Kind`, so the word alone no longer says the URL is one this serves:
+    a session, a run and the two buckets each read at a path of their own, and answering for
+    one here would key its header by a thread it was never recorded on.
     """
-    shaped = BODIES.get(kind)
-    if shaped is None:
+    if kind not in set(Kind) or not KINDS[Kind(kind)].in_thread:
         raise HTTPException(404, "No expansion is served for that kind of node.")
-    bindings = bound(
-        shaped.page,
-        bounds.EXPANSION_WIDTHS,
-        session_id=session_id,
-        source=source,
-        **{shaped.keyed: node_id},
-    )
-    keyed: dict[str, ParamValue] = {"session_id": session_id, "source": source}
-    # The level the expansion lists, where its kind lists one: the first page of it, at the
-    # size the reader is reading logs under. Which page is not a question an expansion
-    # asks — the way past the first is the link to the node's own page.
-    level: dict[str, ParamValue] = {**keyed, shaped.keyed: node_id, "skipped": 0}
-    if shaped.listed is not None:
-        level[shaped.listed.size] = knobs.log
-        level = bound(shaped.listed.query, bounds.LOG_WIDTHS, **level)
-    with open_store(viewer.db) as connection:
-        rows = page_rows(connection, shaped.page, **bindings)
-        if not rows:
-            raise HTTPException(404, "No node with that id is in this thread.")
-        under = (
-            [
-                reads.logged(shaped.shape, shaped.listed.build(session_id, source, item), item)
-                for item in page_rows(connection, shaped.listed.query, **level)
-            ]
-            if shaped.listed is not None
-            else []
-        )
-        # The title is the model's words wherever a pass reached the node, exactly as the
-        # log row that opened this expansion has it.
-        describes = described(connection, session_id, source) if shaped.described else None
-    told = describes.turns.get(node_id) if describes else None
-    ran: Ran = [(shaped.page, bindings)]
-    if shaped.listed is not None:
-        ran.append((shaped.listed.query, level))
-    if describes is not None and describes.queried:
-        ran.append((Page.ENRICHMENT, keyed))
-    return expanded(
-        viewer,
-        shaped.build(session_id, source, rows[0], told.description if told else None),
-        rows[0],
-        shaped.shape,
-        rows[0][shaped.children] if shaped.children else None,
-        knobs.suffix,
-        ran,
-        under,
-    )
+    return expanded(viewer, session_id, Ref(Kind(kind), source, node_id), knobs)
 
 
 @router.get(f"{nodes.BODY_URL}/session/{{session_id}}/{Kind.RUN}/{{run_id}}")
@@ -223,28 +130,7 @@ def run_body(
     knobs: KnobsDep,
 ) -> Response:
     """One agent run's body. Its own mount: a run's URL carries its id where a thread goes."""
-    bindings = bound(Page.RUN_HEADER, bounds.EXPANSION_WIDTHS, session_id=session_id, run_id=run_id)
-    keyed: dict[str, ParamValue] = {"session_id": session_id, "source": run_id}
-    with open_store(viewer.db) as connection:
-        rows = page_rows(connection, Page.RUN_HEADER, **bindings)
-        if not rows:
-            raise HTTPException(404, "No agent run with that id is in this session.")
-        # A run's id is the thread its own rows carry, so it is what the pass keyed on too.
-        describes = described(connection, session_id, run_id)
-    row = describes.runs.get(run_id)
-    ran: Ran = [(Page.RUN_HEADER, bindings)]
-    if describes.queried:
-        ran.append((Page.ENRICHMENT, keyed))
-    return expanded(
-        viewer,
-        builders.run_node(session_id, rows[0], nodes.NO_LEDGER, row.description if row else None),
-        rows[0],
-        Shape.TURNS,
-        rows[0]["turns"],
-        knobs.suffix,
-        ran,
-        [],
-    )
+    return expanded(viewer, session_id, Ref(Kind.RUN, run_id, run_id), knobs)
 
 
 def spilled(

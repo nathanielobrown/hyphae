@@ -114,20 +114,3 @@ _CSS: dict[Shape, dict[str, str]] = {
 def css(shape: Shape, field: str) -> str:
     """The class one cell wears, off the column heading it."""
     return _CSS[shape][field]
-
-
-# Which shape of log lists a kind. For the one reader that knows a child and needs its
-# parent's table: an expansion arrives as a row of the log it opens under, and that row spans
-# the log's columns. A kind lists in one shape of log wherever it lists at all, which is what
-# makes the width answerable from the child alone.
-LISTED: dict[Kind, Shape] = {
-    Kind.TURN: Shape.TURNS,
-    Kind.CALL: Shape.CALLS,
-    Kind.TOOL: Shape.TOOLS,
-    Kind.RUN: Shape.RUNS,
-}
-
-
-def spanned(kind: str) -> int:
-    """How many columns the log listing a node of `kind` has, for a row that spans them."""
-    return len(COLUMNS[LISTED[Kind(kind)]])

@@ -306,6 +306,44 @@ def test_a_log_row_expands_to_the_body_its_own_page_wraps(
     assert opened == {"turn", "call", "tool", "run"}
 
 
+# What the body mount says when it will not serve one, and what each kind says when the node
+# is not there. Written out rather than read from `kinds.KINDS`: a 404 is a sentence a reader
+# gets, and a test that imported the table would agree with any edit to it.
+NO_BODY = "No expansion is served for that kind of node."
+NO_NODE = {
+    "turn": "No turn with that id is in this thread.",
+    "call": "No api call with that id is in this thread.",
+    "tool": "No tool call with that id is in this thread.",
+}
+
+
+def test_the_body_mount_serves_the_kinds_a_log_lists_and_refuses_every_other_word(
+    client: TestClient,
+) -> None:
+    """A body is served for the kinds a children log lists, and for no other kind or word.
+
+    The kind comes out of the URL, so the mount can be asked about anything the grammar
+    allows: a session, either bucket, an agent run in the thread slot — whose rows carry its
+    id where a thread goes, so reading it here would key its header by a thread it was never
+    recorded on — and a word that names no kind at all. Each is refused for its kind, before
+    the store is opened.
+
+    The three the mount does serve are refused for the *node* instead, which is the other
+    sentence: an id no thread holds is a question about the node, and the leaf above proves
+    the same three open when the node is real.
+    """
+    for kind in [*Kind, "banana"]:
+        mount = f"{BODY_URL}/session/{MAIN}/thread/main/{kind}/{MISSING}"
+        served = client.get(mount)
+        assert served.status_code == 404, mount
+        assert NO_NODE.get(str(kind), NO_BODY) in served.text, mount
+    # And the run's own mount, which is a path rather than a kind in the URL: it serves an
+    # agent run and answers for a missing one in the run's own words.
+    loose = client.get(f"{BODY_URL}/session/{MAIN}/run/{MISSING}")
+    assert loose.status_code == 404
+    assert "No agent run with that id is in this session." in loose.text
+
+
 def test_a_call_opened_in_its_turn_lists_the_tools_it_called(
     client: TestClient, store: duckdb.DuckDBPyConnection
 ) -> None:
