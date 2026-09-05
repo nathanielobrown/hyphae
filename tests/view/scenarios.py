@@ -1,4 +1,4 @@
-"""One real URL per route the viewer exposes — the scenario list the tier sweeps.
+"""One real URL per page the viewer serves — the scenario list the tier sweeps.
 
 Its own module rather than a section of `conftest.py` because two kinds of reader want it:
 the viewer tier, which parametrizes over it and checks it against the routes the app
@@ -58,6 +58,12 @@ class Scenario(NamedTuple):
     note: str = ""
     """Why this URL and not another, where the title cannot say it."""
 
+    served: str = ""
+    """The route the app declares for this URL, where the key is that route with a slot filled.
+
+    Empty for every entry whose key is the route itself, which is all of them but the node page.
+    """
+
 
 # One item of each level that `enriched_db` describes *and* wrote a friction line for. A pass
 # writes friction where it saw some, and the fixture's stands in for that by describing every
@@ -78,10 +84,16 @@ ASKED_RUN = "At the run whose spawning `Agent` call the corpus holds, so this an
 # window left out, and at the default window, over this corpus, that is nothing at all.
 SPILLED = "The `kin` window is turned down, because the default leaves nothing out here."
 
-# One real URL per route the app exposes, keyed by the route's own path template. Two tiers
-# read it whole — the payload sweep weighs every URL, and the citation leaves read the footer
-# of every page among them — and one leaf reads it as a set against the routes the app
-# declares, so a route added with no entry here fails rather than going unread.
+# The one route serving more than one entry here: four node kinds are read on a thread, and
+# each has its own key with the kind filled in, because what the tiers want evidence of is the
+# kind rather than the grammar (`view/pages/node/kinds.py:KINDS`).
+NODE_PAGE = "/session/{session_id}/thread/{source}/{kind}/{node_id}"
+
+# One real URL per page the app serves, keyed by the URL's own template — the route that serves
+# it, except where `served` names another. Two tiers read it whole — the payload sweep weighs
+# every URL, and the citation leaves read the footer of every page among them — and one leaf
+# reads `SERVED_ROUTES` against the routes the app declares, so a route added with no entry
+# here fails rather than going unread.
 SCENARIOS: dict[str, Scenario] = {
     "/": Scenario("/", "Projects", Group.PAGES),
     "/sessions": Scenario("/sessions", "Session list", Group.PAGES),
@@ -107,6 +119,7 @@ SCENARIOS: dict[str, Scenario] = {
         Group.NODES,
         note="The corpus's one turn whose three bands each have ground of their own, so the "
         "navy ramp can be read off a page rather than argued about.",
+        served=NODE_PAGE,
     ),
     "/session/{session_id}/run/{run_id}": Scenario(
         f"/session/{SPINE}/run/{SPINE_RUN}", "Agent run", Group.NODES
@@ -115,16 +128,19 @@ SCENARIOS: dict[str, Scenario] = {
         f"/session/{FORK_ORIGIN}/thread/{FORK_ORIGIN_RUN}/call/{DENSE_CALL}",
         "API call",
         Group.NODES,
+        served=NODE_PAGE,
     ),
     "/session/{session_id}/thread/{source}/tool/{tool_call_id}": Scenario(
         f"/session/{FORK_ORIGIN}/thread/{FORK_ORIGIN_RUN}/tool/{DENSE_TOOL}",
         "Tool call",
         Group.NODES,
+        served=NODE_PAGE,
     ),
     "/session/{session_id}/thread/{source}/compaction/{compaction_id}": Scenario(
         f"/session/{COMPACTED}/thread/main/compaction/{COMPACTED_BOUNDARY}",
         "Compaction",
         Group.NODES,
+        served=NODE_PAGE,
     ),
     "/session/{session_id}/thread/{source}/unattributed": Scenario(
         f"/session/{RESUME}/thread/main/unattributed",
@@ -286,6 +302,10 @@ SCENARIOS: dict[str, Scenario] = {
         f"{QUERY_URL}/view_sessions", "The query behind the session list", Group.QUERY
     ),
 }
+
+# Every route template the app has to declare to serve the list, which is one per key but for
+# the node page's four. The completeness leaves compare against this rather than the keys.
+SERVED_ROUTES = {scenario.served or key for key, scenario in SCENARIOS.items()}
 
 
 def path_pattern(route: str) -> re.Pattern[str]:

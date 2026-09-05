@@ -25,7 +25,7 @@ from hyphae.view.dev import RELOAD_URL
 from hyphae.view.text import format as fmt
 from tests.conftest import build_enriched_store
 from tests.gallery import serve
-from tests.view.scenarios import SCENARIOS, Group
+from tests.view.scenarios import SCENARIOS, SERVED_ROUTES, Group
 from tests.view.test_dev import TAG, declared
 
 REPO = Path(__file__).resolve().parents[2]
@@ -143,7 +143,7 @@ def test_the_gallery_is_a_dev_viewer(gallery: TestClient) -> None:
 def test_the_index_does_not_displace_a_scenario(gallery: TestClient) -> None:
     """`/` is the projects page and a scenario of its own, so the index lives beside it."""
     assert serve.INDEX not in {scenario.url for scenario in SCENARIOS.values()}
-    assert declared(gallery) == set(SCENARIOS) | {RELOAD_URL, serve.INDEX}
+    assert declared(gallery) == SERVED_ROUTES | {RELOAD_URL, serve.INDEX}
 
 
 def test_the_store_the_gallery_builds_holds_what_the_fixture_store_holds(

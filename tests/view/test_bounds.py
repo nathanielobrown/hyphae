@@ -64,7 +64,7 @@ from tests.view.conftest import (
 # The pages that carry a footer, and the reader of one citation line: both are the citation
 # tier's, and what the production sizes are read off here.
 from tests.view.pages.query.test_query import CITING, bound
-from tests.view.scenarios import SCENARIOS
+from tests.view.scenarios import SCENARIOS, SERVED_ROUTES
 
 # The library described once for the whole module: every leaf below reads what a query binds,
 # and a `Query` is derived from its statement rather than looked up (`analyze/manifest.py`).
@@ -553,7 +553,7 @@ def test_every_route_the_viewer_exposes_is_in_the_payload_sweep(client: TestClie
         for route in client.app.routes  # pyrefly: ignore
         if isinstance(route, APIRoute)
     }
-    assert exposed == set(SCENARIOS)
+    assert exposed == SERVED_ROUTES
 
 
 @pytest.mark.parametrize("path", sorted(scenario.url for scenario in SCENARIOS.values()))
