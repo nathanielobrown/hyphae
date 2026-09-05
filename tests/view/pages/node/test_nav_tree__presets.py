@@ -311,12 +311,23 @@ def test_a_preset_the_viewer_does_not_have_is_refused(
 ) -> None:
     """`?nav=` names one of the three views or the request is a 400, not a quiet full tree.
 
-    Asked of a fragment as well as a page: the preset rides the mount an expansion opens, so a
-    preset the viewer does not have has to be refused there too rather than written into every
-    link the fragment serves.
+    Asked of both fragments a preset rides as well as of the page: the mount an expansion opens
+    and the fetch a tail row makes for the rest of a level. A preset the viewer does not have
+    has to be refused at each rather than written into every link the fragment serves.
+
+    The tail row's fetch is the one that builds a level nothing else on this page did — the
+    cell is the preset's, so `noapi` reads a turn's tool calls and the compactions among them
+    here and nowhere on the page it was minted from.
     """
+
+    def asking(url: str, nav: str) -> str:
+        # Appended rather than passed as a parameter: a tail row's fetch carries the thread and
+        # the depth in its own query, and a `params=` would serve them right back out of it.
+        return f"{url}{'&' if '?' in url else '?'}nav={nav}"
+
     at = url(open_turn(store))
-    for asked in (at, mounts(client.get(at).text)[0]):
-        assert client.get(asked, params={"nav": "everything"}).status_code == 400, asked
+    spill = spilled(client.get(at, params={"kin": 1}).text)[0]
+    for asked in (at, mounts(client.get(at).text)[0], spill):
+        assert client.get(asking(asked, "everything")).status_code == 400, asked
         for preset in Preset:
-            assert client.get(asked, params={"nav": preset}).status_code == 200, preset
+            assert client.get(asking(asked, preset)).status_code == 200, (asked, preset)
