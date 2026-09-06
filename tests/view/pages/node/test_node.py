@@ -140,7 +140,12 @@ def test_a_node_the_store_does_not_hold_is_a_404(
     """
     url = node_url(store, kind)
     session_id = url.split("/")[2]
-    assert client.get(url.replace(session_id, MISSING, 1)).status_code == 404, url
+    unheld = client.get(url.replace(session_id, MISSING, 1))
+    assert unheld.status_code == 404, url
+    # The session is read before the node is, so a miss on it is the store's own sentence
+    # whatever kind the URL names — a reader who mistyped a session id is not told that some
+    # turn is missing from a session that is not there either.
+    assert "No session with that id is in this store." in unheld.text, url
     if (tail := url.rsplit("/", 1)[1]) != session_id:
         assert client.get(url.replace(tail, MISSING)).status_code == 404, url
 
