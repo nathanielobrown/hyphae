@@ -144,8 +144,10 @@ def test_a_node_the_store_does_not_hold_is_a_404(
     assert unheld.status_code == 404, url
     # The session is read before the node is, so a miss on it is the store's own sentence
     # whatever kind the URL names — a reader who mistyped a session id is not told that some
-    # turn is missing from a session that is not there either.
-    assert "No session with that id is in this store." in unheld.text, url
+    # turn is missing from a session that is not there either. Read whole rather than looked
+    # for inside the page: the sentence is the whole of what the refusal says.
+    message = fields(unheld.text, "id", "error")["message"]
+    assert message == "No session with that id is in this store.", url
     if (tail := url.rsplit("/", 1)[1]) != session_id:
         assert client.get(url.replace(tail, MISSING)).status_code == 404, url
 
@@ -313,7 +315,8 @@ def test_a_log_row_expands_to_the_body_its_own_page_wraps(
 
 # What each mount says when it will not serve a kind at all, and what each kind says when the
 # node is not there. Written out rather than read from `kinds.KINDS`: a 404 is a sentence a
-# reader gets, and a test that imported the table would agree with any edit to it.
+# reader gets, and a test that imported the table would agree with any edit to it. Each is read
+# back whole off the error page's message field, because a sentence is the whole of a refusal.
 NO_BODY = "No expansion is served for that kind of node."
 NO_PAGE = "No node of that kind is read on a thread."
 NO_NODE = {
@@ -344,12 +347,17 @@ def test_the_body_mount_serves_the_kinds_a_log_lists_and_refuses_every_other_wor
         mount = f"{BODY_URL}/session/{SPINE}/thread/{MAIN}/{kind}/{MISSING}"
         served = client.get(mount)
         assert served.status_code == 404, mount
-        assert NO_NODE.get(str(kind), NO_BODY) in served.text, mount
+        assert fields(served.text, "id", "error")["message"] == NO_NODE.get(str(kind), NO_BODY), (
+            mount
+        )
     # And the run's own mount, which is a path rather than a kind in the URL: it serves an
     # agent run and answers for a missing one in the run's own words.
     loose = client.get(f"{BODY_URL}/session/{SPINE}/run/{MISSING}")
     assert loose.status_code == 404
-    assert "No agent run with that id is in this session." in loose.text
+    assert (
+        fields(loose.text, "id", "error")["message"]
+        == "No agent run with that id is in this session."
+    )
 
 
 def test_the_thread_page_reads_the_kinds_recorded_on_one_and_refuses_every_other_word(
@@ -370,7 +378,9 @@ def test_the_thread_page_reads_the_kinds_recorded_on_one_and_refuses_every_other
     for kind in [*Kind, "banana"]:
         page = client.get(f"/session/{SPINE}/thread/{MAIN}/{kind}/{MISSING}")
         assert page.status_code == 404, kind
-        assert ON_THREAD.get(str(kind), NO_PAGE) in page.text, kind
+        assert fields(page.text, "id", "error")["message"] == ON_THREAD.get(str(kind), NO_PAGE), (
+            kind
+        )
 
 
 def test_a_call_opened_in_its_turn_lists_the_tools_it_called(

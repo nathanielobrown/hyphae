@@ -21,7 +21,6 @@ from tests.view.conftest import (
     icons,
     inside,
     one,
-    plain,
     values,
 )
 from tests.view.selections import (
@@ -136,7 +135,8 @@ def test_a_level_divides_into_the_pages_it_has_and_no_empty_one(
         # as a node with no children.
         past = client.get(TURN, params={"log": size, "page": count + 1})
         assert past.status_code == 404
-        assert "This node's children do not run to that page." in plain(past.text)
+        refused = fields(past.text, "id", "error")["message"]
+        assert refused == "This node's children do not run to that page."
     # A level that fits on one page carries no pager: there is no page to go to.
     assert "data-pager" not in client.get(TURN, params={"log": held}).text
     # And a page number below the first is a bad ask rather than a miss: no level has one, so
@@ -144,7 +144,10 @@ def test_a_level_divides_into_the_pages_it_has_and_no_empty_one(
     # carries gives (`checked`).
     below = client.get(TURN, params={"page": 0})
     assert below.status_code == 400
-    assert "Ask for a children log page from one upwards." in plain(below.text)
+    assert (
+        fields(below.text, "id", "error")["message"]
+        == "Ask for a children log page from one upwards."
+    )
     # A level with nothing in it counts nothing. The count comes off the page's own rows, so an
     # empty page is the one place it has no row to read it from.
     empty = store.execute(
