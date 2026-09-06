@@ -363,6 +363,12 @@ def test_a_store_no_enrichment_pass_has_touched_renders_every_page(
     assert ENRICHMENT_URLS, "the route sweep no longer names the fetches behind a pass's words"
     for url in ENRICHMENT_URLS:
         assert client.get(url).status_code == 404, url
+    # And a page cites exactly the queries it ran, which over this store means one fewer: the
+    # session list joins what a pass wrote only where there is a pass to join, so citing that
+    # join here would be evidence for a query the page never issued.
+    listed = fields(client.get("/sessions").text, "id", "citation")
+    assert Page.SESSIONS.value in listed
+    assert Page.DESCRIBED_SESSIONS.value not in listed
     # And the store really is the bare one, so the sweep above proves what it claims.
     tables = {row[0] for row in store.execute("SELECT table_name FROM duckdb_tables()").fetchall()}
     assert not tables & {spec.table for spec in LEVELS.values()}
