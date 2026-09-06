@@ -190,10 +190,28 @@ def test_a_name_that_looks_like_a_path_is_a_404(client: TestClient) -> None:
     assert client.get(f"/session/{MISSING}/offload/{OFFLOAD_FILE}").status_code == 404
 
 
-def test_a_chunk_size_outside_its_bounds_is_refused(client: TestClient) -> None:
+def test_a_chunk_size_or_offset_outside_its_bounds_is_refused(client: TestClient) -> None:
     """A hand-typed chunk size past the ceiling is a 400, not a whole 50 MB file."""
     for size in (0, bounds.CHUNK.ceiling + 1):
         response = client.get(
             f"/session/{CONFIG_ONLY}/offload/{OFFLOAD_FILE}", params={"size": size}
         )
         assert response.status_code == 400, size
+        # In the shared words every size a URL carries is refused in (`view/deps.py:checked`).
+        assert (
+            fields(response.text, "id", "error")["message"]
+            == f"Ask for a page size between 1 and {bounds.CHUNK.ceiling}."
+        )
+    # The offset is the file's own bound rather than a size, and has its own words: a chunk
+    # before the start of a file is a bad ask, not an empty page.
+    behind = client.get(f"/session/{CONFIG_ONLY}/offload/{OFFLOAD_FILE}", params={"after": -1})
+    assert behind.status_code == 400
+    assert fields(behind.text, "id", "error")["message"] == "Ask for an offset of 0 or more."
+    # And the first character of the file is an offset the page serves, so the refusal is
+    # bounded: it is the negative number that is refused and not the parameter.
+    assert (
+        client.get(
+            f"/session/{CONFIG_ONLY}/offload/{OFFLOAD_FILE}", params={"after": 0}
+        ).status_code
+        == 200
+    )

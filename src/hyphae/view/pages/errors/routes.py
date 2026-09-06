@@ -1,28 +1,50 @@
 """The errors page: every failed tool call of one session, on every thread, in order.
 
 Not a node page: a failure is a property of a tool call rather than a place in the NavTree, and
-a session's failures are scattered across every thread it ran (`docs/viewer.md`).
+a session's failures are scattered across every thread it ran (`docs/viewer.md`). Three
+dependencies and an adapter, the shape a full document takes: the read opens the store and
+closes it, and the 404 is worded here because only an adapter knows what a status is.
 """
 
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from hyphae.view import bounds, failures
-from hyphae.view.citation import cited
+from hyphae.view.components import Html
 from hyphae.view.deps import ViewerDep
-from hyphae.view.pages.errors import markup
-from hyphae.view.store import (
-    Page,
-    bound,
-    open_store,
-    page_rows,
-)
+from hyphae.view.pages.errors import markup, read
+from hyphae.view.pages.errors.models import ErrorsPage
 
 router = APIRouter()
 
 
+def errors_read(session_id: str, viewer: ViewerDep) -> ErrorsPage:
+    """One session's failures, or the 404 that says which nothing this is."""
+    page = read.errors(viewer.db, session_id)
+    if not page.listed:
+        raise HTTPException(
+            404,
+            "This session's tool calls all succeeded."
+            if page.held
+            else "No session with that id is in this store.",
+        )
+    return page
+
+
+ErrorsRead = Annotated[ErrorsPage, Depends(errors_read)]
+
+
+def errors_markup(page: ErrorsRead, viewer: ViewerDep) -> Html:
+    """That read, rendered."""
+    return markup.errors_page(page=page, dev=viewer.dev)
+
+
+ErrorsMarkup = Annotated[Html, Depends(errors_markup)]
+
+
 @router.get("/session/{session_id}/errors")
-def errors_page(session_id: str, viewer: ViewerDep) -> Response:
+def errors_page(page: ErrorsMarkup, viewer: ViewerDep) -> Response:
     """Every failed tool call of one session, in the order they happened.
 
     Not a node page: a failure is a property of a tool call rather than a place in the
@@ -30,31 +52,4 @@ def errors_page(session_id: str, viewer: ViewerDep) -> Response:
     list, and each row leads to the tool call's own page — which opens the NavTree at it and
     carries the crumbs that place it.
     """
-    with open_store(viewer.db) as connection:
-        failed = failures.failures(connection, session_id)
-        # A session the store never held and one whose calls all succeeded are both
-        # nothing at this URL, and not the same nothing. The header is read only when
-        # there is a 404 to word, so the page a reader actually opens runs one query.
-        held = bool(failed.listed) or bool(
-            page_rows(
-                connection,
-                Page.SESSION_HEADER,
-                **bound(Page.SESSION_HEADER, bounds.HEADER_WIDTHS, session_id=session_id),
-            )
-        )
-    if not failed.listed:
-        raise HTTPException(
-            404,
-            "This session's tool calls all succeeded."
-            if held
-            else "No session with that id is in this store.",
-        )
-    return viewer.html(
-        markup.errors_page(
-            session_id=session_id,
-            listed=failed.listed,
-            cut=failed.cut,
-            citations={named.value: cited(named, bound) for named, bound in failed.ran},
-            dev=viewer.dev,
-        )
-    )
+    return viewer.html(page)
