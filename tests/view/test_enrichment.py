@@ -25,11 +25,12 @@ from hyphae.enrich.taxonomy import TAXONOMY_VERSION
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.enrichment import GLYPH, GLYPH_CLASS
-from hyphae.view.nodes import Kind
+from hyphae.view.nodes import BODY_URL, Kind
 from hyphae.view.store import Page
 from hyphae.view.text.format import cut, when
 from tests.conftest import SPINE, SPINE_RUN
 from tests.view.conftest import Planter, fields, inside, one, pages, reads, values
+from tests.view.pages.query.test_query import FRAGMENT_MOUNT, PAGE_MOUNT, bound
 from tests.view.scenarios import SCENARIOS
 
 # Every enrichment table, and the statement that empties one — the second absent-safety case.
@@ -41,6 +42,13 @@ ENRICHMENT_URLS = tuple(
     scenario.url
     for path, scenario in SCENARIOS.items()
     if path.startswith(("/fragment/description/", "/fragment/friction/"))
+)
+
+# One agent run read both ways — its own page, and the expansion a log row opens in place —
+# beside where each stands its citation lines (`tests/view/pages/query/test_query.py`).
+READ_BOTH_WAYS = (
+    (SCENARIOS["/session/{session_id}/run/{run_id}"].url, PAGE_MOUNT),
+    (SCENARIOS[f"{BODY_URL}/session/{{session_id}}/run/{{run_id}}"].url, FRAGMENT_MOUNT),
 )
 
 
@@ -276,6 +284,27 @@ def test_a_run_page_shows_the_runs_own_enrichment_beside_its_brief(
     )
     assert brief and brief != description
     assert fields(page, "data-body", "run")["title"] == f"[{agent_type}] {description}"
+
+
+@pytest.mark.parametrize(("url", "mount"), READ_BOTH_WAYS)
+def test_the_enrichment_citation_names_the_thread_the_page_read_for(
+    url: str, mount: tuple[str, str], enriched_client: TestClient
+) -> None:
+    """Both readings of one run cite the enrichment read under that run's own thread.
+
+    Enrichment is keyed by thread (`view/enrichment.py:described`), so a run's page and the
+    expansion of the same run each read for the run id rather than for `main` — and a citation
+    saying `main` would send a reader who follows it to rows about the main transcript. Each
+    route spells the two keys out beside its own read, so the values below are what holds two
+    hand-written dicts to the one call they describe.
+
+    A subset, not the whole line: the citation names two of the five parameters `described`
+    bound, and what a page owes a reader for the three widths it leaves off is settled in
+    `tests/view/pages/query/test_query.py`, not here.
+    """
+    cited = bound(fields(enriched_client.get(url).text, *mount)[Page.ENRICHMENT.value])
+    assert cited["session_id"] == SPINE
+    assert cited["source"] == SPINE_RUN
 
 
 def test_a_described_node_is_named_by_what_a_pass_said_where_its_parent_lists_it(
