@@ -96,7 +96,6 @@ LAYERED = {
     "builders": SHARED,
     "detail": SHARED,
     "store": BASE,
-    "manifest": BASE,
     "bounds": LEAF,
 }
 
@@ -487,6 +486,9 @@ def test_no_import_inside_the_viewer_points_up_a_layer() -> None:
     assert any(
         imported == "nodes" and importer.split(".")[-1] == "walk" for importer, imported in found
     )
+    # ...every module the map above names is still on the tree, because a layer written down
+    # for a module that was deleted is a rule nothing holds...
+    assert [name for name in LAYERED if not exists(name)] == []
     # ...and every edge in it goes down a layer or sideways.
     for importer, imported in sorted(found):
         assert layer(imported) <= layer(importer), f"{importer} → {imported}"
