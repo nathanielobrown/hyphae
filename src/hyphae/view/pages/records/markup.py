@@ -1,58 +1,32 @@
 """The records page's markup: the typed record row, the page of them, and one record."""
 
-import datetime as dt
-from collections.abc import Mapping, Sequence
-from typing import NamedTuple
-
 import htpy
 
-from hyphae.view.citation import Cited
 from hyphae.view.components import Html, citation, layout
 from hyphae.view.nodes import thread_url
+from hyphae.view.pages.records.models import RecordRow, RecordsPage
 from hyphae.view.text import format as fmt
 
 
-class RecordRow(NamedTuple):
-    """One archived transcript line as the records page prints it, built from its store row."""
-
-    line_no: int
-    type: str
-    timestamp: dt.datetime | None
-    raw_chars: int
-    raw_head: str
-
-
-def records_page(
-    *,
-    session_id: str,
-    source: str,
-    rows: Sequence[RecordRow],
-    matched: int,
-    opened: int | None,
-    after: int | None,
-    more: int,
-    size: int,
-    citations: Mapping[str, Cited],
-    dev: bool,
-) -> Html:
+def records_page(*, page: RecordsPage, dev: bool) -> Html:
     """One page of a thread's raw transcript — where a report's citation lands.
 
-    `opened` names the one row that arrives open, or None where the row a citation named is too
-    wide to open unasked (`bounds.OPENED_RECORD_CHARS`).
+    `page.opened` names the one row that arrives open, or None where the row a citation named
+    is too wide to open unasked (`bounds.OPENED_RECORD_CHARS`).
     """
     return layout.page(
-        tab_title=f"{source} records — hyphae",
+        tab_title=f"{page.source} records — hyphae",
         scripts=None,
         main=htpy.section(id="records")[
             [
                 htpy.h1["Raw records"],
                 htpy.p(".numbers")[
                     [
-                        htpy.a(href=f"/session/{session_id}")[session_id],
-                        htpy.span(data_field="source")[source],
+                        htpy.a(href=f"/session/{page.session_id}")[page.session_id],
+                        htpy.span(data_field="source")[page.source],
                         htpy.span[
                             [
-                                htpy.span(data_field="matched")[fmt.count(matched)],
+                                htpy.span(data_field="matched")[fmt.count(page.matched)],
                                 " record(s) from here",
                             ]
                         ],
@@ -60,20 +34,25 @@ def records_page(
                 ],
                 htpy.ol(".records")[
                     [
-                        _record(row=row, thread=thread_url(session_id, source), opened=opened)
-                        for row in rows
+                        _record(
+                            row=row,
+                            thread=thread_url(page.session_id, page.source),
+                            opened=page.opened,
+                        )
+                        for row in page.rows
                     ]
                 ],
-                htpy.p(".more", data_more_records=after)[
+                htpy.p(".more", data_more_records=page.after)[
                     htpy.a(
-                        href=f"{thread_url(session_id, source)}/records?after={after}&size={size}"
-                    )[htpy.span(data_field="count")[f"+{fmt.count(more)} more"]]
+                        href=f"{thread_url(page.session_id, page.source)}/records"
+                        f"?after={page.after}&size={page.size}"
+                    )[htpy.span(data_field="count")[f"+{fmt.count(page.more)} more"]]
                 ]
-                if after is not None
+                if page.after is not None
                 else None,
             ]
         ],
-        footer=citation.footer(citations=citations),
+        footer=citation.footer(citations=page.citations),
         dev=dev,
     )
 

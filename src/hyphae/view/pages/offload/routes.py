@@ -1,70 +1,61 @@
 """The offload page: one chunk of a tool result written to a file instead of the transcript.
 
 The name is the transcript's own file name, so it may hold anything a tool named a file. It is
-a key into the store and never a path the server opens (`docs/viewer.md`).
+a key into the store and never a path the server opens (`docs/viewer.md`). Three dependencies
+and an adapter, the shape a full document takes: the size and the offset are checked here, the
+read opens the store and closes it, and the 404 is worded here.
 """
 
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from hyphae.analyze.queries import ParamValue
 from hyphae.view import bounds
-from hyphae.view.citation import cited
+from hyphae.view.components import Html
 from hyphae.view.deps import ViewerDep, checked
-from hyphae.view.pages.offload import markup
-from hyphae.view.store import (
-    Page,
-    open_store,
-    page_rows,
-)
+from hyphae.view.pages.offload import markup, read
+from hyphae.view.pages.offload.models import OffloadPage
 
 router = APIRouter()
 
 
-@router.get("/session/{session_id}/offload/{offload_name:path}")
-def offload_page(
+def offload_read(
     session_id: str,
     offload_name: str,
     viewer: ViewerDep,
     after: int = 0,
     size: int = bounds.CHUNK.default,
-) -> Response:
-    """One chunk of a tool result Claude Code wrote to a file beside the transcript.
-
-    The name is the transcript's own file name, so it may hold anything a tool named a
-    file — spaces, percent signs, something shaped like a path. It is a key into the store
-    and never a path the server opens, which is what makes the shape of it uninteresting.
-    """
+) -> OffloadPage:
+    """One chunk of an offloaded result, or the 404 that says the session holds no such file."""
     checked(size, bounds.CHUNK.ceiling)
+    # The offset is the file's own bound rather than a size, and refused in its own words: a
+    # chunk before the start of a file is a bad ask, not an empty page.
     if after < 0:
         raise HTTPException(400, "Ask for an offset of 0 or more.")
-    bound: dict[str, ParamValue] = {
-        "session_id": session_id,
-        "name": offload_name,
-        "after_chars": after,
-        "chunk_chars": size,
-    }
-    with open_store(viewer.db) as connection:
-        rows = page_rows(connection, Page.OFFLOAD, **bound)
-    if not rows:
+    page = read.offload(viewer.db, session_id, offload_name, after, size)
+    if page is None:
         raise HTTPException(404, "No offloaded result of that name is in this session.")
-    row = rows[0]
-    file = markup.OffloadFile(
-        name=row["name"],
-        size_bytes=row["size_bytes"],
-        content_chars=row["content_chars"],
-        lossy_decode=row["lossy_decode"],
-        chunk=row["chunk"],
-    )
-    served = after + len(file.chunk)
-    return viewer.html(
-        markup.offload_page(
-            session_id=session_id,
-            file=file,
-            # Where the next chunk starts, or None when this one reached the end.
-            after=served if served < file.content_chars else None,
-            size=size,
-            citations={Page.OFFLOAD.value: cited(Page.OFFLOAD, bound)},
-            dev=viewer.dev,
-        )
-    )
+    return page
+
+
+OffloadRead = Annotated[OffloadPage, Depends(offload_read)]
+
+
+def offload_markup(page: OffloadRead, viewer: ViewerDep) -> Html:
+    """That read, rendered."""
+    return markup.offload_page(page=page, dev=viewer.dev)
+
+
+OffloadMarkup = Annotated[Html, Depends(offload_markup)]
+
+
+@router.get("/session/{session_id}/offload/{offload_name:path}")
+def offload_page(page: OffloadMarkup, viewer: ViewerDep) -> Response:
+    """One chunk of a tool result Claude Code wrote to a file beside the transcript.
+
+    The name is the transcript's own file name, so it may hold anything a tool named a file —
+    spaces, percent signs, something shaped like a path. It is a key into the store and never
+    a path the server opens, which is what makes the shape of it uninteresting.
+    """
+    return viewer.html(page)
