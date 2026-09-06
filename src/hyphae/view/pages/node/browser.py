@@ -14,17 +14,20 @@ from dataclasses import replace
 from math import ceil
 from pathlib import Path
 
+from hyphae.analyze.queries import ParamValue
 from hyphae.model import MAIN_SOURCE
 from hyphae.view import bounds, builders, failures, links, nodes
 from hyphae.view.citation import Ran, cited
 from hyphae.view.detail import enrichment_lines
-from hyphae.view.enrichment import described
+from hyphae.view.enrichment import Descriptions, described
 from hyphae.view.nodes import Kind, Ref
 from hyphae.view.pages.node import models, nav_tree, reads, walk
-from hyphae.view.pages.node.kinds import KINDS, Log, paged
+from hyphae.view.pages.node.columns import COLUMNS
+from hyphae.view.pages.node.kinds import EXPANDED, KINDS, Log, paged
 from hyphae.view.pages.node.knobs import Knobs, pager, preset_choices
 from hyphae.view.pages.node.levels import Levels
-from hyphae.view.pages.node.models import NodePage
+from hyphae.view.pages.node.markup.nav_tree import NavTreeRow
+from hyphae.view.pages.node.models import Expansion, NodePage
 from hyphae.view.store import Page, bound, open_store, page_rows
 
 
@@ -179,3 +182,120 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
         # What every href on the page carries, so a click serves the URL it displays.
         suffix=knobs.suffix,
     )
+
+
+def opened(db: Path, session_id: str, at: Ref, log: int) -> Expansion:
+    """One node's body alone, the way an expansion in someone else's log mounts it.
+
+    The same header queries the pane reads through, so the two cannot drift apart. What it
+    does not open is another level: a count and a link stand in for one, except where the
+    level below opens nothing further (`docs/viewer.md`).
+    """
+    spec = KINDS[at.kind]
+    # A kind no children log lists has no expansion — nothing offers one, and there is no row
+    # of anybody's table for it to stand in (`nodes.Node.expansion`). It is the same four kinds
+    # a header names, which is what lets this read `titled` without a second answer for None.
+    if spec.listed_as is None or spec.titled is None:
+        raise Missing("No expansion is served for that kind of node.")
+    source = str(at.source)
+    keyed: dict[str, ParamValue] = {"session_id": session_id, "source": source}
+    with open_store(db) as connection:
+        # An expansion prices nothing and lists no runs: every node it builds carries the empty
+        # ledger, and what it wants of a corpus is the session it is in and the words a pass
+        # wrote. Read for the thread in the URL — which for a run is the run's own id, the
+        # source its rows carry — so the title is the one the log row that opened this had.
+        corpus = nav_tree.Corpus(
+            session_id=session_id,
+            held=nodes.NO_LEDGER,
+            runs=[],
+            described=(
+                described(connection, session_id, source)
+                if spec.describe is not None
+                else Descriptions()
+            ),
+            source=source,
+        )
+        found = spec.header(connection, corpus, at, EXPANDED)
+        if found is None:
+            raise Missing(spec.missing)
+        # The level the expansion lists, where its kind lists one: the first page of it, at the
+        # size the reader is reading logs under. Which page is not a question an expansion
+        # asks — the way past the first is the link to the node's own page.
+        under = (
+            spec.log(connection, corpus, at, 1, log)
+            if spec.opens and spec.log is not None
+            else Log([], 0, [])
+        )
+    ran: Ran = [*found.ran, *under.ran]
+    if corpus.described.queried:
+        ran.append((Page.ENRICHMENT, keyed))
+    node = spec.titled(corpus, at, found.row)
+    return Expansion(
+        node=node,
+        facts=reads.node_facts(node, found.row),
+        shape=spec.under,
+        # What the full view would have listed, counted: the column beside the row, where
+        # the kind has one to count.
+        children=found.row[spec.counts] if spec.counts else None,
+        rows=under.rows,
+        citations={named.value: cited(named, binding) for named, binding in ran},
+        # An expansion arrives as a row of the log it opened under, spanning every column
+        # that log fills. A kind lists in one shape of log wherever it lists at all, which
+        # is what makes the width answerable from the child alone.
+        span=len(COLUMNS[spec.listed_as]),
+    )
+
+
+def spilled(
+    db: Path, session_id: str, at: Ref, thread: str, depth: int, held: str, knobs: Knobs
+) -> list[NavTreeRow]:
+    """The children one level's window left out: the rows a `+N more` row stands in for.
+
+    The NavTree draws a window on a level and a tail row saying how many it left out; this
+    reads the rest of that level, at the depth the NavTree had reached, so a click can stand
+    them where the tail row stood. `held` is the key of the child the open path descends
+    through, which the window keeps wherever in the level it sits — the page sent it so
+    that the two halves of one split agree, and this is the half that must not repeat it.
+
+    `thread` is the reader's, not the level's: the enrichment is keyed by thread, so a page
+    draws a turn of any other thread by its prompt, and a row read here has to come back
+    the way the page beside it would have drawn it.
+
+    Unbounded on purpose: what comes back is a level less a window, so a node with ten
+    thousand children answers with ten thousand rows.
+    """
+    keyed: dict[str, ParamValue] = {"session_id": session_id}
+    with open_store(db) as connection:
+        head = page_rows(
+            connection,
+            Page.SESSION_HEADER,
+            **bound(Page.SESSION_HEADER, bounds.HEADER_WIDTHS, session_id=session_id),
+        )
+        if not head:
+            raise Missing("No session with that id is in this store.")
+        # The NavTree's width, where the page read above takes the same query at the log's: what
+        # comes back here is drawn as rows and listed in no children log, so the wider read
+        # would fetch three times the string for a surface printing a third of it. Nothing
+        # rendered says which was chosen — the row cuts to its own width whatever arrives —
+        # so `tests/view/test_bounds__widths.py` is what holds it.
+        runs = page_rows(connection, Page.RUNS, **bound(Page.RUNS, bounds.NAV_TREE_WIDTHS, **keyed))
+        corpus = nav_tree.Corpus(
+            session_id=session_id,
+            held=nodes.ledger(session_id, head[0]["cost_usd"] or 0, runs),
+            runs=runs,
+            described=described(connection, session_id, thread),
+            source=thread,
+        )
+        level = nav_tree.children(connection, corpus, at, knobs.nav, held or None)
+    # Each row shut, and under it whatever a shut row stands: the runs it hides come back
+    # with it, the way the page's own rows carry them. None of them is a step of the open
+    # path — the cap keeps the child the path descends through inside the window, and this
+    # read is what it left out.
+    return [
+        row
+        for node in nav_tree.windowed(level.nodes, knobs.kin, [held]).cut
+        for row in [
+            NavTreeRow(node, depth, selected=False, ancestor=False),
+            *nav_tree.spread(corpus, node, depth + 1),
+        ]
+    ]

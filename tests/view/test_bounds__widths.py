@@ -70,7 +70,7 @@ def test_every_surface_declares_the_widths_it_prints_at() -> None:
 # rows and nothing else, so it reads at a row's width.
 RUNS_READS = [
     ("pages/node/browser.py", "LOG_WIDTHS"),
-    ("pages/node/routes/expansions.py", "NAV_TREE_WIDTHS"),
+    ("pages/node/browser.py", "NAV_TREE_WIDTHS"),
 ]
 
 

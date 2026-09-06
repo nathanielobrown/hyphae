@@ -129,3 +129,22 @@ class NodePage(NamedTuple):
     children: Children
     citations: Mapping[str, Cited]
     suffix: str
+
+
+class Expansion(NamedTuple):
+    """One child opened in place: its body, and the first page of whatever it holds.
+
+    The same title, facts and details the pane draws, read from the same header queries, minus
+    everything about where the node sits — an expansion arrives inside somebody else's log and
+    stands as a row of it, which is what `span` is for.
+    """
+
+    node: Node
+    facts: Facts
+    shape: Shape
+    # What the full view would have listed, counted, where the kind has a column to count it.
+    children: int | None
+    rows: Sequence[Logged]
+    citations: Mapping[str, Cited]
+    # How many columns of the log it opened under the expansion spans.
+    span: int
