@@ -336,12 +336,38 @@ def test_the_record_fragment_cites_the_query_that_fetched_it(client: TestClient)
 
 
 def test_a_fragment_naming_nothing_is_a_404(client: TestClient) -> None:
-    """A per-value fragment for an id the store lacks is a 404, not an empty box."""
+    """A per-value fragment for an id the store lacks is a 404, not an empty box.
+
+    The sentence is pinned because it is all a reader gets: a fetch that answered an empty box
+    and a fetch that answered this look the same in a pane until the words are read.
+    """
     response = client.get(
         f"/fragment/result/session/{FORK_ORIGIN}/thread/{FORK_ORIGIN_RUN}/tool/{MISSING}"
     )
     assert response.status_code == 404
+    assert fields(response.text, "id", "error")["message"] == (
+        "Nothing in this store is stored under that id."
+    )
     assert MISSING not in response.text
+
+
+def test_an_enrichment_line_is_refused_by_a_store_no_pass_has_written_to(
+    client: TestClient,
+) -> None:
+    """The six enrichment fetches say the pass is missing, not the row.
+
+    A pass creates the enrichment tables rather than the exporter, so this store holds no such
+    table at all (`view/enrichment.py`). The gate is asked per request and ahead of the read,
+    which is what makes the answer this sentence rather than the DuckDB error a query against a
+    table that is not there raises. The same URL over `enriched_client` is a 200, and the
+    scenario sweeps prove that; what is pinned here is the other store.
+    """
+    url = SCENARIOS["/fragment/description/session/{session_id}"].url
+    refused = client.get(url)
+    assert refused.status_code == 404
+    assert fields(refused.text, "id", "error")["message"] == (
+        "No enrichment pass has written to this store."
+    )
 
 
 @pytest.mark.parametrize("path", sorted(scenario.url for scenario in SCENARIOS.values()))
