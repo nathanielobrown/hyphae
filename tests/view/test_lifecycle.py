@@ -2,7 +2,8 @@
 
 The store is a file another process writes. An extract can take its lock while a page is
 open, and can replace its schema between two page loads, so both are checked per request
-rather than once at startup — and both answer with a page that says what to do.
+rather than once at startup — and both answer with a page that says what to do. How long one
+request holds that lock is here too: the window is a lifecycle fact and no page shows it.
 
 The third is the viewer's own: a component that raises halfway down a page. It is why
 `Viewer.html` renders whole before the response exists rather than streaming.
@@ -20,12 +21,14 @@ from fastapi.testclient import TestClient
 
 from hyphae.export.duckdb import StoreLocked
 from hyphae.export.schema import MIGRATE_REMEDY, SCHEMA_MISMATCH_REMEDY, SCHEMA_VERSION
+from hyphae.view import store as view_store
 from hyphae.view.app import CSP, build_app, serve
 from hyphae.view.components import parts
 from hyphae.view.nodes import NUMBERS_URL
 from hyphae.view.store import SchemaMoved
 from tests.conftest import SPINE, locked
 from tests.view.conftest import fields
+from tests.view.scenarios import SCENARIOS, Group
 
 # Markup a half-rendered page would carry, distinctive enough to find anywhere in a response.
 HALF = "<!--rendered-before-the-component-exploded-->"
@@ -36,6 +39,16 @@ HALF = "<!--rendered-before-the-component-exploded-->"
 # runs at all and the exception is raised inside FastAPI's dependency resolution rather than in
 # the route body.
 REACHES = {"page": "/", "fragment": f"{NUMBERS_URL}/session/{SPINE}"}
+
+# Every full document the viewer serves, and how many times serving it may open the store. One
+# each: a document's read gathers what the whole page needs and closes before it renders. The
+# query page is the zero, and shows the count discriminates — it prints the SQL behind another
+# page's citation, which it reads from the library on disk rather than from the store.
+DOCUMENTS = {
+    route: 0 if scenario.group is Group.QUERY else 1
+    for route, scenario in SCENARIOS.items()
+    if scenario.group in {Group.PAGES, Group.NODES, Group.QUERY}
+}
 
 # How long the writer below holds the store before letting go on its own — well inside the
 # second a page will wait (`export/duckdb.PAGE_WAIT`), and what the test costs the suite.
@@ -114,6 +127,31 @@ def test_a_store_replaced_under_the_viewer_is_caught_per_request(
     message = fields(response.text, "id", "error")["message"]
     assert str(SCHEMA_VERSION) in message and str(held) in message
     assert remedy in message
+
+
+@pytest.mark.parametrize("route", sorted(DOCUMENTS))
+def test_a_full_document_opens_the_store_once_and_the_query_page_not_at_all(
+    route: str, enriched_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One document, one open: its read takes everything the page needs and lets go.
+
+    The window rule from the other side. `test_a_page_waits_out_a_short_writer` shows a page
+    has let go by the time it renders; nothing a response carries can say how many times it
+    took the lock to get there, because a page built from one open and a page built from four
+    are byte for byte the same. Counted at `open_trace_store`, the one door `open_store` goes
+    through, so the count holds however a page imported the opener.
+    """
+    opens = 0
+    opener = view_store.open_trace_store
+
+    def counted(*args: object, **kwargs: object) -> object:
+        nonlocal opens
+        opens += 1
+        return opener(*args, **kwargs)  # pyrefly: ignore
+
+    monkeypatch.setattr(view_store, "open_trace_store", counted)
+    assert enriched_client.get(SCENARIOS[route].url).status_code == 200
+    assert opens == DOCUMENTS[route]
 
 
 def test_a_store_this_build_cannot_read_is_refused_at_launch(copy: Path) -> None:

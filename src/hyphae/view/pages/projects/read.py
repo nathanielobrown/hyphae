@@ -1,0 +1,60 @@
+"""Reading the landing page out of the store: one rollup query, and what it cited.
+
+The whole document from one open of the store, closed before anything renders
+(`view/deps.py`, the window trade-off). Nothing above this module names a query, a binding,
+or a store column.
+"""
+
+from pathlib import Path
+
+from hyphae.view import bounds
+from hyphae.view.citation import cited
+from hyphae.view.links import project_link
+from hyphae.view.pages.projects.models import ProjectRow, ProjectsPage
+from hyphae.view.store import Page, Row, bound, dropped, open_store, page_rows
+from hyphae.view.text import format as fmt
+
+
+def projects(db: Path) -> ProjectsPage:
+    """Every project the store holds sessions for, most recently active first."""
+    # The clock both trailing windows are measured back from, read here and bound like
+    # any other parameter. The query reads no clock of its own: a page counting "the last
+    # 7 days" from SQL's `now()` would cite a line that answers something else tomorrow,
+    # and the footer's whole promise is that a reader can re-run what the page ran.
+    binds = bound(Page.PROJECT_ROLLUPS, bounds.PROJECTS_WIDTHS, as_of=fmt.utcnow().date())
+    with open_store(db) as connection:
+        rows = page_rows(connection, Page.PROJECT_ROLLUPS, **binds)
+    return ProjectsPage(
+        rows=[_project_row(row) for row in rows],
+        # The bindings the two window headings print, so a heading and its column read the
+        # same numbers — the citation below carries them too.
+        recent_days=bounds.PROJECTS_WIDTHS.recent_days,
+        window_days=bounds.PROJECTS_WIDTHS.window_days,
+        # What the page cut, which the query counted before its LIMIT: a landing page that
+        # silently dropped projects would be a corpus a reader cannot see.
+        cut=dropped(rows),
+        citations={Page.PROJECT_ROLLUPS.value: cited(Page.PROJECT_ROLLUPS, binds)},
+    )
+
+
+def _project_row(row: Row) -> ProjectRow:
+    """One store row as the row the landing page prints.
+
+    The link is minted through the list's own builder, so a project opens the list the way the
+    list links to itself, and off `project_filter` rather than the path the row shows: the
+    filter matches a whole path, and a cut one matches nothing.
+    """
+    return ProjectRow(
+        project_dir=row["project_dir"],
+        link=project_link(row["project_filter"]),
+        recent_sessions=row["recent_sessions"],
+        recent_cost=row["recent_cost"],
+        recent_unpriced=row["recent_unpriced"],
+        window_sessions=row["window_sessions"],
+        window_cost=row["window_cost"],
+        window_unpriced=row["window_unpriced"],
+        sessions=row["sessions"],
+        cost_usd=row["cost_usd"],
+        unpriced_api_calls=row["unpriced_api_calls"],
+        last_active=row["last_active"],
+    )

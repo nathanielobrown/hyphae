@@ -1,67 +1,42 @@
 """The projects landing at `/`: every project the store holds sessions for.
 
-The page reads one rollup query and prints a row per project. What it cuts, it says: the
-count the query took before its LIMIT rides in the footer beside the citation.
+Three dependencies and an adapter, which is the shape a full document takes
+(`plans/deepen-viewer-reads/design.md`): the read opens the store and closes it, the markup
+turns what it found into elements with nothing open, and the endpoint knows only the viewer
+and the finished page. FastAPI resolves each once per request, so a route that wanted the
+model as well as the markup would pay for no second read.
 """
 
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
-from hyphae.view import bounds
-from hyphae.view.citation import cited
+from hyphae.view.components import Html
 from hyphae.view.deps import ViewerDep
-from hyphae.view.links import project_link
-from hyphae.view.pages.projects import markup
-from hyphae.view.store import Page, Row, bound, dropped, open_store, page_rows
-from hyphae.view.text import format as fmt
+from hyphae.view.pages.projects import markup, read
+from hyphae.view.pages.projects.models import ProjectsPage
 
 router = APIRouter()
 
 
-def _project_row(row: Row) -> markup.ProjectRow:
-    """One store row as the row the landing page prints.
+def projects_read(viewer: ViewerDep) -> ProjectsPage:
+    """The landing page read whole, and the store closed behind it."""
+    return read.projects(viewer.db)
 
-    The link is minted through the list's own builder, so a project opens the list the way the
-    list links to itself, and off `project_filter` rather than the path the row shows: the
-    filter matches a whole path, and a cut one matches nothing.
-    """
-    return markup.ProjectRow(
-        project_dir=row["project_dir"],
-        link=project_link(row["project_filter"]),
-        recent_sessions=row["recent_sessions"],
-        recent_cost=row["recent_cost"],
-        recent_unpriced=row["recent_unpriced"],
-        window_sessions=row["window_sessions"],
-        window_cost=row["window_cost"],
-        window_unpriced=row["window_unpriced"],
-        sessions=row["sessions"],
-        cost_usd=row["cost_usd"],
-        unpriced_api_calls=row["unpriced_api_calls"],
-        last_active=row["last_active"],
-    )
+
+ProjectsRead = Annotated[ProjectsPage, Depends(projects_read)]
+
+
+def projects_markup(page: ProjectsRead, viewer: ViewerDep) -> Html:
+    """That read, rendered."""
+    return markup.projects_page(page=page, dev=viewer.dev)
+
+
+ProjectsMarkup = Annotated[Html, Depends(projects_markup)]
 
 
 @router.get("/")
-def projects_page(viewer: ViewerDep) -> Response:
+def projects_page(page: ProjectsMarkup, viewer: ViewerDep) -> Response:
     """Every project the store holds sessions for, most recently active first."""
-    # The clock both trailing windows are measured back from, read here and bound like
-    # any other parameter. The query reads no clock of its own: a page counting "the last
-    # 7 days" from SQL's `now()` would cite a line that answers something else tomorrow,
-    # and the footer's whole promise is that a reader can re-run what the page ran.
-    binds = bound(Page.PROJECT_ROLLUPS, bounds.PROJECTS_WIDTHS, as_of=fmt.utcnow().date())
-    with open_store(viewer.db) as connection:
-        rows = page_rows(connection, Page.PROJECT_ROLLUPS, **binds)
-    return viewer.html(
-        markup.projects_page(
-            rows=[_project_row(row) for row in rows],
-            # The bindings the two window headings print, so a heading and its column read
-            # the same numbers — the citation below carries them too.
-            recent_days=bounds.PROJECTS_WIDTHS.recent_days,
-            window_days=bounds.PROJECTS_WIDTHS.window_days,
-            # What the page cut, which the query counted before its LIMIT: a landing page
-            # that silently dropped projects would be a corpus a reader cannot see.
-            cut=dropped(rows),
-            citations={Page.PROJECT_ROLLUPS.value: cited(Page.PROJECT_ROLLUPS, binds)},
-            dev=viewer.dev,
-        )
-    )
+    return viewer.html(page)
