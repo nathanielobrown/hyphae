@@ -61,10 +61,11 @@ The design's own proof: nothing rendered changes. This is a working-tree check b
 at each slice, not a committed leaf; sections 3–8 are what hold the same bytes in `check`.
 
 - **Every page and fragment the viewer exposes serves the same bytes before and after each
-  slice.** *Evidence:* a capture over `tests/view/scenarios.py:SCENARIOS` — 40 URLs, one per
+  slice.** *Evidence:* a capture over `tests/view/scenarios.py:SCENARIOS` — 39 URLs, one per
   route, held equal to the app's declared route set by `tests/view/test_bounds.py:540` and
-  `tests/view/test_dev.py:215` — plus `render_pages(corpus_db)` for the node sweep; both to
-  scratch under the OS temp directory, diffed to empty after slices 1–5
+  `tests/view/test_dev.py:215` — plus `render_pages(corpus_db)` for the node sweep, 175 more;
+  both to scratch under the OS temp directory, diffed to empty after slices 1–5. *Amended at
+  implementation:* the count is `len(SCENARIOS)`, which is 39, and the capture ran to 214 pages
 - **`render_pages` alone cannot prove slices 2, 3 and 5.** `conftest.pages` emits `/` and node
   pages only — no `/sessions`, no errors, records, offload or query page, no fragment. See
   *Unreachable* below; `SCENARIOS` is the capture basis that reaches them
@@ -178,9 +179,8 @@ the query bound. This is where a refactor of the read most easily lies.
   with no enrichment tables, which is what makes the absence bounded
 - **The errors page cites the failures query and never the session-header probe it did not run.**
   The other named conditional case: the header is read only when there is a 404 to word.
-  *Evidence:* `tests/view/pages/errors/test_errors.py:170`, **extended** to assert that a session
-  *with* failures cites the failures query alone — the current leaf checks the queries behind the
-  page and the stepper, not the absence of the probe
+  *Evidence:* `tests/view/pages/errors/test_errors.py:170`. *Amended at implementation:* the leaf
+  needs no extension — it asserts dict equality, so a page citing the probe reds already
 - **The projects page cites its query and the window it ran.** *Evidence:*
   `tests/view/pages/projects/test_projects.py:284`
 - **The records and offload pages cite the cursor and offset they served at.** *Evidence:*
@@ -282,9 +282,9 @@ less. **Nathaniel's call; the plan assumes the counter.**
 **Finding 1 — the byte-capture basis named in the design under-covers the change.**
 `tests/view/conftest.py:render_pages` builds its URLs from `conftest.pages`, which emits `/` and
 node pages only. Slices 2, 3 and 5 rewrite the session list, the errors, records, offload and query
-pages and every fragment — none of which the sweep renders. Capture over `SCENARIOS` instead: 40
+pages and every fragment — none of which the sweep renders. Capture over `SCENARIOS` instead: 39
 URLs, one per route, already held equal to the app's route set by two leaves, and already the
-gallery's list. Fragments included.
+gallery's list. Fragments included. *Amended at implementation:* 39, not 40.
 
 **Finding 2 — the two "positive page" checks are not one check.** `browse.py:135` and
 `sessions/routes.py:139` refuse different numbers with different words, and the list's check is
@@ -299,13 +299,12 @@ closure over `DETAILS`; after width-profiles, the popover's read is typed throug
 `routes/details.py:fetched` and the popovers' `page_rows` call into a read module — or an
 exception list. The design should say which before slice 5.
 
-**Finding 4 — the errors page's conditional citation has no leaf today.** `test_errors.py:170`
-asserts the queries behind the page and the stepper; nothing asserts that a page whose session
-*has* failures does not cite the header probe. That is the design's own named example of evidence
-that must survive the move, so it is pinned before it moves, not after.
+**Finding 4 — withdrawn at implementation.** It read `test_errors.py:170` as asserting only that
+the citations are there. The leaf asserts dict equality, so a page citing a query it did not run
+already reds — there was nothing to pin.
 
-**Forty-eight obligations.** Eight need test code: one rewritten rule (§2's model contract), four
-new leaves (§2's three source scans, §4's offload offset), two extensions (§4's refusal messages,
-§5's errors citation), and the contested open-count probe in §3. Three are working-tree checks —
-the byte capture, the `HYPHAE_PIN_EXACT=1` run, the mutation pass. The other forty ride existing
-leaves unchanged.
+**Forty-eight obligations.** Seven need test code: one rewritten rule (§2's model contract), four
+new leaves (§2's three source scans, §4's offload offset), one extension (§4's refusal messages),
+and the contested open-count probe in §3. Three are working-tree checks — the byte capture, the
+`HYPHAE_PIN_EXACT=1` run, the mutation pass. The other thirty-eight ride existing leaves unchanged.
+*Amended at implementation:* the eighth was §5's errors citation, withdrawn with Finding 4.
