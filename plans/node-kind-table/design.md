@@ -1,6 +1,6 @@
 # Design: one row per node kind
 
-Put what varies by node kind on the node page into one table, `KINDS`, and make the NavTree's level table total by type. Eight route closures, two expansion routes, four partial registries and seven adapters become two tables and a handful of URL adapters. No URL, query or rendered byte changes. Every path and line here was read on 2026-09-03; check each at the file before acting on it.
+Put what varies by node kind on the node page into one table, `KINDS`, and make the NavTree's level table total by type. Eight route closures, two expansion routes, four partial registries and seven adapters become two tables and a handful of URL adapters. No URL or query changes, and every 200 response is byte-identical; the 404 texts are now per kind (amended at implementation: `KindSpec.missing` changed 17 of the 84 refusal sentences). Every path and line here was read on 2026-09-03; check each at the file before acting on it.
 
 Audit items: `plans/refactor-audit-2026-08-30/findings.md` C3 (routes hand-assemble binding dicts) and C6 (seven one-line NavTree adapters, two builders taking an unused `connection`).
 
@@ -78,7 +78,7 @@ Deletion test: `_session_level`, `_run_level`, `_turn_calls`, `_bucket_calls`, `
 
 ## Chosen test seam
 
-The URL, as the suite already drives it: every node kind has a page scenario and the four listed kinds have a body scenario in `tests/view/scenarios.py`, and the leaves under `tests/view/pages/node/` and `tests/view/test_bounds__node.py` read the bytes. Before slice 1, capture every fixture page's bytes with `tests/view/conftest.py:render_pages` to scratch under the OS temp directory; re-run after each slice and require an empty diff. Nothing rendered changes, so the diff is the proof.
+The URL, as the suite already drives it: every node kind has a page scenario and the four listed kinds have a body scenario in `tests/view/scenarios.py`, and the leaves under `tests/view/pages/node/` and `tests/view/test_bounds__node.py` read the bytes. Before slice 1, capture every fixture page's bytes with `tests/view/conftest.py:render_pages` to scratch under the OS temp directory; re-run after each slice and require an empty diff. Every 200 response is byte-identical, so the diff is the proof — and it is the whole of the proof (amended at implementation): the capture sweeps scenario pages, which all answer 200, so it never sees the 404 texts `missing` now spells per kind.
 
 No test imports the registries this design deletes (`rg -n 'CHILDREN|BODIES|TITLED|LISTED|Seen|Reader' tests/view` finds a test-local `CHILDREN` dict in `test_node.py:228` and comments naming `columns.LISTED`; update the comments). The only new test is the invariant leaf above, which is the table's own contract and not a test of a module behind it.
 
