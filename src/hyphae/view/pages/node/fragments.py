@@ -6,7 +6,9 @@ lock it gives back (`view/deps.py`). What it does not leave to the route is the 
 the values it bound, or the row that came back: those stop here, and what crosses is typed.
 
 The three ways a fragment is nothing are the browser's one `Missing`, which the route above
-turns into the 404 it has always been.
+turns into the 404 it has always been. What a missing node says is the kind table's own
+sentence, so a popover and the page for the same node refuse in the same words
+(`pages/node/kinds.py`).
 """
 
 from collections.abc import Mapping
@@ -21,6 +23,7 @@ from hyphae.view.enrichment import enriched
 from hyphae.view.nodes import Kind, Ref
 from hyphae.view.pages.node import reads
 from hyphae.view.pages.node.browser import Missing
+from hyphae.view.pages.node.kinds import KINDS
 from hyphae.view.pages.node.markup import values
 from hyphae.view.pages.node.models import Detailed, Measured, Popover
 from hyphae.view.pages.node.numbers import breakout, charges, spend, wash
@@ -47,7 +50,7 @@ def counted(
         )
         rows = page_rows(connection, Fragment.TOOL_NUMBERS, **keyed)
         if not rows:
-            raise Missing("No tool call with that id is in this thread.")
+            raise Missing(KINDS[kind].missing)
         return Measured(
             key=Ref(kind, source, node_id).key,
             citation=queries.citation(Fragment.TOOL_NUMBERS, keyed),
@@ -99,7 +102,7 @@ def compacted(
     )
     rows = page_rows(connection, Fragment.COMPACTION_NUMBERS, **keyed)
     if not rows:
-        raise Missing("No compaction with that id is on this thread.")
+        raise Missing(KINDS[Kind.COMPACTION].missing)
     return Measured(
         key=Ref(Kind.COMPACTION, source, compaction_id).key,
         citation=queries.citation(Fragment.COMPACTION_NUMBERS, keyed),
