@@ -26,8 +26,7 @@ from hyphae.view.pages.node.columns import COLUMNS
 from hyphae.view.pages.node.kinds import EXPANDED, KINDS, Log, paged
 from hyphae.view.pages.node.knobs import Knobs, pager, preset_choices
 from hyphae.view.pages.node.levels import Levels
-from hyphae.view.pages.node.markup.nav_tree import NavTreeRow
-from hyphae.view.pages.node.models import Expansion, NodePage
+from hyphae.view.pages.node.models import Expansion, NavTreeRow, NodePage
 from hyphae.view.store import Page, bound, open_store, page_rows
 
 

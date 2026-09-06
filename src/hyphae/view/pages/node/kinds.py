@@ -27,7 +27,7 @@ from hyphae.view.nodes import Kind, Node, Ref
 from hyphae.view.pages.node import nav_tree, reads
 from hyphae.view.pages.node.columns import Shape
 from hyphae.view.pages.node.knobs import skipped, sliced
-from hyphae.view.pages.node.markup.logs import Logged
+from hyphae.view.pages.node.models import Logged
 from hyphae.view.store import (
     NO_SIZES,
     TURN_CURSOR,

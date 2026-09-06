@@ -395,24 +395,30 @@ def test_a_page_model_is_made_of_nothing_either_side_of_the_seam_owns() -> None:
     assert all("htpy" in named(path) for path in markup_modules())
 
 
-def test_a_pages_markup_never_reads_back_across_the_seam() -> None:
-    """Markup takes the model it is given; it does not reach into the read for a second row.
+def test_neither_side_of_a_pages_seam_imports_the_other() -> None:
+    """A read and its markup meet at the model and nowhere else, in both directions.
 
-    The direction is the whole point of the split: a markup module that imported its page's
-    read could open the store while a page renders, which is the window `deps.py` closes.
+    The split is only real while it is a wall rather than a one-way street. Markup that
+    imported its page's read could open the store while a page renders, which is the window
+    `deps.py` closes. A read that imported its page's markup would name an element's own type
+    on the store's side of the seam, which is what `models.py` is there to stop — so a shape
+    both halves need moves into the model between them rather than being reached for.
     """
-    found = read_modules()
-    # There are read modules to reach back into...
-    assert found, "no page declares a read module"
-    for path in found:
+    reads, markups = read_modules(), markup_modules()
+    # There are modules on both sides of the seam to reach across it...
+    assert reads, "no page declares a read module"
+    assert markups, "no page holds a markup module"
+    for path in reads:
         page = path.parent
         here = dotted(path)
-        # ...and no markup of their own pages does.
-        assert [
-            module
-            for module in markup_modules()
-            if module.is_relative_to(page) and here in imports(module)
-        ] == [], f"markup of {page.name} imports {here}"
+        mine = [module for module in markups if module.is_relative_to(page)]
+        # ...no markup of a read's own page reads back into it...
+        assert [module for module in mine if here in imports(module)] == [], (
+            f"markup of {page.name} imports {here}"
+        )
+        # ...and the read reaches for none of that markup either.
+        reached = sorted(imports(path) & {dotted(module) for module in mine})
+        assert reached == [], f"{here} imports its page's markup: {reached}"
 
 
 def test_no_routes_module_of_a_page_names_the_stores_vocabulary() -> None:

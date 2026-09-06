@@ -43,7 +43,7 @@ from hyphae.view.nodes import (
     Ref,
 )
 from hyphae.view.pages.node.levels import Levels
-from hyphae.view.pages.node.markup.nav_tree import NavTreeRow
+from hyphae.view.pages.node.models import NavTreeRow
 from hyphae.view.store import TURN_CURSOR, Library, Page, Row, bound
 
 

@@ -26,8 +26,7 @@ from hyphae.view.pages.node.browser import Missing, opened, spilled
 from hyphae.view.pages.node.kinds import KINDS
 from hyphae.view.pages.node.markup import body as node_body
 from hyphae.view.pages.node.markup import nav_tree
-from hyphae.view.pages.node.markup.nav_tree import NavTreeRow
-from hyphae.view.pages.node.models import Expansion
+from hyphae.view.pages.node.models import Expansion, NavTreeRow
 from hyphae.view.pages.node.routes.knobs import KnobsDep
 
 router = APIRouter()

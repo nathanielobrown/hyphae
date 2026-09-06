@@ -24,8 +24,7 @@ from hyphae.view.nodes import Kind, Ref
 from hyphae.view.pages.node import reads
 from hyphae.view.pages.node.browser import Missing
 from hyphae.view.pages.node.kinds import KINDS
-from hyphae.view.pages.node.markup import values
-from hyphae.view.pages.node.models import Detailed, Measured, Popover
+from hyphae.view.pages.node.models import Detailed, Measured, Popover, Record, Whole
 from hyphae.view.pages.node.numbers import breakout, charges, spend, wash
 from hyphae.view.store import Fragment, Row, Value, bound, page_rows
 
@@ -136,14 +135,14 @@ def detailed(
     keyed = bound(spec.whole, bounds.HEADER_WIDTHS, **keys)
     row = _one(connection, spec.whole, keyed, "value")
     return Detailed(
-        whole=values.Whole(row["value"], spec.name, queries.citation(spec.whole, keyed)),
+        whole=Whole(row["value"], spec.name, queries.citation(spec.whole, keyed)),
         syntax=syntax_of(spec.written, row),
     )
 
 
 def recorded(
     connection: duckdb.DuckDBPyConnection, session_id: str, source: str, line_no: int
-) -> values.Record:
+) -> Record:
     """One archived record whole, as the browser's preview was cut from."""
     keyed = {"session_id": session_id, "source": source, "line_no": line_no}
     # The record itself, which the store holds NOT NULL.

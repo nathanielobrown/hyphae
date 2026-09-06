@@ -16,8 +16,7 @@ from hyphae.view.nodes import Node
 from hyphae.view.pages.node.markup import body as node_body
 from hyphae.view.pages.node.markup import logs, nav_tree
 from hyphae.view.pages.node.markup.nav_tree import PANE_SWAP
-from hyphae.view.pages.node.models import Archived, NodePage, Trail
-from hyphae.view.pages.node.walk import Step as Walked
+from hyphae.view.pages.node.models import Archived, NodePage, Trail, Walked
 from hyphae.view.text import cuts
 from hyphae.view.text import format as fmt
 

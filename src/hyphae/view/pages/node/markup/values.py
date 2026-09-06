@@ -6,39 +6,12 @@ class and key — and carries its own citation, because a fragment is a page's a
 (`docs/viewer.md`).
 """
 
-from datetime import datetime
-from typing import NamedTuple
-
 import htpy
 
 from hyphae.view.components import Html, parts
+from hyphae.view.pages.node.models import Record, Whole
 from hyphae.view.text import format as fmt
 from hyphae.view.text import highlight
-
-
-class Whole(NamedTuple):
-    """One fat value fetched on its own: what it says, what it is filed under, and its query.
-
-    `detail` is the name the pane filed the value under, and nothing for a value that is
-    nobody's detail — the archived record. The styling that tells an ask from an answer reads
-    it, which is why the fragment carries it back out.
-    """
-
-    value: str | None
-    detail: str | None
-    citation: str
-
-
-class Record(NamedTuple):
-    """One raw transcript record, whole: its own header line, and the JSON under it."""
-
-    line_no: int
-    type: str
-    uuid: str | None
-    timestamp: datetime | None
-    raw_chars: int | None
-    raw: str
-    citation: str
 
 
 def enrichment_line(*, node: Whole) -> Html:

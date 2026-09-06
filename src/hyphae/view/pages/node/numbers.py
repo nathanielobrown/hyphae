@@ -19,7 +19,7 @@ from typing import NamedTuple
 
 from hyphae.extract.pricing import CostSplit, TokenUsage, split_cost
 from hyphae.view.nodes import COST_PLACES, meter
-from hyphae.view.pages.node.markup import numbers as markup
+from hyphae.view.pages.node import models
 from hyphae.view.text.labels import label
 
 
@@ -32,7 +32,7 @@ class Numbers(NamedTuple):
     """
 
     # What the popover prints of the window, which the component takes whole.
-    window: markup.Window
+    window: models.Window
     # The three counts the charge lines stand on, named for the store columns they sum.
     cache_read_tokens: int | None
     new_input_tokens: int | None
@@ -46,7 +46,7 @@ class Numbers(NamedTuple):
     spent: tuple[tuple[str, TokenUsage], ...]
 
 
-def breakout(own: float | None, under: float | None, whole: float | None) -> markup.Breakout | None:
+def breakout(own: float | None, under: float | None, whole: float | None) -> models.Breakout | None:
     """The subagent and total lines, or None where nothing hangs under the node.
 
     None rather than a pair of zeroes: a subagent charge of nothing and a total repeating the
@@ -57,10 +57,10 @@ def breakout(own: float | None, under: float | None, whole: float | None) -> mar
     if not under:
         return None
     total = round((own or 0) + under, COST_PLACES)
-    return markup.Breakout(under, total, wash(under, whole), wash(total, whole))
+    return models.Breakout(under, total, wash(under, whole), wash(total, whole))
 
 
-def charges(read: Numbers, split: CostSplit | None, whole: float | None) -> list[markup.Charge]:
+def charges(read: Numbers, split: CostSplit | None, whole: float | None) -> list[models.Charge]:
     """The three lines the popover prints between the window and the total.
 
     The counts come off the node's last answering call and add up to the window it left; the
@@ -79,7 +79,7 @@ def charges(read: Numbers, split: CostSplit | None, whole: float | None) -> list
         else (None, None, None)
     )
     return [
-        markup.Charge(
+        models.Charge(
             label=label("cache_read_tokens"),
             field="cache_read_tokens",
             cost_field="cache_read_usd",
@@ -87,7 +87,7 @@ def charges(read: Numbers, split: CostSplit | None, whole: float | None) -> list
             cost=cache_read,
             wash=wash(cache_read, whole),
         ),
-        markup.Charge(
+        models.Charge(
             label=label("new_input_tokens"),
             field="new_input_tokens",
             cost_field="new_input_usd",
@@ -95,7 +95,7 @@ def charges(read: Numbers, split: CostSplit | None, whole: float | None) -> list
             cost=new_input,
             wash=wash(new_input, whole),
         ),
-        markup.Charge(
+        models.Charge(
             label=label("output_tokens"),
             field="output_tokens",
             cost_field="output_usd",

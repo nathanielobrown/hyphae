@@ -15,9 +15,8 @@ the columns, and the type of the row decides the cells, so a query that stopped 
 column is a type error rather than a blank cell under a heading.
 """
 
-import datetime as dt
 from collections.abc import Sequence
-from typing import NamedTuple, assert_never
+from typing import assert_never
 
 import htpy
 
@@ -25,67 +24,10 @@ from hyphae.view.components import Html, parts
 from hyphae.view.nodes import Node
 from hyphae.view.pages.node.columns import COLUMNS, Column, Shape, css
 from hyphae.view.pages.node.markup.nav_tree import PANE_SWAP
+from hyphae.view.pages.node.models import Logged, LoggedCall, LoggedRun, LoggedTool, LoggedTurn
 from hyphae.view.text import cuts
 from hyphae.view.text import format as fmt
 from hyphae.view.text.labels import label
-
-
-class LoggedTurn(NamedTuple):
-    """One turn as its parent's log prints it."""
-
-    node: Node
-    turn_index: int
-    api_calls: int
-    tool_calls: int
-    started_at: dt.datetime | None
-
-
-class LoggedCall(NamedTuple):
-    """One api call as its turn's log prints it.
-
-    `called` is the tools it went on to call, named the way their own rows name them: composed
-    at the route from the rows the query shipped, because naming a tool call is Python's
-    (`view/text/tool_names.py`).
-    """
-
-    node: Node
-    call_index: int
-    model: str | None
-    text: str | None
-    tool_calls: int
-    called: str
-    text_chars: int
-    started_at: dt.datetime | None
-
-
-class LoggedTool(NamedTuple):
-    """One tool call as its call's log prints it.
-
-    `about` is what the call was for where its title already says what it did — the second line
-    under the wide column, empty for every tool whose title stands alone.
-    """
-
-    node: Node
-    tool_index: int
-    name: str | None
-    about: str
-    is_error: bool
-    result_chars: int | None
-    started_at: dt.datetime | None
-
-
-class LoggedRun(NamedTuple):
-    """One agent run as its parent's log prints it."""
-
-    node: Node
-    agent_type: str | None
-    tool_errors: int
-    started_at: dt.datetime | None
-
-
-# What a log row may be. The union is total over the four shapes a log has columns for, so the
-# dispatch below has an arm per shape and a fifth kind of row is a type error at the call site.
-type Logged = LoggedTurn | LoggedCall | LoggedTool | LoggedRun
 
 # Spread per row rather than hoisted onto the table, because the button in the last column is an
 # `hx-get` of its own that must not swap the pane: a hoisted attribute would have to be undone on
