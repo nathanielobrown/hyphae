@@ -1,7 +1,6 @@
 """The small pieces a page is built out of, each printed the one way the viewer prints it."""
 
 from collections.abc import Sequence
-from typing import NamedTuple
 
 import htpy
 
@@ -9,6 +8,7 @@ from hyphae.view import bounds
 from hyphae.view.components import Html
 from hyphae.view.detail import Detail, EnrichmentLines
 from hyphae.view.enrichment import GLYPH, GLYPH_CLASS, Enrichment
+from hyphae.view.models import Count, Pager
 from hyphae.view.text import cuts, highlight, render
 from hyphae.view.text import format as fmt
 from hyphae.view.text.labels import label
@@ -41,17 +41,6 @@ def code(*, value: str, syntax: highlight.Syntax, field: str) -> Html:
             ],
         ]
     ]
-
-
-class Count(NamedTuple):
-    """One name a session's row counts, and how often it counted it.
-
-    Built at the route from whichever column the query counted — runs for an agent type, turns
-    for a kind of work — so the component prints a count without knowing what was counted.
-    """
-
-    name: str
-    count: int
 
 
 def stacked(
@@ -102,30 +91,6 @@ def unpriced(*, calls: int | None) -> Html | None:
     if not calls:
         return None
     return htpy.sup(title=f"{fmt.count(calls)} call(s) at a model our price table lacks")["*"]
-
-
-class Step(NamedTuple):
-    """One side of a pager: where the link goes, and what it is called there.
-
-    The words belong to the sequence rather than to the control: a children log steps to the
-    previous page, and the session list — newest first — steps to a newer one.
-    """
-
-    href: str
-    words: str
-
-
-class Pager(NamedTuple):
-    """Where a page sits in a sequence, and the way to either side of it.
-
-    `field` names the words between the links for a reader looking for them: a log's `place`
-    is which page of how many, the list's `range` which sessions of the store.
-    """
-
-    field: str
-    words: str
-    previous: Step | None
-    next: Step | None
 
 
 def pager(*, name: str, pages: Pager) -> Html:

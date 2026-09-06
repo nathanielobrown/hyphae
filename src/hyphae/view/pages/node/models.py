@@ -16,10 +16,10 @@ from dataclasses import dataclass
 from typing import NamedTuple
 
 from hyphae.view.citation import Cited
-from hyphae.view.components.parts import Pager
 from hyphae.view.detail import Detail, EnrichmentLines
 from hyphae.view.enrichment import Enrichment
 from hyphae.view.failures import Step as Failures
+from hyphae.view.models import Pager
 from hyphae.view.nodes import Node, Preset
 from hyphae.view.pages.node.columns import Shape
 from hyphae.view.text import highlight

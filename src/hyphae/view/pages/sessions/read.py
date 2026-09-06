@@ -9,8 +9,8 @@ from pathlib import Path
 
 from hyphae.view import bounds
 from hyphae.view.citation import cited
-from hyphae.view.components.parts import Count
 from hyphae.view.enrichment import enriched
+from hyphae.view.models import Count
 from hyphae.view.pages.sessions.models import Described, ListParams, SessionRow, SessionsPage
 from hyphae.view.store import Page, Row, bound, list_bound, open_store, page_rows, sorted_sessions
 

@@ -53,6 +53,11 @@ READS = frozenset({"read", "browser", "fragments"})
 # arrives as, `view.store.Row` is.
 FRAMEWORKS = frozenset({"fastapi", "starlette", "htpy"})
 
+# And the two of those a routes module is the one place for. Split from the set above because
+# the same probe answers both questions and each wants a different answer: markup holds htpy
+# legally, so a leaf asking what a presenter reached for must not be told about it.
+WEB = frozenset({"fastapi", "starlette"})
+
 # Names that say nothing about what a module builds. A presenter is named for the thing it
 # makes — `nav_tree.py`, `walk.py` — and these are where the unnamed leftovers collect.
 UNNAMED = frozenset({"logic.py", "utils.py", "helpers.py", "common.py", "misc.py"})
@@ -89,6 +94,7 @@ LAYERED = {
     # and `checked`. Shared is also what makes an import of a page from here point up and red.
     "deps": SHARED,
     "nodes": SHARED,
+    "models": SHARED,
     "enrichment": SHARED,
     "citation": SHARED,
     "links": SHARED,
@@ -99,14 +105,15 @@ LAYERED = {
     "bounds": LEAF,
 }
 
-# Import the named modules in a fresh interpreter and report which web frameworks came in with
-# them. A list built from the tree rather than written down, so a presenter that lands next year
-# is covered without anyone remembering this file.
+# Import the named modules in a fresh interpreter and report which of the watched frameworks came
+# in with them. A list built from the tree rather than written down, so a presenter that lands
+# next year is covered without anyone remembering this file. Transitively, which is the point: a
+# module that names none of these itself still holds them if anything it imports does.
 PROBE = """
 import importlib, sys
 for name in {names!r}:
     importlib.import_module(name)
-sys.stdout.write(",".join(sorted({{"fastapi", "starlette"}} & set(sys.modules))))
+sys.stdout.write(",".join(sorted({watch!r} & set(sys.modules))))
 """
 
 
@@ -263,10 +270,14 @@ def model_modules() -> list[Path]:
     return [path for path in sources(PAGES) if path.name == "models.py"]
 
 
-def frameworks(names: Sequence[str]) -> str:
-    """The web frameworks a fresh interpreter importing `names` ended up holding."""
+def frameworks(names: Sequence[str], watch: frozenset[str]) -> str:
+    """Which of `watch` a fresh interpreter importing `names` ended up holding, comma separated.
+
+    No default for `watch`: the two callers ask different questions of the same probe, and the
+    wrong set turns either into a leaf that passes on anything.
+    """
     done = subprocess.run(
-        [sys.executable, "-c", PROBE.format(names=list(names))],
+        [sys.executable, "-c", PROBE.format(names=list(names), watch=set(watch))],
         capture_output=True,
         text=True,
         timeout=120,
@@ -305,9 +316,9 @@ def test_only_a_pages_routes_module_reaches_a_web_framework(page: Path) -> None:
     assert routes, f"{page.name} declares no routes"
     assert rest, f"{page.name} is nothing but routes"
     # ...nothing but the routes reaches a framework...
-    assert frameworks([f"{PACKAGE}.{dotted(path)}" for path in rest]) == ""
+    assert frameworks([f"{PACKAGE}.{dotted(path)}" for path in rest], WEB) == ""
     # ...and the routes do, which is what shows the probe can see a framework at all.
-    assert frameworks([f"{PACKAGE}.{dotted(path)}" for path in routes]) == "fastapi,starlette"
+    assert frameworks([f"{PACKAGE}.{dotted(path)}" for path in routes], WEB) == "fastapi,starlette"
 
 
 @pytest.mark.parametrize("page", page_packages(), ids=lambda page: page.name)
@@ -384,15 +395,24 @@ def test_a_page_model_is_made_of_nothing_either_side_of_the_seam_owns() -> None:
     markup's side of it, and one carrying a `Row` would leave the raw store columns to be
     indexed by whoever prints them. Typed citations are not on this list: evidence is part of
     what the read produced.
+
+    A fresh interpreter for the frameworks, for the reason the routes leaf takes one and one
+    more: an in-process check reads `sys.modules` this tier has already filled, and a source
+    scan sees only what a model names on its own first lines. Neither can see the shape that
+    reaches htpy through the module it was imported from, which is the way this rule breaks —
+    so what is asserted is that importing a model holds none of them, however far away.
     """
     found = model_modules()
     # There are page models to read...
     assert found, "no page declares a `models.py`, so this rule holds nothing"
     for path in found:
-        assert not named(path) & FRAMEWORKS, f"{path.relative_to(VIEW)} names a framework"
+        here = f"{PACKAGE}.{dotted(path)}"
+        assert frameworks([here], FRAMEWORKS) == "", f"{path.relative_to(VIEW)} holds a framework"
         assert "Row" not in taken(path, "store"), f"{path.relative_to(VIEW)} carries a store row"
-    # ...and the scan can see such a name where one is: every page's markup names htpy.
+    # ...and the probe can see one where one is: every page's markup names htpy, and holds it.
     assert all("htpy" in named(path) for path in markup_modules())
+    marked = [f"{PACKAGE}.{dotted(path)}" for path in markup_modules()]
+    assert frameworks(marked, FRAMEWORKS) == "htpy"
 
 
 def test_neither_side_of_a_pages_seam_imports_the_other() -> None:

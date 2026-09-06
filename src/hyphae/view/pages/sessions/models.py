@@ -11,7 +11,7 @@ from typing import NamedTuple
 
 from hyphae.analyze.queries import ParamValue
 from hyphae.view.citation import Cited
-from hyphae.view.components.parts import Count
+from hyphae.view.models import Count
 
 
 class ListParams(NamedTuple):

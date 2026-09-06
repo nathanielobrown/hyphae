@@ -12,6 +12,7 @@ import htpy
 
 from hyphae.view.components import Html, citation, layout, parts
 from hyphae.view.links import LIST_URL
+from hyphae.view.models import Pager, Step
 from hyphae.view.pages.sessions.models import Described, SessionRow, SessionsPage
 from hyphae.view.text import cuts
 from hyphae.view.text import format as fmt
@@ -145,7 +146,7 @@ def _heading(*, heading: Heading, sort: str, aria: str) -> Html:
     )[htpy.a(href=heading.url)[heading.label]]
 
 
-def _turning(pages: Pages) -> parts.Pager:
+def _turning(pages: Pages) -> Pager:
     """The list's paging as the shared control prints it, built once for the two that show it.
 
     The words between the links are the sessions this page holds rather than which page of how
@@ -153,14 +154,14 @@ def _turning(pages: Pages) -> parts.Pager:
     no last page to number against — the query reads one row past the page, never the rest.
     """
     last = pages.first + pages.shown - 1
-    return parts.Pager(
+    return Pager(
         field="range",
         words=(
             f"Sessions {fmt.count(pages.first)}–{fmt.count(last)}" if pages.shown else "No sessions"
         ),
         # Newest first, so the page before this one holds newer sessions.
-        previous=parts.Step(pages.previous, "← newer page") if pages.previous else None,
-        next=parts.Step(pages.next, "older page →") if pages.next else None,
+        previous=Step(pages.previous, "← newer page") if pages.previous else None,
+        next=Step(pages.next, "older page →") if pages.next else None,
     )
 
 

@@ -21,6 +21,7 @@ from typing import assert_never
 import htpy
 
 from hyphae.view.components import Html, parts
+from hyphae.view.models import Pager
 from hyphae.view.nodes import Node
 from hyphae.view.pages.node.columns import COLUMNS, Column, Shape, css
 from hyphae.view.pages.node.markup.nav_tree import PANE_SWAP
@@ -50,7 +51,7 @@ def log(
     rows: Sequence[Logged],
     total: int | None,
     suffix: str,
-    pager: parts.Pager | None,
+    pager: Pager | None,
     opens: bool,
 ) -> Html | None:
     """One page of a node's children, or nothing where the node has no level under it.
