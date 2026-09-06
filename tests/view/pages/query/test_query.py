@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 
 from hyphae.analyze import macros, manifest, queries
 from hyphae.view.citation import QUERY_URL
+from hyphae.view.nodes import BODY_URL
 from hyphae.view.text.highlight import Syntax, lit
 from tests.conftest import SPINE
 from tests.view.conftest import block, classed, fields, inside, plain, values
@@ -28,15 +29,24 @@ from tests.view.scenarios import SCENARIOS
 # This checkout, for the files the stylesheet gate reads: tests/view/pages/query/… → the root.
 REPO = Path(__file__).resolve().parents[4]
 
-# Every page the viewer serves, one URL each, off the route map the route sweep keeps total
-# (`tests/view/scenarios.py:SCENARIOS`). Listing them by hand read as coverage and was not: a
-# session page opens the turns level, so no page in the list ever ran a query the tools level
-# cites. What is left out cites nothing — a fragment carries no footer, and the query page is
-# where a citation goes rather than a page that makes one.
+# Where the lines stand: a page folds them into a footer that ends it, and a fragment carries
+# the same lines open inside somebody else's page (`view/components/citation.py`). One pair per
+# mount, read the way `fields` and `inside` take a marker.
+PAGE_MOUNT = ("id", "citation")
+FRAGMENT_MOUNT = ("class", "citations")
+
+# Every response the viewer serves that cites anything, one URL each with the mount its lines
+# stand in, off the route map the route sweep keeps total (`tests/view/scenarios.py:SCENARIOS`).
+# Listing them by hand read as coverage and was not: a session page opens the turns level, so no
+# page in the list ever ran a query the tools level cites. What is left out cites nothing — a
+# fetch that swaps one value or one row carries no provenance of its own, and the query page is
+# where a citation goes rather than a page that makes one. The body mount is the exception: it
+# is a whole node's reading, and it cites what it read the way that node's own page does.
 CITING = sorted(
-    scenario.url
+    (scenario.url, FRAGMENT_MOUNT if route.startswith(BODY_URL) else PAGE_MOUNT)
     for route, scenario in SCENARIOS.items()
-    if not route.startswith(("/fragment/", QUERY_URL))
+    if not route.startswith(QUERY_URL)
+    and (not route.startswith("/fragment/") or route.startswith(BODY_URL))
 )
 
 # The page whose citations name a library macro, off the same map.
@@ -70,19 +80,23 @@ def commands() -> list[str]:
     return lines + [path.read_text() for path in sorted(REPO.glob(".claude/hooks/*.sh"))]
 
 
-@pytest.mark.parametrize("path", CITING)
+@pytest.mark.parametrize(("path", "mount"), CITING)
 def test_every_citation_a_page_carries_links_to_the_query_it_names(
-    path: str, client: TestClient
+    path: str, mount: tuple[str, str], enriched_client: TestClient
 ) -> None:
-    """Each line in the footer is a link to its own query, carrying that line's bindings.
+    """Each line a response cites is a link to its own query, carrying that line's bindings.
 
-    The footer's own count is checked against the links so a page that cites five queries and
+    The mount's own count is checked against the links so a page that cites five queries and
     shows four is a failure rather than a quieter page.
+
+    Read against the described store, because a query only a described store runs is still a
+    query: the words a pass wrote are fetched by a read of their own, and over the bare corpus
+    no response here cites it.
     """
-    page = client.get(path).text
-    lines = fields(page, "id", "citation")
-    names = inside(page, "id", "citation", "data-field")
-    hrefs = inside(page, "id", "citation", "href")
+    page = enriched_client.get(path).text
+    lines = fields(page, *mount)
+    names = inside(page, *mount, "data-field")
+    hrefs = inside(page, *mount, "href")
     assert names and names == list(lines)
     assert values(page, "data-citations") == [str(len(names))]
     for name, href in zip(names, hrefs, strict=True):
@@ -93,11 +107,13 @@ def test_every_citation_a_page_carries_links_to_the_query_it_names(
         asked = parse_qs(target.query, keep_blank_values=True)
         assert {key: found for key, [found] in asked.items()} == bound(lines[name])
         # ...and it answers.
-        assert client.get(href).status_code == 200, href
+        assert enriched_client.get(href).status_code == 200, href
 
 
-@pytest.mark.parametrize("path", CITING)
-def test_a_citation_quotes_every_binding_its_query_takes(path: str, client: TestClient) -> None:
+@pytest.mark.parametrize(("path", "mount"), CITING)
+def test_a_citation_quotes_every_binding_its_query_takes(
+    path: str, mount: tuple[str, str], client: TestClient
+) -> None:
     """A page cites what it ran — all of it, not the bindings that happen to vary by page.
 
     No `view_` parameter has a default (`analyze/manifest.py`), so a width left out of a citation
@@ -108,8 +124,12 @@ def test_a_citation_quotes_every_binding_its_query_takes(path: str, client: Test
     Every parameter the manifest declares and not exactly them: a page may bind more than the
     file takes — the sessions list composes its own sort, page and widths around a query that
     declares one (`view/store.py`) — and what it composed is part of what it ran.
+
+    The bare corpus, unlike the leaf above: every response that cites `view_enrichment` fails
+    this today, because a page names that query by its two keys and leaves off the three widths
+    `enrichment.described` bound for it. The read is real and the citation understates it.
     """
-    lines = fields(client.get(path).text, "id", "citation")
+    lines = fields(client.get(path).text, *mount)
     assert lines, path
     described = manifest.catalog()
     for name, line in lines.items():

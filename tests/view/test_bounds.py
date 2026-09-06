@@ -273,11 +273,12 @@ def ran_at(client: TestClient) -> dict[str, dict[str, set[int]]]:
 
     A set rather than a value, because a size belongs to the surface: one parameter runs at
     two widths when two surfaces print it differently, and both are production. Read off the
-    citation line each footer carries, which is the page saying what it bound.
+    citation line each response carries, which is it saying what it bound — a page's footer or
+    the open lines under an expansion's body.
     """
     sizes: dict[str, dict[str, set[int]]] = {}
-    for path in CITING:
-        for name, line in fields(client.get(path).text, "id", "citation").items():
+    for path, mount in CITING:
+        for name, line in fields(client.get(path).text, *mount).items():
             for parameter, value in bound(line).items():
                 if re.fullmatch(r"-?\d+", value):
                     sizes.setdefault(name, {}).setdefault(parameter, set()).add(int(value))
@@ -320,9 +321,12 @@ def test_the_pages_run_at_the_production_sizes(client: TestClient) -> None:
     assert bounds.LOG.default == 100
     # A node header cuts every string it carries to a head, and the one fat value its pane
     # previews to a detail — the four kinds that have fields of their own take the same two.
+    # An expansion reads the same header at widths of its own, cutting the fat value to a head
+    # instead of a preview, so a header the sweep opens a body for runs at both sizes.
     for header in ("view_turn_header", "view_call_header", "view_tool_header", "view_run_header"):
         assert ran[header]["head_chars"] == {bounds.HEADER_WIDTHS.head_chars}, header
-        assert ran[header]["detail_chars"] == {4_000}, header
+        assert 4_000 in ran[header]["detail_chars"], header
+        assert ran[header]["detail_chars"] <= {4_000, bounds.EXPANSION_WIDTHS.detail_chars}, header
     # The session header is the widest of the panes: two of its columns are lists that grow
     # with the session, so it cuts the members and caps how many it shows.
     assert ran["view_session_header"]["head_chars"] == {bounds.HEADER_WIDTHS.head_chars}
