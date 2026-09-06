@@ -11,16 +11,17 @@ of its own, nothing previews a head of it, and no pane files it under a name.
 """
 
 from collections.abc import Callable, Mapping
-from typing import assert_never
+from typing import Annotated, assert_never
 
 import duckdb
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
 from hyphae.analyze import queries
 from hyphae.analyze.queries import ParamValue
 from hyphae.view import bounds
-from hyphae.view.deps import Db, Viewer, ViewerDep
+from hyphae.view.components import Html
+from hyphae.view.deps import Db, ViewerDep
 from hyphae.view.detail import DETAILS, Spec, Written, syntax_of
 from hyphae.view.enrichment import enriched
 from hyphae.view.pages.node import reads
@@ -49,7 +50,7 @@ def fetched(
     return rows[0], queries.citation(value, keyed)
 
 
-def fetch(spec: Spec, request: Request, viewer: Viewer, connection: Db) -> Response:
+def fetch(spec: Spec, request: Request, connection: duckdb.DuckDBPyConnection) -> Html:
     """One Detail whole, in the block its head was previewed in.
 
     The keys come off the request rather than a signature per route: the path named them, the
@@ -60,6 +61,10 @@ def fetch(spec: Spec, request: Request, viewer: Viewer, connection: Db) -> Respo
     `Written` decides the rest — the gate, the extra binding, and which of the three blocks
     the value comes back in. Nothing here asks the row what it is holding except through
     `syntax_of`, so a pane and its fetch cannot mark the same value up two ways.
+
+    One dependency rather than a read and a markup either side of a typed seam: what a fetch
+    reads is one value, and a model carrying one value is the value (`design.md`). What the
+    endpoint under it never sees is the query, the bindings and the row.
     """
     if spec.written is Written.LINE and not enriched(connection):
         # A pass creates the enrichment tables rather than the exporter, so a store none has
@@ -77,26 +82,29 @@ def fetch(spec: Spec, request: Request, viewer: Viewer, connection: Db) -> Respo
     whole = values.Whole(row["value"], spec.name, citation)
     match spec.written:
         case Written.LINE:
-            return viewer.html(values.enrichment_line(node=whole))
+            return values.enrichment_line(node=whole)
         case Written.MARKDOWN:
-            return viewer.html(values.prose(node=whole))
+            return values.prose(node=whole)
         case Written.BASH | Written.JSON | Written.NAMED_FILE:
             syntax = syntax_of(spec.written, row)
             assert syntax is not None  # noqa: S101  # only the two prose arms answer None
-            return viewer.html(values.code(node=whole, syntax=syntax))
+            return values.code(node=whole, syntax=syntax)
         case _:
             assert_never(spec.written)
 
 
-def serving(spec: Spec) -> Callable[[Request, ViewerDep, Db], Response]:
+def serving(spec: Spec) -> Callable[..., Response]:
     """One spec bound into an endpoint FastAPI can read a signature off.
 
     A closure rather than sixteen stubs: what changes between the routes is the spec, and
-    what stays is the three things every fragment takes.
+    what stays is the fetch behind it and the viewer that answers with what came back.
     """
 
-    def serve(request: Request, viewer: ViewerDep, connection: Db) -> Response:
-        return fetch(spec, request, viewer, connection)
+    def fetched(request: Request, connection: Db) -> Html:
+        return fetch(spec, request, connection)
+
+    def serve(value: Annotated[Html, Depends(fetched)], viewer: ViewerDep) -> Response:
+        return viewer.html(value)
 
     return serve
 
@@ -115,10 +123,7 @@ def register(on: APIRouter) -> None:
 register(router)
 
 
-@router.get("/fragment/record/session/{session_id}/thread/{source}/line/{line_no}")
-def record_value(
-    session_id: str, source: str, line_no: int, viewer: ViewerDep, connection: Db
-) -> Response:
+def recorded(session_id: str, source: str, line_no: int, connection: Db) -> Html:
     """One raw transcript record whole, as the browser's preview was cut from.
 
     Its own renderer rather than a value fragment: a record arrives with a header line of
@@ -128,4 +133,10 @@ def record_value(
     keyed = {"session_id": session_id, "source": source, "line_no": line_no}
     # The record itself, which the store holds NOT NULL.
     row, citation = fetched(connection, Value.RECORD, keyed, "raw")
-    return viewer.html(values.record(node=reads.record_value(row, citation)))
+    return values.record(node=reads.record_value(row, citation))
+
+
+@router.get("/fragment/record/session/{session_id}/thread/{source}/line/{line_no}")
+def record_value(record: Annotated[Html, Depends(recorded)], viewer: ViewerDep) -> Response:
+    """One raw transcript record whole."""
+    return viewer.html(record)

@@ -19,6 +19,7 @@ from hyphae.view.pages.node.columns import Shape
 from hyphae.view.pages.node.markup.body import Facts
 from hyphae.view.pages.node.markup.logs import Logged
 from hyphae.view.pages.node.markup.nav_tree import NavTreeRow, PresetChoice
+from hyphae.view.pages.node.markup.numbers import Breakout, Charge, Compaction, Tool, Window
 from hyphae.view.pages.node.walk import Step as Walked
 
 
@@ -148,3 +149,32 @@ class Expansion(NamedTuple):
     citations: Mapping[str, Cited]
     # How many columns of the log it opened under the expansion spans.
     span: int
+
+
+class Popover(NamedTuple):
+    """The numbers behind one NavTree row, for a node made of api calls.
+
+    What the row already shows — the cost badge and the context bar — written out: the window
+    the node ended on, the charges it ran up, and where the agent runs under it hang.
+    """
+
+    key: str
+    citation: str
+    window: Window
+    charges: Sequence[Charge]
+    total_wash: str
+    # None where no agent run hangs under the node, which is what keeps the breakout off
+    # every other row.
+    breakout: Breakout | None
+
+
+class Measured(NamedTuple):
+    """One popover whose row is drawn as it was read: a tool call, or a compaction.
+
+    Neither is made of api calls, so neither has a window to stand on or a dollar to wash —
+    what each is measured in is its own, and the component for it is the reading's own type.
+    """
+
+    key: str
+    citation: str
+    node: Tool | Compaction
