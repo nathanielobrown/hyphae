@@ -34,7 +34,7 @@ uv run hp view --dev
 
 ## Add a route and the gallery gains the page
 
-`SCENARIOS` has three readers: the viewer tier, which sweeps every URL in it and checks the keys against the routes the app declares; the gallery, which lists it; and `tools/gen_e2e_routes.py`, which writes it out for the browser tier. A route added with no entry fails `tests/view/test_bounds.py`, and the entry that clears it is the page you can then open in the gallery. No reader keeps a list of its own to drift.
+`SCENARIOS` has three readers: the viewer tier, which sweeps every URL in it and checks the routes those entries are served by against the routes the app declares; the gallery, which lists it; and `tools/gen_e2e_routes.py`, which writes it out for the browser tier. A route added with no entry fails `tests/view/test_bounds.py`, and the entry that clears it is the page you can then open in the gallery. No reader keeps a list of its own to drift.
 
 ## Check the pages in a real browser
 
