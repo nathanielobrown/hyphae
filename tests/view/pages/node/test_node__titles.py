@@ -127,6 +127,17 @@ def test_one_tool_call_is_titled_the_same_way_wherever_it_is_named(
         fields(parent, "data-child", f"tool:{tool_id}")["title"]
         == whole[: bounds.LOG_WIDTHS.log_chars] + ELLIPSIS
     )
+    # The browser tab is the sixth surface, and the only one that cannot carry markup: it
+    # prints the text under the pane's heading. Which means it names the node from the header
+    # the pane read, not from the NavTree row the pane stands on (`KindSpec.titled`) — and the
+    # two are cut ten characters apart, so a title that outruns both stops inside the header's
+    # width here. A tab drawn off the row would name the node by characters its page never
+    # showed. The number of them is not pinned: the glyph is composed after the cut, so the
+    # tab carries a few more than the heading and none of the five widths says how many.
+    tab = pane.split("<title>", 1)[1].split("</title>", 1)[0]
+    assert tab.endswith(" · hyphae"), tab
+    assert whole[: bounds.HEADER_WIDTHS.head_chars] in tab, tab
+    assert whole[: bounds.NAV_TREE_WIDTHS.nav_chars] not in tab, tab
     # And a path that fits every width reaches every surface whole, extension and all: the
     # pane has the least room of the four widths that cut a whole title and 30 characters of
     # project directory is what decides whether a reader sees the end of the name or a cut
