@@ -223,6 +223,8 @@ filterwarnings = [
 markers = [
   "slow: earned its runtime (real subprocess, network, or large corpus) — needs a why-comment",
   "live: opts in to a real remote call (Anthropic API, an OTLP backend) — billed, so it needs an env var as well",
+  # Dropped from the mutation run below, where the tree is a partial copy of rewritten source.
+  "reads_the_repo: reads the tree it runs from — its own source, its task lines, its checkout",
 ]
 
 [tool.mutmut]
@@ -231,31 +233,16 @@ markers = [
 # line. Config keys are 3.x's: `paths_to_mutate` and `tests_dir` are the deprecated 2.x names.
 source_paths = ["src/hyphae"]
 # The suite is the oracle, so a mutant that survives is a gap in it. `-x` stops at the first
-# test that catches the mutant, which is all a kill needs. The five deselected leaves cannot
-# pass while `mutants/` is on disk, and each would red the baseline before a single mutant ran:
-# the first two read the repository as a git checkout and as a mise project, which `mutants/` is
-# neither; the next two read viewer source, which mutmut rewrites — every function becomes a
-# family of `x_name__mutmut_N` variants taking `*args, **kwargs`, so the signature floor reads a
-# violation in every component and the sweep over `bound(Page.RUNS, …)` reads a call whose
-# arguments a mutant dropped; and the fifth runs a gate over the whole repository from its root,
-# which now holds `mutants/` — an untrusted `mise.toml` and a tree of rewritten, unformatted
-# source. Dropping the two that read source costs the sweep its signature floor and its width
-# map, so a mutant only one of them would catch survives here.
-pytest_add_cli_args = [
-  "-x",
-  "-p",
-  "no:cacheprovider",
-  "--deselect",
-  "tests/tools/test_gen_layout.py::test_nothing_is_named_as_left_out_that_the_repo_no_longer_holds",
-  "--deselect",
-  "tests/tools/test_mise_tasks.py::test_the_chromatic_upload_refuses_to_run_on_an_empty_token",
-  "--deselect",
-  "tests/view/test_components.py::test_every_component_clears_the_signature_floor",
-  "--deselect",
-  "tests/view/test_bounds__widths.py::test_each_read_of_a_sessions_runs_names_the_surface_it_is_drawn_at",
-  "--deselect",
-  "tests/tools/test_gate.py::test_a_gated_task_run_through_mise_prints_one_line",
-]
+# test that catches the mutant, which is all a kill needs. `-m` drops the marked leaves, none of
+# which can pass while the run is happening inside `mutants/`: that tree is a copy of `src`,
+# `tests` and the list below and nothing else — so it is neither a git checkout nor a mise
+# project — and every function mutmut copied into it is a family of `x_name__mutmut_N` variants
+# taking `*args, **kwargs`, which a leaf reading viewer source reads as a violation in every
+# component and as a call whose arguments a mutant dropped. Each would red the baseline before a
+# single mutant ran. The cost is the two that read source: the component signature floor and the
+# width map, so a mutant only one of them would catch survives here. Marking the class rather
+# than listing it means a leaf that joins the class arrives already excused.
+pytest_add_cli_args = ["-x", "-p", "no:cacheprovider", "-m", "not reads_the_repo"]
 # mutmut copies `src`, `tests` and `pyproject.toml` and nothing else, so a test that reads a
 # repo file reads it out of `mutants/` and finds it missing. The stylesheet gate in
 # `tests/view/test_query.py` highlights this repo's own prose, task lines and hook scripts:

@@ -291,6 +291,7 @@ def test_lint_shell_cannot_pass_without_shellcheck() -> None:
     assert "command -v" not in run
 
 
+@pytest.mark.reads_the_repo  # runs mise from the repository root
 def test_a_gated_task_run_through_mise_prints_one_line(monkeypatch: pytest.MonkeyPatch) -> None:
     """Run the way a reader runs it, a passing gate's whole output is its own success line.
 

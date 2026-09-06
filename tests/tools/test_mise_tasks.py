@@ -11,6 +11,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from tests.tools.conftest import tasks
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -94,6 +96,7 @@ def running(tmp_path: Path, **named: str) -> dict[str, str]:
     return inherited | {"PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}"} | named
 
 
+@pytest.mark.reads_the_repo  # runs the task line out of this repo's `mise.toml`
 def test_the_chromatic_upload_refuses_to_run_on_an_empty_token() -> None:
     """`mise run e2e-chromatic` stops and names the variable when it holds no token.
 

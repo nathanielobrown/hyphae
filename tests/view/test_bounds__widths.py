@@ -12,6 +12,8 @@ nobody's number behind it.
 import ast
 from pathlib import Path
 
+import pytest
+
 import hyphae.view
 from hyphae.view import bounds
 from hyphae.view.store import Page
@@ -97,6 +99,7 @@ def runs_reads() -> list[tuple[str, str]]:
     return sorted(found)
 
 
+@pytest.mark.reads_the_repo  # reads viewer source
 def test_each_read_of_a_sessions_runs_names_the_surface_it_is_drawn_at() -> None:
     """The one read whose surface nothing else can see, held to the surface it is drawn at.
 

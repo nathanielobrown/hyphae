@@ -42,6 +42,7 @@ def test_every_tracked_top_level_directory_is_in_the_tree_or_named_as_left_out()
     assert not undocumented, f"directories the tree does not mention: {sorted(undocumented)}"
 
 
+@pytest.mark.reads_the_repo  # `git ls-files`, which reads a checkout
 def test_nothing_is_named_as_left_out_that_the_repo_no_longer_holds() -> None:
     # And the excuses are pruned with what they excused.
     assert set(gen_layout.UNLISTED) <= tracked_directories()
