@@ -220,9 +220,8 @@ def _thread_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref
     compactions that happened between two turns are here; one that happened *during* a turn is
     a child of that turn (`_marks`).
 
-    A run's thread is its own id, read off `node_id` rather than `source`: the level under a
-    run is fetched at a URL with no room for a thread, because the node is what says which
-    one it is (`routes/expansions.py:loose_kin`).
+    A run's thread is its own id, read off `node_id` rather than `source`: the two say the same
+    thing on a run's `Ref`, and a hand-typed URL may leave `source` off where the id is there.
     """
     source = MAIN_SOURCE if at.kind is Kind.SESSION else at.node_id
     # One mapping per query, because the two take different widths — and the mapping a query
