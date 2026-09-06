@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from hyphae.projects import project_predicate
 from hyphae.view import bounds
 from hyphae.view.app import build_app
+from hyphae.view.components.parts import unpriced
 from hyphae.view.store import Page
 from hyphae.view.text import format as fmt
 from hyphae.view.text.format import ABSENT, ELLIPSIS
@@ -161,6 +162,31 @@ def test_project_spend_is_counted_through_the_corpus_views(
     )
     assert corpus < live, "the resume pair the fixture corpus records no longer double-counts"
     assert fields(client.get("/").text, "data-project", MYCELIA)["cost_usd"] == f"${corpus:.2f}"
+
+
+def test_a_call_our_price_table_missed_marks_every_column_that_summed_it(plant: Planter) -> None:
+    """Each spend a project row prints says when the dollars under it are a call short.
+
+    Two things are planted because the corpus holds neither: every recorded api call was
+    priced, and every recorded timestamp has receded past both trailing windows, so a
+    session has to be dated back inside them for their columns to sum anything at all.
+    `cost_usd` is a column the store already leaves NULL when a response names a model our
+    price table has no row for, so nulling one is what an unpriced call looks like.
+    """
+    path = plant(
+        ("UPDATE sessions SET started_at = ? WHERE id = ?", [dt.datetime.now(dt.UTC), SPINE]),
+        (
+            "UPDATE api_calls SET cost_usd = NULL"
+            " WHERE id = (SELECT min(id) FROM api_calls WHERE session_id = ?)",
+            [SPINE],
+        ),
+    )
+    with TestClient(build_app(path)) as planted:
+        page = planted.get("/").text
+    # The session folds onto the checkout, and it now sits inside both windows, so all three
+    # of that row's costs summed the call whose price is missing — and all three say so.
+    (mark,) = re.findall(r'title="([^"]*)"', str(unpriced(calls=1)))
+    assert inside(page, "data-project", MYCELIA, "title") == [mark] * 3
 
 
 def test_the_windows_count_the_sessions_inside_the_window_the_page_cites(
