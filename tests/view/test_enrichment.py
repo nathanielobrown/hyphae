@@ -25,6 +25,7 @@ from hyphae.enrich.taxonomy import TAXONOMY_VERSION
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.enrichment import GLYPH, GLYPH_CLASS
+from hyphae.view.nodes import Kind
 from hyphae.view.store import Page
 from hyphae.view.text.format import cut, when
 from tests.conftest import SPINE, SPINE_RUN
@@ -267,6 +268,48 @@ def test_a_run_page_shows_the_runs_own_enrichment_beside_its_brief(
     # The run's recorded task keeps its own place, among the pane's own values — what the run
     # was asked to do and what a pass said it did are two different sentences.
     assert values(page, "data-detail") == ["brief", "prompt", "result"]
+    # And the pass's words head the pane, after the bracket saying which agent ran: a described
+    # run is named by what it did, the way a described session is, and the brief it was given
+    # stays a value under the heading rather than becoming one (`docs/viewer-titles.md`).
+    agent_type, brief = one(
+        enriched_store, "SELECT agent_type, brief FROM agent_runs WHERE id = ?", [SPINE_RUN]
+    )
+    assert brief and brief != description
+    assert fields(page, "data-body", "run")["title"] == f"[{agent_type}] {description}"
+
+
+def test_a_described_node_is_named_by_what_a_pass_said_where_its_parent_lists_it(
+    enriched_client: TestClient, enriched_store: duckdb.DuckDBPyConnection
+) -> None:
+    """A children log names each row by the pass's sentence, not by what the row was asked.
+
+    A node's title is what a pass said where there is one and the recorded words where there
+    is not (`docs/viewer-titles.md`), and a log is where a reader meets most nodes. Two logs
+    read the words for their rows rather than taking them from the row's own query, and each
+    reads by a key of its own: a session's turns by `(thread, turn)` and the unattached
+    bucket's runs by the run id. A log that dropped either would print prompts and briefs down
+    the page and read as a store no pass had described.
+    """
+    page = enriched_client.get(f"/session/{SPINE}").text
+    turns = enrichment_of(enriched_store, Level.turn, SPINE)
+    assert turns, "the described corpus no longer describes this session's turns"
+    for turn_id, (description, _, _) in turns.items():
+        assert fields(page, "data-child", f"{Kind.TURN}:{turn_id}")["title"] == description, turn_id
+    # And every bucket of runs the corpus holds, because the one this session has is empty:
+    # the runs nothing spawned are listed by a log of their own, off a query of its own.
+    listed = 0
+    for url in pages(enriched_store):
+        if not url.endswith("/unattached"):
+            continue
+        bucket = enriched_client.get(url).text
+        said = enrichment_of(enriched_store, Level.agent_run, url.split("/")[2])
+        for key in values(bucket, "data-child"):
+            run_id = key.removeprefix(f"{Kind.RUN}:")
+            if run_id not in said:
+                continue
+            assert fields(bucket, "data-child", key)["title"] == said[run_id][0], url
+            listed += 1
+    assert listed, "no unattached bucket in the described corpus lists a run a pass described"
 
 
 @pytest.mark.xdist_group("corpus_sweep")
