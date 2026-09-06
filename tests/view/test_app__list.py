@@ -356,6 +356,12 @@ def test_an_unknown_sort_or_direction_is_refused(
     for value in parameters.values():
         assert value not in response.text
     assert DEFAULT_SORT in response.text
+    # Both closed sets, in the list's own words: the sort keys are what the table's headings
+    # link to, and the two directions are what a heading flips between.
+    assert (
+        fields(response.text, "id", "error")["message"]
+        == f"Sort by one of {', '.join(SORTS)}, in direction {' or '.join(DIRECTIONS)}."
+    )
 
 
 def test_the_list_footer_cites_its_query_and_what_was_composed_around_it(
@@ -461,4 +467,9 @@ def test_a_page_outside_the_bounds_is_refused(
     """The page size is bounded on both ends: a page cannot be asked to hold the store."""
     response = client.get("/sessions", params=parameters)
     assert response.status_code == 400
-    assert str(bounds.SESSIONS.ceiling) in response.text
+    # One refusal for both numbers, in the list's own words: page and size are asked together
+    # and the message has to name the ceiling a reader can come back under.
+    assert (
+        fields(response.text, "id", "error")["message"]
+        == f"Ask for page 1 or later, at a size between 1 and {bounds.SESSIONS.ceiling}."
+    )
