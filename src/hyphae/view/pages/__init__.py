@@ -1,1 +1,1 @@
-"""One package per page the viewer serves: its routes, its markup, its presenters."""
+"""One package per page the viewer serves: its reads, its models, its markup, its routes."""
