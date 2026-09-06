@@ -3,7 +3,7 @@
 The eight kinds a session holds differ in what a pane reads for them and in little else — the
 NavTree beside it, the crumbs above it, the walk under it and the citations below are the same
 page whatever the page is about. `KINDS` is where that difference is spelled, one row per kind
-and total over `Kind`, read by the node page (`routes/browse.py`) and by the expansion a log
+and total over `Kind`, read by the node page (`browser.py`) and by the expansion a log
 row opens (`routes/expansions.py`) alike. What hangs *under* a kind in the NavTree is the other
 table, `nav_tree.LEVELS`.
 

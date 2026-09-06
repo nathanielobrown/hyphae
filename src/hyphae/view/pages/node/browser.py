@@ -1,34 +1,39 @@
-"""The one response every node page is: the NavTree with a path open, beside the pane reading it.
+"""The one read every node page is: the session around the node, and the node read whole.
 
 Five URLs and one answer. What differs per kind is a row of `kinds.KINDS` — its own header,
 where it sits, what its children log lists, and what its pane previews — and everything else a
 node page needs is read here: the session, the corpus the NavTree is built from, the enrichment
 a pass wrote, and the page of children under the selection (`docs/viewer.md`).
+
+The whole document from one open of the store, closed before anything renders (`view/deps.py`,
+the window trade-off). Framework-free, so the three ways a node page is nothing are one
+`Missing` — the route above turns it into the 404 it has always been.
 """
 
 from dataclasses import replace
 from math import ceil
-
-from fastapi import HTTPException
-from fastapi.responses import Response
+from pathlib import Path
 
 from hyphae.model import MAIN_SOURCE
 from hyphae.view import bounds, builders, failures, links, nodes
 from hyphae.view.citation import Ran, cited
-from hyphae.view.deps import Viewer
 from hyphae.view.detail import enrichment_lines
 from hyphae.view.enrichment import described
 from hyphae.view.nodes import Kind, Ref
-from hyphae.view.pages.node import nav_tree, reads, walk
+from hyphae.view.pages.node import models, nav_tree, reads, walk
 from hyphae.view.pages.node.kinds import KINDS, Log, paged
 from hyphae.view.pages.node.knobs import Knobs, pager, preset_choices
 from hyphae.view.pages.node.levels import Levels
-from hyphae.view.pages.node.markup import page as node_page
+from hyphae.view.pages.node.models import NodePage
 from hyphae.view.store import Page, bound, open_store, page_rows
 
 
-def browse(viewer: Viewer, session_id: str, at: Ref, knobs: Knobs, page: int) -> Response:
-    """One node page: the NavTree with the path to the node open, beside the pane reading it.
+class Missing(Exception):
+    """No node at that URL, in the words the kind that was asked for words it in."""
+
+
+def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodePage:
+    """One node read whole: the NavTree with the path to the node open, and the pane's own reads.
 
     Every kind serves through here, because a node page is one response whatever the node is.
     What differs is `KINDS[at.kind]`, whose header cell answers `None` when the node is not in
@@ -39,13 +44,6 @@ def browse(viewer: Viewer, session_id: str, at: Ref, knobs: Knobs, page: int) ->
     to its prompt. The two session-wide nodes — a session and the unattached bucket — carry no
     thread of their own and are read on `main`.
     """
-    # A page number below the first is a bad ask like a size outside its bounds, and is
-    # answered the same way: no level has such a page, so what is wrong is the number and
-    # not the node the URL names. Asked before anything is read — it would otherwise bind
-    # a negative offset. A number past a level's *last* page is a 404 further down: that
-    # one is a question about the node, and only the level can answer it.
-    if page < 1:
-        raise HTTPException(400, "Ask for a children log page from one upwards.")
     spec = KINDS[at.kind]
     source = at.source or MAIN_SOURCE
     header_bound = bound(Page.SESSION_HEADER, bounds.HEADER_WIDTHS, session_id=session_id)
@@ -56,10 +54,10 @@ def browse(viewer: Viewer, session_id: str, at: Ref, knobs: Knobs, page: int) ->
     # Held from the first read rather than left to the corpus, so the two kinds whose header
     # *is* the session's read it back out of the memo instead of running it twice.
     levels = Levels()
-    with open_store(viewer.db) as connection:
+    with open_store(db) as connection:
         head = levels.rows(connection, Page.SESSION_HEADER, **header_bound)
         if not head:
-            raise HTTPException(404, "No session with that id is in this store.")
+            raise Missing("No session with that id is in this store.")
         # The session's runs whole, once: a run is placed by the call that spawned it
         # rather than by the thread it ran on, so any level of the NavTree may need any of
         # them, and both buckets are defined against the same set.
@@ -76,7 +74,7 @@ def browse(viewer: Viewer, session_id: str, at: Ref, knobs: Knobs, page: int) ->
         )
         found = spec.header(connection, corpus, at, paged(knobs.detail))
         if found is None:
-            raise HTTPException(404, spec.missing)
+            raise Missing(spec.missing)
         under = (
             spec.log(connection, corpus, at, page, knobs.log)
             if spec.log is not None
@@ -107,7 +105,7 @@ def browse(viewer: Viewer, session_id: str, at: Ref, knobs: Knobs, page: int) ->
     # A page past the last of a level and a node that never had one are the same answer.
     # The first page is not: a node with no children still has its own facts to show.
     if page > 1 and not under.rows:
-        raise HTTPException(404, "This node's children do not run to that page.")
+        raise Missing("This node's children do not run to that page.")
     selection = built.chain[-1]
     # Named from its own header rather than from the NavTree row it stands on (`KindSpec.titled`).
     # The words alone: what the node cost and what share of the session that is are the
@@ -133,54 +131,51 @@ def browse(viewer: Viewer, session_id: str, at: Ref, knobs: Knobs, page: int) ->
         ran.extend(failed.ran)
     about = spec.describe(corpus.described, at) if spec.describe is not None else None
     said = enrichment_lines(about, session_id, source)
-    return viewer.html(
-        node_page.page(
-            selection=selection,
-            nav=node_page.Nav(
-                choices=preset_choices(selection, knobs),
-                rows=built.rows,
-                # The thread the enrichment was read for: what a tail row's fetch carries.
-                thread=source,
+    return NodePage(
+        selection=selection,
+        nav=models.Nav(
+            choices=preset_choices(selection, knobs),
+            rows=built.rows,
+            # The thread the enrichment was read for: what a tail row's fetch carries.
+            thread=source,
+        ),
+        body=models.Body(
+            facts=reads.node_facts(selection, found.row),
+            said=models.Said(about, said) if about and said else None,
+            details=spec.details(corpus, at, found.row, knobs.detail) if spec.details else [],
+            # The bytes behind the node: the thread's transcript, and — for a turn — the
+            # one line it was read from.
+            archived=models.Archived(
+                thread_url=nodes.thread_url(session_id, source), line_no=record
             ),
-            body=node_page.Body(
-                facts=reads.node_facts(selection, found.row),
-                said=node_page.Said(about, said) if about and said else None,
-                details=spec.details(corpus, at, found.row, knobs.detail) if spec.details else [],
-                # The bytes behind the node: the thread's transcript, and — for a turn — the
-                # one line it was read from.
-                archived=node_page.Archived(
-                    thread_url=nodes.thread_url(session_id, source), line_no=record
-                ),
+        ),
+        bearings=models.Bearings(
+            # Where the chain starts: the whole session list, and this session's project.
+            # The project is a step out of the session rather than a node of it, so it
+            # stands above the chain rather than in it — a session is still the outermost
+            # node.
+            trail=models.Trail(
+                list_url=links.LIST_URL,
+                project_dir=head[0]["project_dir"],
+                project_url=links.project_link(head[0]["project_filter"]),
             ),
-            bearings=node_page.Bearings(
-                # Where the chain starts: the whole session list, and this session's project.
-                # The project is a step out of the session rather than a node of it, so it
-                # stands above the chain rather than in it — a session is still the outermost
-                # node.
-                trail=node_page.Trail(
-                    list_url=links.LIST_URL,
-                    project_dir=head[0]["project_dir"],
-                    project_url=links.project_link(head[0]["project_filter"]),
-                ),
-                chain=built.chain,
-                # Where the reading order goes from here, in both directions.
-                walked=node_page.Steps(walked.previous, walked.next),
-                # And where the session failed: how many failures it holds, which is what the
-                # way into the list says, beside the step to the next one where there is one.
-                tool_errors=head[0]["tool_errors"],
-                failures=failures.stepped(failed.listed, selection) if failed else None,
-            ),
-            children=node_page.Children(
-                shape=spec.under,
-                rows=under.rows,
-                # The level's own size, and where in it this page sits — the heading counts the
-                # first, the control under the log reads the second.
-                total=under.total,
-                pager=pager(selection.url, knobs, page, ceil(under.total / knobs.log)),
-            ),
-            citations={named.value: cited(named, binding) for named, binding in ran},
-            # What every href on the page carries, so a click serves the URL it displays.
-            suffix=knobs.suffix,
-            dev=viewer.dev,
-        )
+            chain=built.chain,
+            # Where the reading order goes from here, in both directions.
+            walked=models.Steps(walked.previous, walked.next),
+            # And where the session failed: how many failures it holds, which is what the
+            # way into the list says, beside the step to the next one where there is one.
+            tool_errors=head[0]["tool_errors"],
+            failures=failures.stepped(failed.listed, selection) if failed else None,
+        ),
+        children=models.Children(
+            shape=spec.under,
+            rows=under.rows,
+            # The level's own size, and where in it this page sits — the heading counts the
+            # first, the control under the log reads the second.
+            total=under.total,
+            pager=pager(selection.url, knobs, page, ceil(under.total / knobs.log)),
+        ),
+        citations={named.value: cited(named, binding) for named, binding in ran},
+        # What every href on the page carries, so a click serves the URL it displays.
+        suffix=knobs.suffix,
     )

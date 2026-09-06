@@ -50,7 +50,7 @@ def test_every_kind_of_node_says_what_its_page_reads_and_what_a_log_lists_it_in(
     Eight routes each spelled their own header read, trail, log, details and 404; the row is
     where that lives now, and a row half filled is a page that renders and then raises. The
     cells below are the pairs a caller reads as one: `routes/expansions.py` guards on
-    `listed_as` and then reads `titled` behind it, and `routes/browse.py` reads `counts` only
+    `listed_as` and then reads `titled` behind it, and `browser.py` reads `counts` only
     where a log listed the level.
     """
     assert set(KINDS) == set(Kind)

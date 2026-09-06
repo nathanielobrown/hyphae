@@ -43,8 +43,9 @@ TEXT_MODULES = frozenset(
 KINDS = ("routes", "markup")
 
 # The names a page gives the module that reads the store for it, on the far side of the seam
-# from its markup (`plans/deepen-viewer-reads/design.md`). A page small enough has one `read.py`.
-READS = frozenset({"read"})
+# from its markup (`plans/deepen-viewer-reads/design.md`). A page small enough has one `read.py`;
+# the node page's one read serves five URLs and is named for what it does, `browser.py`.
+READS = frozenset({"read", "browser"})
 
 # What a value crossing that seam may not be made of: a request, a response, or an element.
 # The store is banned by name below rather than listed here — `duckdb` is not what a raw row
