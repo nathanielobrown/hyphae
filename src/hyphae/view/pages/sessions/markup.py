@@ -5,15 +5,14 @@ out. What a row prints is what its type carries; the links it mints are `view/li
 the SQL behind them `view/store.py`'s.
 """
 
-import datetime as dt
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import NamedTuple
 
 import htpy
 
-from hyphae.view.citation import Cited
 from hyphae.view.components import Html, citation, layout, parts
 from hyphae.view.links import LIST_URL
+from hyphae.view.pages.sessions.models import Described, SessionRow, SessionsPage
 from hyphae.view.text import cuts
 from hyphae.view.text import format as fmt
 
@@ -26,49 +25,6 @@ class Control(NamedTuple):
     type: str
     # What this request asked for, so the form comes back holding what was typed into it.
     value: str
-
-
-class Described(NamedTuple):
-    """What a pass said one session was, as a row of the list prints it.
-
-    Three values or none of them: a row the pass reached carries all three, and a row it has
-    not carries no enrichment line at all.
-    """
-
-    description: str
-    category: str
-    outcome: str
-
-
-class SessionRow(NamedTuple):
-    """One session as a row of the list prints it, built from its store row.
-
-    The three lists grow with a session, so the query cuts each and says how many it left: a
-    row of the list is multiplied by the size of the page. `description` and the two tags come
-    from an enrichment pass and are absent over a store no pass has reached.
-    """
-
-    session_id: str
-    started_at: dt.datetime | None
-    title: str | None
-    project_dir: str | None
-    turns: int
-    api_calls: int
-    tool_calls: int
-    compactions: int
-    tool_errors: int
-    cost_usd: float
-    output_tokens: int
-    unpriced_api_calls: int
-    wall_ms: int | None
-    active_ms: int | None
-    agent_types: Sequence[parts.Count]
-    agent_types_cut: int
-    skills: Sequence[str]
-    skills_cut: int
-    work: Sequence[parts.Count]
-    work_cut: int
-    described: Described | None
 
 
 class Heading(NamedTuple):
@@ -90,24 +46,23 @@ class Pages(NamedTuple):
 
 def sessions_page(
     *,
-    rows: Sequence[SessionRow],
+    page: SessionsPage,
     headings: Sequence[Heading],
     sort: str,
     direction: str,
     aria_direction: str,
     controls: Sequence[Control],
-    projects: Sequence[str],
     pages: Pages,
-    describes: bool,
-    citations: Mapping[str, Cited],
     dev: bool,
 ) -> Html:
     """One page of sessions, under the filter, sort and size the URL carried.
 
-    `describes` says whether the store holds an enrichment pass's answers at all, which decides
-    whether the list carries a work column: an empty one over a store no pass has touched is a
-    claim the store cannot support. The same pager stands above and below the table.
+    `page.describes` says whether the store holds an enrichment pass's answers at all, which
+    decides whether the list carries a work column: an empty one over a store no pass has
+    touched is a claim the store cannot support. The same pager stands above and below the
+    table.
     """
+    describes = page.describes
     turning = _turning(pages)
     return layout.page(
         tab_title="Sessions — hyphae",
@@ -120,7 +75,7 @@ def sessions_page(
                 # empty list rather than an error, and typing a path the datalist lacks still
                 # runs.
                 htpy.datalist(id="project-names")[
-                    [htpy.option(value=project) for project in projects]
+                    [htpy.option(value=project) for project in page.projects]
                 ],
                 parts.pager(name="top", pages=turning),
                 htpy.table(id="sessions")[
@@ -137,13 +92,13 @@ def sessions_page(
                                 ]
                             ]
                         ],
-                        htpy.tbody[[_session(row=row, describes=describes) for row in rows]],
+                        htpy.tbody[[_session(row=row, describes=describes) for row in page.rows]],
                     ]
                 ],
                 parts.pager(name="bottom", pages=turning),
             ]
         ],
-        footer=citation.footer(citations=citations),
+        footer=citation.footer(citations=page.citations),
         dev=dev,
     )
 
