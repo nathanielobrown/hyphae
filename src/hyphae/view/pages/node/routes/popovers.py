@@ -8,79 +8,31 @@ A popover is one row, so it reads through `Db` rather than a window of its own: 
 too small to be worth closing the store between the row and the markup (`view/deps.py`).
 """
 
+from collections.abc import Callable
 from typing import Annotated, assert_never
 
-import duckdb
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from hyphae.analyze import queries
 from hyphae.model import MAIN_SOURCE
-from hyphae.view import bounds, nodes
+from hyphae.view import nodes
 from hyphae.view.components import Html
 from hyphae.view.deps import Db, ViewerDep
-from hyphae.view.nodes import Kind, Ref
-from hyphae.view.pages.node import reads
+from hyphae.view.nodes import Kind
+from hyphae.view.pages.node import fragments
+from hyphae.view.pages.node.browser import Missing
 from hyphae.view.pages.node.markup import numbers
 from hyphae.view.pages.node.models import Measured, Popover
-from hyphae.view.pages.node.numbers import breakout, charges, spend, wash
-from hyphae.view.store import Fragment, bound, page_rows
 
 router = APIRouter()
 
 
-def counted(
-    connection: duckdb.DuckDBPyConnection, kind: Kind, session_id: str, source: str, node_id: str
-) -> Popover | Measured:
-    """One node's numbers, for the popover its NavTree row fetches.
-
-    `source` is the thread the window is read on, which is not always the thread the node
-    sits on: a session's reader is reading `main`, and its spend is every thread's. What
-    differs between the kinds is inside the query; what differs here is only the tool call,
-    which has no api calls to be measured out of.
-    """
-    if kind is Kind.TOOL:
-        keyed = bound(
-            Fragment.TOOL_NUMBERS,
-            bounds.POPOVER_WIDTHS,
-            session_id=session_id,
-            source=source,
-            tool_call_id=node_id,
-        )
-        rows = page_rows(connection, Fragment.TOOL_NUMBERS, **keyed)
-        if not rows:
-            raise HTTPException(404, "No tool call with that id is in this thread.")
-        return Measured(
-            key=Ref(kind, source, node_id).key,
-            citation=queries.citation(Fragment.TOOL_NUMBERS, keyed),
-            node=reads.tool_numbers(rows[0]),
-        )
-    binds = bound(
-        Fragment.NUMBERS,
-        bounds.POPOVER_WIDTHS,
-        session_id=session_id,
-        source=source,
-        node_id=node_id,
-        kind=kind,
-    )
-    rows = page_rows(connection, Fragment.NUMBERS, **binds)
-    # The query aggregates, so it answers a row for a node that is not there as readily as
-    # for one that is — a node with no api calls under it is a real reading, and the
-    # popover prints it as the dashes it is.
-    read = reads.node_numbers(rows[0])
-    whole = read.session_usd
-    return Popover(
-        key=Ref(kind, source, node_id).key,
-        citation=queries.citation(Fragment.NUMBERS, binds),
-        window=read.window,
-        # The three lines between the window and the total, each priced and washed here
-        # rather than in the component: what a charge is made of is arithmetic
-        # (`view/numbers.py`), and the total under them takes the same ground.
-        charges=charges(read, spend(read.spent), whole),
-        total_wash=wash(read.cost_usd, whole),
-        # And the two lines under them, where agent runs hang below this node.
-        breakout=breakout(read.cost_usd, read.subtree_usd, whole),
-    )
+def refused(read: Callable[[], Popover | Measured]) -> Popover | Measured:
+    """A node the store does not hold, as the 404 it has always been."""
+    try:
+        return read()
+    except Missing as gone:
+        raise HTTPException(404, str(gone)) from gone
 
 
 def drawn(read: Popover | Measured) -> Html:
@@ -106,26 +58,8 @@ def drawn(read: Popover | Measured) -> Html:
 def compaction_read(
     session_id: str, source: str, compaction_id: str, connection: Db
 ) -> Popover | Measured:
-    """One compaction's numbers: the window it dropped, and the word recorded for why.
-
-    Its own read rather than a branch of `counted`, because a compaction shares nothing with
-    the kinds made of api calls — no window to stand on, no model, no dollar.
-    """
-    keyed = bound(
-        Fragment.COMPACTION_NUMBERS,
-        bounds.POPOVER_WIDTHS,
-        session_id=session_id,
-        source=source,
-        compaction_id=compaction_id,
-    )
-    rows = page_rows(connection, Fragment.COMPACTION_NUMBERS, **keyed)
-    if not rows:
-        raise HTTPException(404, "No compaction with that id is on this thread.")
-    return Measured(
-        key=Ref(Kind.COMPACTION, source, compaction_id).key,
-        citation=queries.citation(Fragment.COMPACTION_NUMBERS, keyed),
-        node=reads.compaction_numbers(rows[0]),
-    )
+    """One compaction's numbers, read on the thread its row carries."""
+    return refused(lambda: fragments.compacted(connection, session_id, source, compaction_id))
 
 
 def node_read(
@@ -134,17 +68,19 @@ def node_read(
     """The numbers behind a turn, an api call, or a tool call recorded on a thread."""
     if kind not in nodes.NUMBERED:
         raise HTTPException(404, "No numbers are served for that kind of node.")
-    return counted(connection, Kind(kind), session_id, source, node_id)
+    return refused(lambda: fragments.counted(connection, Kind(kind), session_id, source, node_id))
 
 
 def run_read(session_id: str, run_id: str, connection: Db) -> Popover | Measured:
     """One agent run's numbers, read on the thread the run's id also names."""
-    return counted(connection, Kind.RUN, session_id, run_id, run_id)
+    return refused(lambda: fragments.counted(connection, Kind.RUN, session_id, run_id, run_id))
 
 
 def session_read(session_id: str, connection: Db) -> Popover | Measured:
     """A whole session's numbers: the main thread's window, and every thread's spend."""
-    return counted(connection, Kind.SESSION, session_id, MAIN_SOURCE, session_id)
+    return refused(
+        lambda: fragments.counted(connection, Kind.SESSION, session_id, MAIN_SOURCE, session_id)
+    )
 
 
 def compaction_markup(read: Annotated[Popover | Measured, Depends(compaction_read)]) -> Html:

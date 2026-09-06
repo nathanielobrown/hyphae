@@ -20,7 +20,9 @@ from hyphae.view.pages.node.markup.body import Facts
 from hyphae.view.pages.node.markup.logs import Logged
 from hyphae.view.pages.node.markup.nav_tree import NavTreeRow, PresetChoice
 from hyphae.view.pages.node.markup.numbers import Breakout, Charge, Compaction, Tool, Window
+from hyphae.view.pages.node.markup.values import Whole
 from hyphae.view.pages.node.walk import Step as Walked
+from hyphae.view.text import highlight
 
 
 class Trail(NamedTuple):
@@ -178,3 +180,14 @@ class Measured(NamedTuple):
     key: str
     citation: str
     node: Tool | Compaction
+
+
+class Detailed(NamedTuple):
+    """One fat value fetched whole, and how the block it comes back in marks it up.
+
+    `syntax` is nothing for the two prose arms, which are marked up as what they are written
+    in rather than as a language (`view/detail.py:syntax_of`).
+    """
+
+    whole: Whole
+    syntax: highlight.Syntax | None

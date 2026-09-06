@@ -42,10 +42,11 @@ TEXT_MODULES = frozenset(
 # module or a package: a page small enough writes `routes.py`, and the node page needs `routes/`.
 KINDS = ("routes", "markup")
 
-# The names a page gives the module that reads the store for it, on the far side of the seam
+# The names a page gives the modules that read the store for it, on the far side of the seam
 # from its markup (`plans/deepen-viewer-reads/design.md`). A page small enough has one `read.py`;
-# the node page's one read serves five URLs and is named for what it does, `browser.py`.
-READS = frozenset({"read", "browser"})
+# the node page names its two for what they do — `browser.py` for the documents, `fragments.py`
+# for the small fetches under them.
+READS = frozenset({"read", "browser", "fragments"})
 
 # What a value crossing that seam may not be made of: a request, a response, or an element.
 # The store is banned by name below rather than listed here — `duckdb` is not what a raw row
@@ -66,6 +67,17 @@ SERVER, PAGE, SHARED, BASE, LEAF = 4, 3, 2, 1, 0
 # The one number `analyze/queries.py` declares that is not a size: the keyset cursor standing
 # before the first row, which a paged route takes as its default rather than cutting to it.
 NOT_A_SIZE = frozenset({"FIRST_PAGE"})
+
+# What a routes module may still take from the store: the words a session-list URL is written
+# in. A route's job is to refuse a URL, and refusing `?sort=banana` means holding the list of
+# sorts (`view/store.py`). Everything else the store exports is a query, a binding or a row.
+URL_WORDS = frozenset({"SORTS", "FILTERS", "DIRECTIONS"})
+
+# And what it may still take from the query library: the cursor above, plus the two names for
+# what a URL word is once it is parsed. The session list's filters arrive as text and are bound
+# to the types `FILTERS` declares; the refusal for text that will not bind is a 400, which only
+# a routes module raises, so the parse stays there and the types it reads and produces with it.
+BINDABLE = frozenset({"ParamType", "ParamValue"})
 
 # The modules of each layer by name, for the ones that are not decided by their directory. The
 # top level has no default: a module that lands there and is not listed reds `layer()`, because
@@ -402,6 +414,40 @@ def test_a_pages_markup_never_reads_back_across_the_seam() -> None:
             for module in markup_modules()
             if module.is_relative_to(page) and here in imports(module)
         ] == [], f"markup of {page.name} imports {here}"
+
+
+def test_no_routes_module_of_a_page_names_the_stores_vocabulary() -> None:
+    """A route holds a URL and a refusal; what a query is, what it binds and what it answers
+    stops in the read.
+
+    The other half of the seam. `test_only_a_pages_routes_module_reaches_a_web_framework` keeps
+    FastAPI out of the reads, and this keeps the store out of the routes — without it a page
+    can pass both directions of the model rule and still run its query beside its endpoint,
+    which is the window `deps.py` exists to close.
+
+    `Db` stays legal, because a fragment's lock window is deliberate (`view/deps.py`): what is
+    banned is the query member, the bindings and the raw row, not the connection they run on.
+    """
+    found = [
+        path
+        for page in page_packages()
+        for path in sources(page)
+        if kind_of(page, path) == "routes"
+    ]
+    # There are routes to read...
+    assert found, "no page declares a routes module"
+    for path in found:
+        names = taken(path, "store")
+        # ...none of them takes the store module whole, which would hide the names below...
+        assert "store" not in imports(path) or names, f"{dotted(path)} imports the store whole"
+        # ...none names anything the store exports but the words a URL is written in...
+        assert names <= URL_WORDS, f"{dotted(path)} names the store's {sorted(names - URL_WORDS)}"
+        # ...and none names a query the library declares.
+        asked = queried(path)
+        assert asked <= NOT_A_SIZE | BINDABLE, f"{dotted(path)} names the library's {sorted(asked)}"
+    # ...and the scan can see that vocabulary where it belongs: the reads run the queries.
+    ran = {name for path in read_modules() for name in taken(path, "store")}
+    assert {"page_rows", "bound"} <= ran
 
 
 # --- Rule 2: a page package is a leaf ------------------------------------------------------
