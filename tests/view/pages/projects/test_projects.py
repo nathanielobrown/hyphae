@@ -296,10 +296,12 @@ def test_the_page_cites_the_query_and_the_window_it_ran(client: TestClient) -> N
 def test_the_page_is_ordered_by_what_ran_most_recently(
     client: TestClient, store: duckdb.DuckDBPyConnection
 ) -> None:
-    """Projects arrive newest first, with the sessions that named no directory last.
+    """Projects arrive newest first, each printing the instant it was ranked on.
 
-    The store holds no timestamp for those, so they sort where every NULL the viewer prints
-    sorts: at the end, rather than at the top of a page ranked by recency.
+    The store holds no timestamp for the sessions that named no directory, so they sort where
+    every NULL the viewer prints sorts: at the end, rather than at the top of a page ranked by
+    recency. The order and the cell are one assertion because they are one fact — a column of
+    dashes would sort correctly and tell a reader nothing.
     """
     page = client.get("/").text
     last = dict(
@@ -311,6 +313,10 @@ def test_the_page_is_ordered_by_what_ran_most_recently(
         reverse=True,
     )
     assert values(page, "data-project") == [*ordered, ""]
+    # And each row says when, down to the minute the store holds.
+    assert [fields(page, "data-project", root)["last_active"] for root in ordered] == [
+        fmt.when(last[root]) for root in ordered
+    ]
 
 
 def test_the_filter_box_suggests_the_projects_the_landing_page_lists(plant: Planter) -> None:
