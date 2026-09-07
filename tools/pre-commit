@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# Pre-commit gate: format and lint the staged Python, type-check the project it
+# belongs to, and hold the staged Markdown to every aigarden rule. Tests are
+# deliberately not here — `mise run check` and CI own them.
+#
+# Installed by `mise run setup`, which drops a dispatcher in the shared hooks
+# dir that execs THIS script from the committing worktree. Binaries are called
+# straight out of `.venv/bin` rather than through `uv run`, which is what keeps
+# a clean tree under a second. Whatever a gate needs and does not find it
+# installs once before giving up, so a fresh clone can commit before anyone
+# runs `mise run setup`.
+#
+# Skip with `git commit --no-verify` only when you really mean it.
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+# A git worktree nested under the main checkout inherits the main repo's stale
+# VIRTUAL_ENV, and venv tools then resolve site-packages against the wrong root
+# — pyrefly reports a flood of phantom missing-import errors and the hook
+# rejects a clean commit. Drop it here (this also silences `uv sync`'s mismatch
+# warning) and pin it on the pyrefly call below.
+unset VIRTUAL_ENV
+
+venv="$repo_root/.venv"
+ruff="$venv/bin/ruff"
+pyrefly="$venv/bin/pyrefly"
+
+if [[ ! -x "$ruff" || ! -x "$pyrefly" ]]; then
+  # Fresh clone or worktree: the venv is not synced yet. Bootstrap it once —
+  # idempotent, near-instant when already current — so the fast direct-binary
+  # path below stays the common case.
+  if command -v uv >/dev/null; then
+    echo "pre-commit: missing venv under $repo_root — bootstrapping with 'uv sync'…" >&2
+    (cd "$repo_root" && uv sync --all-groups) >&2 ||
+      { echo "pre-commit: 'uv sync' failed — run 'mise run setup'." >&2; exit 1; }
+  else
+    echo "pre-commit: venv missing and uv not on PATH — run 'mise run setup' first." >&2
+    exit 1
+  fi
+fi
+
+# Staged-only, additions/copies/modifications. NUL-delimited to survive
+# pathological filenames. A plain `read` loop instead of `mapfile -d ''`
+# because macOS still ships bash 3.2, where `mapfile -d` does not exist.
+staged_py=()
+while IFS= read -r -d '' f; do
+  staged_py+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACM -z -- '*.py')
+
+staged_md=()
+while IFS= read -r -d '' f; do
+  staged_md+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACM -z -- '*.md')
+
+if ((${#staged_py[@]} == 0 && ${#staged_md[@]} == 0)); then
+  exit 0
+fi
+
+cd "$repo_root"
+
+if ((${#staged_py[@]} > 0)); then
+  # `format --check` fails without rewriting anything — the author fixes it
+  # rather than us restaging behind their back. It keeps its "N files already
+  # formatted" line because `-q` also swallows its per-file I/O errors, and a
+  # staged path that vanished from the tree would then exit 2 saying nothing.
+  # `check` reports those as diagnostics, so `-q` there loses only the summary.
+  "$ruff" format --check "${staged_py[@]}"
+  "$ruff" check -q "${staged_py[@]}"
+
+  # pyrefly needs the whole project for cross-module inference; per-file is
+  # unsafe. Coverage is `project-includes` in pyproject.toml, which pyrefly
+  # discovers from cwd — the same shape as `mise run typecheck`. Only invoked
+  # because we know Python actually changed.
+  VIRTUAL_ENV="$venv" "$pyrefly" check --progress-bar=no
+fi
+
+if ((${#staged_md[@]} > 0)); then
+  # Verify mode, mirroring `ruff format --check`: a violation fails the commit
+  # and the author runs `mise run lint-docs`. Every aigarden rule applies, not
+  # just prose style — a link this commit breaks fails here instead of in CI.
+  #
+  # A mise [tools] binary, so it resolves off PATH; `mise which` is the
+  # fallback for a shell mise never activated, such as a GUI git client's.
+  aigarden_bin="$(command -v aigarden || true)"
+  if [[ -z "$aigarden_bin" ]] && command -v mise >/dev/null; then
+    aigarden_bin="$(mise which aigarden 2>/dev/null || true)"
+    if [[ -z "$aigarden_bin" ]]; then
+      # The pin is declared but not installed. One tool, not a bare `mise
+      # install`, which would fetch node and shellcheck to gate one document.
+      # Spelled as mise.toml spells it: aigarden is not in mise's registry, so
+      # the bare name would not resolve.
+      echo "pre-commit: aigarden missing — bootstrapping it with mise…" >&2
+      mise install github:nathanielobrown/aigarden >&2 || true
+      aigarden_bin="$(mise which aigarden 2>/dev/null || true)"
+    fi
+  fi
+  if [[ -z "$aigarden_bin" ]]; then
+    echo "pre-commit: aigarden not found — run 'mise install'." >&2
+    exit 1
+  fi
+  # aigarden prints a summary line on a clean run and has no --quiet, so
+  # capture and replay only on a finding.
+  #
+  # Nothing to check is clean: a staged set aigarden's walk skips entirely
+  # leaves it no files and a nonzero exit. The match stays on that one message
+  # because a staged path missing from the tree also leaves it nothing to
+  # check, and that one exits 2 with a different message and stays loud.
+  if ! aigarden_out="$("$aigarden_bin" check "${staged_md[@]}" 2>&1)"; then
+    case "$aigarden_out" in
+    "aigarden: no files found"*) ;;
+    *)
+      printf '%s\n' "$aigarden_out" >&2
+      exit 1
+      ;;
+    esac
+  fi
+fi
