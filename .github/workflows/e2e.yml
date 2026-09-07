@@ -15,15 +15,31 @@ on:
 permissions:
   contents: read
 
+# One build per pull request at a time. GitHub starts a run for this workflow whenever the branch
+# moves *or* its base does, so a rebased stack lands two runs on one commit within a second of each
+# other — and two Chromatic builds of one commit ask for the same changes to be accepted twice. A
+# push to main is never cancelled: it is where the baseline every branch measures against comes from.
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
       # Full history: Chromatic finds a build's baseline by walking back through the commits this
       # one descends from, and the default one-commit checkout leaves it nothing to walk.
+      #
+      # And the branch's own tip rather than the default: on a `pull_request` event that default
+      # is a merge of the branch into whatever main is at that moment, built for the run and thrown
+      # away. Snapshots taken from it are the merge's, filed under the branch commit below — so the
+      # same commit renders differently every time the base moves, and the changes accepted on one
+      # run come back on the next. Empty on a push, where the default is already the commit that
+      # ran. `check.yml` still runs on the merge, which is where a merge's own breakage shows up.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
       # Installs every tool `mise.toml` pins and caches them between runs.
       - uses: jdx/mise-action@v4
       - run: mise run sync
@@ -42,16 +58,14 @@ jobs:
         run: mise run e2e-chromatic
         env:
           CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
-          # `GITHUB_SHA` on a `pull_request` event is GitHub's ephemeral merge preview commit,
-          # never the PR branch's own tip — it does not persist in history, so a later build
-          # cannot walk back to it and the CLI cannot even resolve it by branch name (the
-          # default checkout leaves no local ref named `GITHUB_HEAD_REF`), so it falls back to
-          # the merge SHA anyway and warns baselines from this build won't be retained. These
-          # two make the CLI use the PR's real, persistent commit and branch instead, which is
-          # what a later build on the same branch — or on `main` once it lands — can find and
-          # reuse a baseline from. `chromaui/action` sets both of these for you; a bare `npx
-          # chromatic` does not. Both read empty on `push`, where neither problem exists — the
-          # CLI's own `GITHUB_SHA` fallback is already the real commit — and empty is what turns
-          # its override off, the same as leaving it unset.
+          # What `chromaui/action` would tell the CLI about this commit, which a bare `npx
+          # chromatic` never says for itself: left alone it files the build under `GITHUB_SHA`,
+          # the merge preview no later build descends from, so the next build finds no baseline
+          # and every page reads as new. The four together name the branch tip the step above
+          # checked out, the branch and repository it came from, and the merge GitHub built the
+          # run for. Each reads empty on a push — the CLI's own reading is already right there —
+          # and empty turns the override off, exactly as leaving it unset would.
           CHROMATIC_SHA: ${{ github.event.pull_request.head.sha }}
           CHROMATIC_BRANCH: ${{ github.head_ref }}
+          CHROMATIC_SLUG: ${{ github.event.pull_request.head.repo.full_name }}
+          CHROMATIC_PULL_REQUEST_SHA: ${{ github.sha }}
