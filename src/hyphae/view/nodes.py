@@ -497,8 +497,8 @@ class Node:
         strings at this width or wider — a tool header's input comes back at a preview's,
         because the same pane previews it — so a title is cut here and marked where the query
         left more behind. A pane names its node from the header it read rather than from the
-        NavTree row it stands on (`view/pages/node/routes/browse.py:TITLED`) — the NavTree cuts
-        at a row's width, which would head a turn with a third of the prompt it is about.
+        NavTree row it stands on (`view/pages/node/kinds.py:KINDS`) — the NavTree cuts at a
+        row's width, which would head a turn with a third of the prompt it is about.
 
         The one surface a link in a title becomes an `<a>` on: every other one prints its
         title inside a link already, and an `<a>` inside an `<a>` is markup a browser undoes.
@@ -564,8 +564,9 @@ class Node:
         what is under it, so a reader can look inside a child without leaving the parent. The
         node's own path under a prefix, so the two never disagree about where the node sits.
 
-        A kind with no body to serve has no route behind this — the two buckets, and a session
-        — and nothing offers one: a log lists only the kinds `app.BODIES` covers.
+        A kind with no body to serve has no route behind this — the two buckets, a session and
+        a compaction — and nothing offers one: a log lists only the kinds whose row names the
+        shape that lists them (`pages/node/kinds.py:KINDS`).
         """
         return f"{BODY_URL}{self.url}"
 

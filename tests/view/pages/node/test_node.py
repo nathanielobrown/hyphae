@@ -140,7 +140,14 @@ def test_a_node_the_store_does_not_hold_is_a_404(
     """
     url = node_url(store, kind)
     session_id = url.split("/")[2]
-    assert client.get(url.replace(session_id, MISSING, 1)).status_code == 404, url
+    unheld = client.get(url.replace(session_id, MISSING, 1))
+    assert unheld.status_code == 404, url
+    # The session is read before the node is, so a miss on it is the store's own sentence
+    # whatever kind the URL names — a reader who mistyped a session id is not told that some
+    # turn is missing from a session that is not there either. Read whole rather than looked
+    # for inside the page: the sentence is the whole of what the refusal says.
+    message = fields(unheld.text, "id", "error")["message"]
+    assert message == "No session with that id is in this store.", url
     if (tail := url.rsplit("/", 1)[1]) != session_id:
         assert client.get(url.replace(tail, MISSING)).status_code == 404, url
 
@@ -304,6 +311,76 @@ def test_a_log_row_expands_to_the_body_its_own_page_wraps(
     # Every kind a log lists was opened: a shape the sweep never reached is a mount nothing
     # proved serves.
     assert opened == {"turn", "call", "tool", "run"}
+
+
+# What each mount says when it will not serve a kind at all, and what each kind says when the
+# node is not there. Written out rather than read from `kinds.KINDS`: a 404 is a sentence a
+# reader gets, and a test that imported the table would agree with any edit to it. Each is read
+# back whole off the error page's message field, because a sentence is the whole of a refusal.
+NO_BODY = "No expansion is served for that kind of node."
+NO_PAGE = "No node of that kind is read on a thread."
+NO_NODE = {
+    "turn": "No turn with that id is in this thread.",
+    "call": "No api call with that id is in this thread.",
+    "tool": "No tool call with that id is in this thread.",
+}
+# The page reads one kind on a thread that no log lists, so it answers for a fourth node.
+ON_THREAD = {**NO_NODE, "compaction": "No compaction with that id is in this thread."}
+
+
+def test_the_body_mount_serves_the_kinds_a_log_lists_and_refuses_every_other_word(
+    client: TestClient,
+) -> None:
+    """A body is served for the kinds a children log lists, and for no other kind or word.
+
+    The kind comes out of the URL, so the mount can be asked about anything the grammar
+    allows: a session, either bucket, an agent run in the thread slot — whose rows carry its
+    id where a thread goes, so reading it here would key its header by a thread it was never
+    recorded on — and a word that names no kind at all. Each is refused for its kind, before
+    the store is opened.
+
+    The three the mount does serve are refused for the *node* instead, which is the other
+    sentence: an id no thread holds is a question about the node, and the leaf above proves
+    the same three open when the node is real.
+    """
+    for kind in [*Kind, "banana"]:
+        mount = f"{BODY_URL}/session/{SPINE}/thread/{MAIN}/{kind}/{MISSING}"
+        served = client.get(mount)
+        assert served.status_code == 404, mount
+        assert fields(served.text, "id", "error")["message"] == NO_NODE.get(str(kind), NO_BODY), (
+            mount
+        )
+    # And the run's own mount, which is a path rather than a kind in the URL: it serves an
+    # agent run and answers for a missing one in the run's own words.
+    loose = client.get(f"{BODY_URL}/session/{SPINE}/run/{MISSING}")
+    assert loose.status_code == 404
+    assert (
+        fields(loose.text, "id", "error")["message"]
+        == "No agent run with that id is in this session."
+    )
+
+
+def test_the_thread_page_reads_the_kinds_recorded_on_one_and_refuses_every_other_word(
+    client: TestClient,
+) -> None:
+    """One URL grammar serves four kinds of node, and says no to the other four and to a word.
+
+    The kind is a path segment now, so the page can be asked for any of them. A session, an
+    agent run and the two buckets each read at a path of their own — a run's rows carry its id
+    where a thread goes, and a bucket has no id at all — so answering for one here would key a
+    header by a thread the node was never recorded on. It is refused for its kind, before the
+    store is opened.
+
+    The four it does read are refused for the *node*: an id no thread holds is a question
+    about the node, not about the grammar. Compaction is the one of them no children log
+    lists, which is what makes this the wider list than the body mount's above.
+    """
+    for kind in [*Kind, "banana"]:
+        page = client.get(f"/session/{SPINE}/thread/{MAIN}/{kind}/{MISSING}")
+        assert page.status_code == 404, kind
+        assert fields(page.text, "id", "error")["message"] == ON_THREAD.get(str(kind), NO_PAGE), (
+            kind
+        )
 
 
 def test_a_call_opened_in_its_turn_lists_the_tools_it_called(

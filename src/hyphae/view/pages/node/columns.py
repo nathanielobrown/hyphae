@@ -1,8 +1,8 @@
 """What a children log heads and fills: one table of columns per shape of log.
 
 A pane lists one kind of child at a time, and each kind is read by different columns — what
-tells two turns apart is not what tells two tool calls apart. This module is that table, plus
-which shape of log lists each kind of node and how wide that log is.
+tells two turns apart is not what tells two tool calls apart. This module is that table alone:
+which shape of log a kind lists in is its own row's to say (`kinds.py:KINDS`).
 
 A column head marked with the same thing a node's own kind is marked with reads it off
 `view/nodes.py:GLYPHS` rather than spelling it again: the `⇄` over a turn's api-call count and
@@ -114,20 +114,3 @@ _CSS: dict[Shape, dict[str, str]] = {
 def css(shape: Shape, field: str) -> str:
     """The class one cell wears, off the column heading it."""
     return _CSS[shape][field]
-
-
-# Which shape of log lists a kind. For the one reader that knows a child and needs its
-# parent's table: an expansion arrives as a row of the log it opens under, and that row spans
-# the log's columns. A kind lists in one shape of log wherever it lists at all, which is what
-# makes the width answerable from the child alone.
-LISTED: dict[Kind, Shape] = {
-    Kind.TURN: Shape.TURNS,
-    Kind.CALL: Shape.CALLS,
-    Kind.TOOL: Shape.TOOLS,
-    Kind.RUN: Shape.RUNS,
-}
-
-
-def spanned(kind: str) -> int:
-    """How many columns the log listing a node of `kind` has, for a row that spans them."""
-    return len(COLUMNS[LISTED[Kind(kind)]])

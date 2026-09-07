@@ -37,7 +37,7 @@ from watchfiles import Change, awatch
 import hyphae.view
 from hyphae.view.app import CSP, HOST, STATIC, build_app, claim
 from hyphae.view.dev import RELOAD_URL, RENDERED, Event, Rendered, event_for, reload_router
-from tests.view.scenarios import SCENARIOS
+from tests.view.scenarios import SCENARIOS, SERVED_ROUTES
 
 # The one line a page adds under `--dev`, whole. A prod page is the dev page with this string
 # taken out and nothing else changed.
@@ -209,11 +209,11 @@ def test_the_shipped_viewer_declares_no_route_under_dev(
 ) -> None:
     """`--dev` adds the reload stream and nothing else; without it the route is not there.
 
-    The two halves together are what keeps `SCENARIOS` meaning "everything the shipped viewer
-    serves" — the completeness leaf in `test_bounds.py` never has to list a dev route.
+    The two halves together are what keeps `SERVED_ROUTES` meaning "everything the shipped
+    viewer serves" — the completeness leaf in `test_bounds.py` never has to list a dev route.
     """
-    assert declared(client) == set(SCENARIOS)
-    assert declared(dev_client) == set(SCENARIOS) | {RELOAD_URL}
+    assert declared(client) == SERVED_ROUTES
+    assert declared(dev_client) == SERVED_ROUTES | {RELOAD_URL}
     assert client.get(RELOAD_URL).status_code == 404
 
 

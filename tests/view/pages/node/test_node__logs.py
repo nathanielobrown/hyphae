@@ -133,13 +133,21 @@ def test_a_level_divides_into_the_pages_it_has_and_no_empty_one(
                 assert fields(page, "data-pager", "calls")["place"] == f"Page {number} of {count}"
         # ...and one page past the last is nothing at all, rather than an empty log that reads
         # as a node with no children.
-        assert client.get(TURN, params={"log": size, "page": count + 1}).status_code == 404
+        past = client.get(TURN, params={"log": size, "page": count + 1})
+        assert past.status_code == 404
+        refused = fields(past.text, "id", "error")["message"]
+        assert refused == "This node's children do not run to that page."
     # A level that fits on one page carries no pager: there is no page to go to.
     assert "data-pager" not in client.get(TURN, params={"log": held}).text
     # And a page number below the first is a bad ask rather than a miss: no level has one, so
     # it is the number that is wrong and not the node — the answer every other size a URL
     # carries gives (`checked`).
-    assert client.get(TURN, params={"page": 0}).status_code == 400
+    below = client.get(TURN, params={"page": 0})
+    assert below.status_code == 400
+    assert (
+        fields(below.text, "id", "error")["message"]
+        == "Ask for a children log page from one upwards."
+    )
     # A level with nothing in it counts nothing. The count comes off the page's own rows, so an
     # empty page is the one place it has no row to read it from.
     empty = store.execute(
@@ -244,10 +252,11 @@ def test_every_children_log_heads_the_columns_its_rows_fill(
     assert children, url
     for key in children:
         assert inside(page, "data-child", key, "data-column") == named, (url, key)
-    # And what a row opens spans exactly those columns. `columns.LISTED` says which shape of log
-    # a kind lists in, and the expansion's span is read off it — a kind mapped to the wrong
-    # shape opens a row narrower or wider than the table it lands in. Checked here, against
-    # the page that did the listing, because this is where the shape is known to be right.
+    # And what a row opens spans exactly those columns. `kinds.KINDS` says which shape of log a
+    # kind lists in (`listed_as`), and the expansion's span is read off it — a kind mapped to
+    # the wrong shape opens a row narrower or wider than the table it lands in. Checked here,
+    # against the page that did the listing, because this is where the shape is known to be
+    # right.
     (mount,) = [
         at for at in inside(page, "data-child", children[0], "hx-get") if at.startswith(BODY_URL)
     ]

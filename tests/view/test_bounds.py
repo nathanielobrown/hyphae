@@ -63,8 +63,8 @@ from tests.view.conftest import (
 
 # The pages that carry a footer, and the reader of one citation line: both are the citation
 # tier's, and what the production sizes are read off here.
-from tests.view.pages.query.test_query import CITING, bound
-from tests.view.scenarios import SCENARIOS
+from tests.view.pages.query.test_query import CITING, FRAGMENT_MOUNT, PAGE_MOUNT, bound
+from tests.view.scenarios import SCENARIOS, SERVED_ROUTES
 
 # The library described once for the whole module: every leaf below reads what a query binds,
 # and a `Query` is derived from its statement rather than looked up (`analyze/manifest.py`).
@@ -268,16 +268,21 @@ def test_every_viewer_query_is_declared_as_a_page_a_fragment_or_a_value() -> Non
     assert declared <= set(CATALOG)
 
 
-def ran_at(client: TestClient) -> dict[str, dict[str, set[int]]]:
-    """What every query ran at on the pages that cite it: query, parameter, values seen.
+def ran_at(client: TestClient, mount: tuple[str, str]) -> dict[str, dict[str, set[int]]]:
+    """What every query ran at on the responses citing it at one mount: query, parameter, sizes.
 
-    A set rather than a value, because a size belongs to the surface: one parameter runs at
-    two widths when two surfaces print it differently, and both are production. Read off the
-    citation line each footer carries, which is the page saying what it bound.
+    One mount per call, because a size belongs to the surface: a page previews a header's fat
+    value where an expansion cuts the same read to a head, and a set merged across the two can
+    no longer say which surface ran which width. Still a set within the mount, because one
+    parameter runs at two widths when two pages print it differently and both are production.
+    Read off the citation line each response carries, which is it saying what it bound — a
+    page's footer or the open lines under an expansion's body.
     """
     sizes: dict[str, dict[str, set[int]]] = {}
-    for path in CITING:
-        for name, line in fields(client.get(path).text, "id", "citation").items():
+    for path, cited_at in CITING:
+        if cited_at != mount:
+            continue
+        for name, line in fields(client.get(path).text, *mount).items():
             for parameter, value in bound(line).items():
                 if re.fullmatch(r"-?\d+", value):
                     sizes.setdefault(name, {}).setdefault(parameter, set()).add(int(value))
@@ -300,7 +305,7 @@ def test_the_pages_run_at_the_production_sizes(client: TestClient) -> None:
     the width their surface names, that half says which width that is. Read off the profile
     alone, the two would be one assertion comparing a number with itself.
     """
-    ran = ran_at(client)
+    ran = ran_at(client, PAGE_MOUNT)
     assert ran["view_records"]["page_records"] == {100}
     assert ran["view_records"]["preview_chars"] == {bounds.RECORDS_WIDTHS.preview_chars}
     assert ran["view_offload"]["chunk_chars"] == {50_000}
@@ -323,6 +328,17 @@ def test_the_pages_run_at_the_production_sizes(client: TestClient) -> None:
     for header in ("view_turn_header", "view_call_header", "view_tool_header", "view_run_header"):
         assert ran[header]["head_chars"] == {bounds.HEADER_WIDTHS.head_chars}, header
         assert ran[header]["detail_chars"] == {4_000}, header
+    # An expansion reads the same header at widths of its own, cutting the fat value to a head
+    # instead of a preview. Read on its own mount, because a set merged with the pages' would
+    # hold both numbers and say of neither which surface ran it. Whatever a body cites, so a
+    # third body scenario is covered by the kind of read it makes rather than by its name.
+    opened = ran_at(client, FRAGMENT_MOUNT)
+    previewed = {
+        name: sizes["detail_chars"] for name, sizes in opened.items() if "detail_chars" in sizes
+    }
+    assert previewed, "no body scenario cites a header, so nothing here reads an expansion"
+    for header, widths in previewed.items():
+        assert widths == {bounds.EXPANSION_WIDTHS.detail_chars}, header
     # The session header is the widest of the panes: two of its columns are lists that grow
     # with the session, so it cuts the members and caps how many it shows.
     assert ran["view_session_header"]["head_chars"] == {bounds.HEADER_WIDTHS.head_chars}
@@ -553,7 +569,7 @@ def test_every_route_the_viewer_exposes_is_in_the_payload_sweep(client: TestClie
         for route in client.app.routes  # pyrefly: ignore
         if isinstance(route, APIRoute)
     }
-    assert exposed == set(SCENARIOS)
+    assert exposed == SERVED_ROUTES
 
 
 @pytest.mark.parametrize("path", sorted(scenario.url for scenario in SCENARIOS.values()))

@@ -113,6 +113,7 @@ A green suite proves the tests ran, not that they would notice the code being wr
 - Pass mutant globs to scope it yourself: `mise run mutate 'hyphae.view.text.format.*'`. A mutant is named `<module path>.x_<function>__mutmut_<n>`, and a method's `<module path>.xǁ<Class>ǁ<method>__mutmut_<n>` — mutmut mangles the name it wraps, so a glob written against the plain function name matches nothing
 - 🎉 is a killed mutant, 🙁 a survivor. Read the survivors with `uv run mutmut browse`
 - Out of `check`, because it re-runs the covering tests once per mutant
+- A leaf that reads the tree it runs from — its own source, this repo's task lines, the checkout — gets `@pytest.mark.reads_the_repo` and the run drops it. `mutants/` holds a copy of `src`, `tests` and `pyproject.toml` and nothing else, so it is neither a git checkout nor a mise project, and every function in it is a family of `x_<function>__mutmut_<n>` variants taking `*args, **kwargs`. An unmarked one reds the baseline before a single mutant runs; the price of marking it is that a mutant only it would catch survives (`pyproject.toml`)
 
 **Every run is cold and serial, so the number reproduces.** The task deletes `mutants/` first, because mutmut caches verdicts there, and passes `--max-children 1`. Run in parallel the same cold scope reported three different survivor counts; serial it reports the same one every time, and always the largest — concurrency scores kills the suite did not earn. A survivor count from a parallel run is a hypothesis. Both cost wall time, which is the price of quoting the number.
 

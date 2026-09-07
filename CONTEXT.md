@@ -73,6 +73,8 @@ What each page shows and cites: `docs/viewer.md`; the code: one package per page
 ## Node-page anatomy
 
 - **Node** — anything that gets a page: session, turn, agent run, api call, tool call, compaction, or bucket
+- **Kind** — which of the eight things a node is; its row in `src/hyphae/view/pages/node/kinds.py:KINDS` says what its page reads, lists and previews, and `nav_tree.py:LEVELS` what hangs under it in each preset
+- **Shape** — the kind of child a children log lists, or none; the columns are the shape's (`src/hyphae/view/pages/node/columns.py:COLUMNS`), and a kind's row names both the shape under it and the shape that lists it
 - **Bucket** — a synthetic node gathering rows the transcript attached to nothing, kept visible rather than dropped or given a fake parent; it stands for no store row, so its title names what is missing
 - **Unattributed** — a thread's bucket of api calls that answer no turn, such as calls before the first prompt
 - **Unattached** — the session's one bucket of agent runs no tool call spawned; it spans every thread

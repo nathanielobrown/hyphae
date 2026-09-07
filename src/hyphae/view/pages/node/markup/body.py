@@ -19,7 +19,7 @@ import htpy
 from hyphae.view.citation import Cited
 from hyphae.view.components import Html, citation, parts
 from hyphae.view.nodes import Node, run_url
-from hyphae.view.pages.node.columns import Shape, spanned
+from hyphae.view.pages.node.columns import Shape
 from hyphae.view.pages.node.markup.logs import Logged, log
 from hyphae.view.text import cuts, render
 from hyphae.view.text import format as fmt
@@ -189,6 +189,7 @@ def expansion(
     children: int | None,
     rows: Sequence[Logged],
     citations: Mapping[str, Cited],
+    span: int,
 ) -> Html:
     """One node's body alone, for a log row on somebody else's page.
 
@@ -199,11 +200,12 @@ def expansion(
     accordion of accordions, and the node already has a page.
 
     A row of the log's own table, swapped in after the row that asked for it, spanning every
-    column that row fills: the parent's shape is not in the URL, so the span comes from the
-    kind of node this is — `columns.spanned` maps it back to the log that lists it.
+    column that row fills. `span` is that count, passed in rather than worked out here: the
+    parent's shape is not in the URL, and which log lists a kind is the kind table's to say
+    (`pages/node/kinds.py`), not a markup component's.
     """
     return htpy.tr(".expansion", data_expansion=node.kind)[
-        htpy.td(colspan=spanned(node.kind))[
+        htpy.td(colspan=span)[
             [
                 body(node=node, facts=facts, suffix=suffix),
                 log(

@@ -212,16 +212,18 @@ def unattributed(
     return Standing(rows[0], (timeline, binds)) if rows else None
 
 
-def _thread_level(
-    connection: duckdb.DuckDBPyConnection, corpus: Corpus, source: str, *, unattached: bool
-) -> Level:
+def _thread_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
     """One thread's own children: its turns and the compactions between them, then its buckets.
 
-    A session and a run read alike — the difference is the source, and that only the session
+    A session and a run read alike — the difference is the thread, and that only the session
     holds the unattached bucket, which spans every thread rather than sitting on one. Only the
     compactions that happened between two turns are here; one that happened *during* a turn is
     a child of that turn (`_marks`).
+
+    A run's thread is its own id, read off `node_id` rather than `source`: the two say the same
+    thing on a run's `Ref`, and a hand-typed URL may leave `source` off where the id is there.
     """
+    source = MAIN_SOURCE if at.kind is Kind.SESSION else at.node_id
     # One mapping per query, because the two take different widths — and the mapping a query
     # runs under is the mapping it is cited by, so a reader re-running the line gets this page.
     keys = {"session_id": corpus.session_id, "source": source}
@@ -255,7 +257,7 @@ def _thread_level(
     )
     if standing is not None:
         placed.append(unattributed_node(corpus.session_id, source, standing.row, corpus.held))
-    if unattached:
+    if at.kind is Kind.SESSION:
         loose_runs = [run for run in corpus.runs if run["spawn_source"] is None]
         if loose_runs:
             placed.append(unattached_node(corpus.session_id, loose_runs, corpus.held))
@@ -369,16 +371,16 @@ def spread(corpus: Corpus, node: Node, depth: int) -> list[NavTreeRow]:
     return rows
 
 
-def _calls_level(
-    connection: duckdb.DuckDBPyConnection, corpus: Corpus, source: str, turn_id: str | None
-) -> Level:
+def _calls_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
     """The api calls under one turn, with its compactions among them.
 
-    `turn_id` NULL is the unattributed bucket's level — the calls that answer no turn. One
-    function for both because the two differ by that binding. No run is here: a run hangs
-    under the tool call that spawned it, two levels down, and `spread` is what stands it
-    against a shut row.
+    At a bucket the turn is NULL — the calls that answer no turn. One function for both
+    because the two differ by that binding, which the kind decides the way `_agent_thread`
+    decides it. No run is here: a run hangs under the tool call that spawned it, two levels
+    down, and `spread` is what stands it against a shut row.
     """
+    source = str(at.source)
+    turn_id = None if at.kind is Kind.UNATTRIBUTED else at.node_id
     keyed = bound(
         Page.NAV_TREE_CALLS,
         bounds.NAV_TREE_WIDTHS,
@@ -398,19 +400,17 @@ def _calls_level(
     return Level(level, [(Page.NAV_TREE_CALLS, keyed), *mark_ran])
 
 
-def _tools_level(
-    connection: duckdb.DuckDBPyConnection,
-    corpus: Corpus,
-    source: str,
-    api_call_id: str | None,
-    turn_id: str | None,
-) -> Level:
-    """The tool calls under one api call, or — at `api_call_id` NULL — under one turn.
+def _tools_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+    """The tool calls under one api call, or — at a turn or a bucket — under that instead.
 
     The second is `noapi`'s level: the api calls are folded away, so their tool calls stand
     under the turn in call-then-tool order and the turn's compactions interleave by time. A
-    call's own level holds no compaction, because that hangs off the turn.
+    call's own level holds no compaction, because that hangs off the turn. Which of the two
+    bindings the node is, the kind says: everything else the query keys by is NULL.
     """
+    source = str(at.source)
+    api_call_id = at.node_id if at.kind is Kind.CALL else None
+    turn_id = at.node_id if at.kind is Kind.TURN else None
     keyed = bound(
         Page.NAV_TREE_TOOLS,
         bounds.NAV_TREE_WIDTHS,
@@ -503,65 +503,46 @@ def _agent_call(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) 
     return Level(_runs(corpus, placed), [])
 
 
-def _session_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
-    return _thread_level(connection, corpus, MAIN_SOURCE, unattached=True)
-
-
-def _run_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
-    return _thread_level(connection, corpus, at.node_id, unattached=False)
-
-
-def _turn_calls(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
-    return _calls_level(connection, corpus, str(at.source), at.node_id)
-
-
-def _bucket_calls(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
-    return _calls_level(connection, corpus, str(at.source), None)
-
-
-def _turn_tools(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
-    return _tools_level(connection, corpus, str(at.source), None, at.node_id)
-
-
-def _bucket_tools(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
-    return _tools_level(connection, corpus, str(at.source), None, None)
-
-
-def _call_tools(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
-    return _tools_level(connection, corpus, str(at.source), at.node_id, None)
-
-
 Builder = Callable[[duckdb.DuckDBPyConnection, Corpus, Ref], Level]
 
-# What one kind of node holds under one filter preset — the design's kind × preset table, one
-# entry per cell. Total over `Kind × Preset` on purpose, and spelled out rather than defaulted:
-# the NavTree opens whatever the path reaches, so a missing cell would be a page that renders and
-# then raises halfway down, and a cell a preset passes through is a decision either way.
-CHILDREN: dict[tuple[Kind, Preset], Builder] = {
-    (Kind.SESSION, Preset.FULL): _session_level,
-    (Kind.SESSION, Preset.NO_API): _session_level,
-    (Kind.SESSION, Preset.AGENTS): _agent_session,
-    (Kind.RUN, Preset.FULL): _run_level,
-    (Kind.RUN, Preset.NO_API): _run_level,
-    (Kind.RUN, Preset.AGENTS): _agent_children,
-    (Kind.TURN, Preset.FULL): _turn_calls,
-    (Kind.TURN, Preset.NO_API): _turn_tools,
-    (Kind.TURN, Preset.AGENTS): _agent_thread,
-    (Kind.UNATTRIBUTED, Preset.FULL): _bucket_calls,
-    (Kind.UNATTRIBUTED, Preset.NO_API): _bucket_tools,
-    (Kind.UNATTRIBUTED, Preset.AGENTS): _agent_thread,
-    (Kind.CALL, Preset.FULL): _call_tools,
-    (Kind.CALL, Preset.NO_API): _call_tools,
-    (Kind.CALL, Preset.AGENTS): _agent_call,
-    (Kind.TOOL, Preset.FULL): _tool_runs,
-    (Kind.TOOL, Preset.NO_API): _tool_runs,
-    (Kind.TOOL, Preset.AGENTS): _tool_runs,
-    (Kind.COMPACTION, Preset.FULL): _leaf,
-    (Kind.COMPACTION, Preset.NO_API): _leaf,
-    (Kind.COMPACTION, Preset.AGENTS): _leaf,
-    (Kind.UNATTACHED, Preset.FULL): _unattached_level,
-    (Kind.UNATTACHED, Preset.NO_API): _unattached_level,
-    (Kind.UNATTACHED, Preset.AGENTS): _unattached_level,
+
+class Under(NamedTuple):
+    """What one kind of node holds, one builder per preset.
+
+    A row of the kind × preset table. Every builder takes the same three arguments — the
+    connection, the session's corpus and the node's own ref — so a cell is picked by kind and
+    reads its ids off the ref. Builders that read nothing keep the connection: a uniform
+    signature is what lets the table be read without a wrapper per cell.
+    """
+
+    full: Builder
+    no_api: Builder
+    agents: Builder
+
+    def under(self, preset: Preset) -> Builder:
+        """Which of the three the reader's preset asks for, as a match the checker closes."""
+        match preset:
+            case Preset.FULL:
+                return self.full
+            case Preset.NO_API:
+                return self.no_api
+            case Preset.AGENTS:
+                return self.agents
+
+
+# What each kind of node holds under each preset. Total over `Kind` — the NavTree opens whatever
+# the path reaches, so a kind with no row is a page that renders and then raises halfway down —
+# and spelled out rather than defaulted: a preset that shows the same children as `full` is a
+# decision either way. `tests/view/pages/node/test_kinds.py` is what closes the dict.
+LEVELS: dict[Kind, Under] = {
+    Kind.SESSION: Under(_thread_level, _thread_level, _agent_session),
+    Kind.RUN: Under(_thread_level, _thread_level, _agent_children),
+    Kind.TURN: Under(_calls_level, _tools_level, _agent_thread),
+    Kind.UNATTRIBUTED: Under(_calls_level, _tools_level, _agent_thread),
+    Kind.CALL: Under(_tools_level, _tools_level, _agent_call),
+    Kind.TOOL: Under(_tool_runs, _tool_runs, _tool_runs),
+    Kind.COMPACTION: Under(_leaf, _leaf, _leaf),
+    Kind.UNATTACHED: Under(_unattached_level, _unattached_level, _unattached_level),
 }
 
 
@@ -585,9 +566,10 @@ def children(
     the NavTree twice — `noapi` hoists a tool call to its turn, so an api call spliced back in
     would render its own copy of a row already sitting a level higher.
     """
-    level = CHILDREN[(at.kind, preset)](connection, corpus, at)
+    row = LEVELS[at.kind]
+    level = row.under(preset)(connection, corpus, at)
     if descends is not None and all(child.key != descends for child in level.nodes):
-        return CHILDREN[(at.kind, Preset.FULL)](connection, corpus, at)
+        return row.full(connection, corpus, at)
     return level
 
 

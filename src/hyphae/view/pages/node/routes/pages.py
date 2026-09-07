@@ -1,45 +1,20 @@
 """A URL for every node of a session: the session, a turn, a run, a call, a tool, and the rest.
 
-Each route reads only what its own kind needs and hands the rest to `browse`, which is the page
-they all serve. The two buckets are here as well — a thread's api calls that answer no turn,
-and the session's runs no tool call spawned — because a bucket gets a page like anything else
-(`CONTEXT.md`).
+Five routes for eight kinds, because the four recorded on a thread read at one URL. What a
+route does is name the node — a `Ref`, which is a kind and two ids — and `browse` reads the
+rest off that kind's row in `kinds.KINDS`. The two buckets are here as well, a thread's api
+calls that answer no turn and the session's runs no tool call spawned, because a bucket gets a
+page like anything else (`CONTEXT.md`).
 """
 
-import duckdb
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
-from hyphae.analyze.queries import ParamValue
-from hyphae.model import MAIN_SOURCE
-from hyphae.view import bounds, builders, detail, nodes
 from hyphae.view.deps import ViewerDep
-from hyphae.view.detail import details, preview
 from hyphae.view.nodes import Kind, Ref
-from hyphae.view.pages.node import nav_tree, reads
-from hyphae.view.pages.node.columns import Shape
-from hyphae.view.pages.node.knobs import (
-    skipped,
-    sliced,
-)
-from hyphae.view.pages.node.routes.browse import (
-    Seen,
-    browse,
-    call_log,
-    run_log,
-    turn_log,
-)
+from hyphae.view.pages.node.kinds import KINDS
+from hyphae.view.pages.node.routes.browse import browse
 from hyphae.view.pages.node.routes.knobs import KnobsDep
-from hyphae.view.store import (
-    TURN_CURSOR,
-    Fragment,
-    Page,
-    Row,
-    bound,
-    listed,
-    page_rows,
-    window,
-)
 
 router = APIRouter()
 
@@ -52,73 +27,32 @@ def session_page(
     page: int = 1,
 ) -> Response:
     """A session's own node: what it was, and its main thread as the NavTree's first level."""
-
-    def read(connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, head: Row) -> Seen:
-        offset = skipped(page, knobs.log)
-        timeline = bound(Page.TIMELINE, bounds.LOG_WIDTHS, session_id=session_id)
-        turns = window(connection, Page.TIMELINE, TURN_CURSOR, offset, knobs.log, **timeline)
-        return Seen(
-            header=head,
-            trail=[Ref(Kind.SESSION, None, session_id)],
-            shape=Shape.TURNS,
-            rows=turn_log(corpus, MAIN_SOURCE, turns.rows),
-            total=turns.total,
-            details=[],
-            record=None,
-            ran=[(Page.TIMELINE, timeline | {"offset": offset, "limit": knobs.log})],
-        )
-
-    return browse(viewer, session_id, MAIN_SOURCE, knobs, page, read)
+    return browse(viewer, session_id, Ref(Kind.SESSION, None, session_id), knobs, page)
 
 
-@router.get("/session/{session_id}/thread/{source}/turn/{turn_id}")
-def turn_page(
+@router.get("/session/{session_id}/thread/{source}/{kind}/{node_id}")
+def thread_page(
+    kind: str,
     session_id: str,
     source: str,
-    turn_id: str,
+    node_id: str,
     viewer: ViewerDep,
     knobs: KnobsDep,
     page: int = 1,
 ) -> Response:
-    """One turn: what it was asked, and the api calls that answered it."""
+    """One node recorded on a thread: a turn, an api call, a tool call, or a compaction.
 
-    def read(connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, head: Row) -> Seen:
-        bindings = bound(
-            Page.TURN_HEADER,
-            bounds.HEADER_WIDTHS,
-            {"detail_chars": knobs.detail},
-            session_id=session_id,
-            source=source,
-            turn_id=turn_id,
-        )
-        keyed = {"session_id": session_id, "source": source, "turn_id": turn_id}
-        rows = page_rows(connection, Page.TURN_HEADER, **bindings)
-        if not rows:
-            raise HTTPException(404, "No turn with that id is in this thread.")
-        # Which line of the transcript each turn of this thread came from. Read for the
-        # whole thread because that is what the query answers; two identifier columns per
-        # turn, and the pane keeps the one row it is about.
-        thread: dict[str, ParamValue] = {"session_id": session_id, "source": source}
-        archived = {
-            row["turn_id"]: row["line_no"]
-            for row in page_rows(connection, Page.TURN_RECORDS, **thread)
-        }
-        calls, log_rows, ran = call_log(connection, corpus, source, turn_id, page, knobs.log)
-        return Seen(
-            header=rows[0],
-            trail=[Ref(Kind.TURN, source, turn_id)],
-            shape=Shape.CALLS,
-            rows=log_rows,
-            total=calls.total,
-            details=details(
-                preview(detail.TURN_PROMPT, rows[0], size=knobs.detail, **keyed),
-                preview(detail.TURN_COMMAND_ARGS, rows[0], size=knobs.detail, **keyed),
-            ),
-            record=archived.get(turn_id),
-            ran=[(Page.TURN_HEADER, bindings), *ran, (Page.TURN_RECORDS, thread)],
-        )
+    One route for the four, because a node page is one response and their URLs say the same
+    thing — which thread, which kind, which id. What the kind decides is the header read and
+    what hangs under it, and that is a row of `KINDS` rather than a route.
 
-    return browse(viewer, session_id, source, knobs, page, read)
+    `KINDS` is total over `Kind`, so the word alone does not say the URL is one this serves: a
+    session, an agent run and the two buckets each read at a path of their own, and answering
+    for one here would key its header by a thread it was never recorded on.
+    """
+    if kind not in set(Kind) or not KINDS[Kind(kind)].in_thread:
+        raise HTTPException(404, "No node of that kind is read on a thread.")
+    return browse(viewer, session_id, Ref(Kind(kind), source, node_id), knobs, page)
 
 
 @router.get("/session/{session_id}/run/{run_id}")
@@ -134,201 +68,7 @@ def run_page(
     A run's id is also the `source` its rows carry, which is why the URL needs no thread
     segment and why the enrichment is read at the run.
     """
-
-    def read(connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, head: Row) -> Seen:
-        bindings = bound(
-            Page.RUN_HEADER,
-            bounds.HEADER_WIDTHS,
-            {"detail_chars": knobs.detail},
-            session_id=session_id,
-            run_id=run_id,
-        )
-        keyed = {"session_id": session_id, "run_id": run_id}
-        rows = page_rows(connection, Page.RUN_HEADER, **bindings)
-        if not rows:
-            raise HTTPException(404, "No run with that id is in this session.")
-        offset = skipped(page, knobs.log)
-        timeline = bound(Page.RUN_TIMELINE, bounds.LOG_WIDTHS, session_id=session_id, source=run_id)
-        turns = window(connection, Page.RUN_TIMELINE, TURN_CURSOR, offset, knobs.log, **timeline)
-        return Seen(
-            header=rows[0],
-            trail=[Ref(Kind.RUN, run_id, run_id)],
-            shape=Shape.TURNS,
-            rows=turn_log(corpus, run_id, turns.rows),
-            total=turns.total,
-            details=details(
-                preview(detail.RUN_BRIEF, rows[0], size=knobs.detail, **keyed),
-                # Then the ask and the answer, off the call that spawned it.
-                preview(detail.RUN_PROMPT, rows[0], size=knobs.detail, **keyed),
-                preview(detail.RUN_RESULT, rows[0], size=knobs.detail, **keyed),
-            ),
-            record=None,
-            ran=[
-                (Page.RUN_HEADER, bindings),
-                (Page.RUN_TIMELINE, timeline | {"offset": offset, "limit": knobs.log}),
-            ],
-        )
-
-    return browse(viewer, session_id, run_id, knobs, page, read)
-
-
-@router.get("/session/{session_id}/thread/{source}/call/{api_call_id}")
-def call_page(
-    session_id: str,
-    source: str,
-    api_call_id: str,
-    viewer: ViewerDep,
-    knobs: KnobsDep,
-    page: int = 1,
-) -> Response:
-    """One api call: what it answered, what it thought, and the tools it called."""
-
-    def read(connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, head: Row) -> Seen:
-        bindings = bound(
-            Page.CALL_HEADER,
-            bounds.HEADER_WIDTHS,
-            {"detail_chars": knobs.detail},
-            session_id=session_id,
-            source=source,
-            api_call_id=api_call_id,
-        )
-        keyed = {"session_id": session_id, "source": source, "api_call_id": api_call_id}
-        rows = page_rows(connection, Page.CALL_HEADER, **bindings)
-        if not rows:
-            raise HTTPException(404, "No api call with that id is in this thread.")
-        row = rows[0]
-        tools = bound(
-            Fragment.CALL_TOOLS,
-            bounds.LOG_WIDTHS,
-            session_id=session_id,
-            source=source,
-            api_call_id=api_call_id,
-            skipped=skipped(page, knobs.log),
-            page_tools=knobs.log,
-        )
-        called = listed(page_rows(connection, Fragment.CALL_TOOLS, **tools))
-        return Seen(
-            header=row,
-            # The call's own header says which turn it answers, so its place costs no
-            # read: a NULL turn puts it in its thread's unattributed bucket instead.
-            trail=[nav_tree.home(source, row["turn_id"]), Ref(Kind.CALL, source, api_call_id)],
-            shape=Shape.TOOLS,
-            rows=[
-                reads.logged(
-                    Shape.TOOLS,
-                    builders.tool_node(session_id, source, item, nodes.NO_LEDGER),
-                    item,
-                )
-                for item in called.rows
-            ],
-            total=called.total,
-            details=details(
-                preview(detail.CALL_TEXT, row, size=knobs.detail, **keyed),
-                preview(detail.CALL_THINKING, row, size=knobs.detail, **keyed),
-            ),
-            record=None,
-            ran=[(Page.CALL_HEADER, bindings), (Fragment.CALL_TOOLS, tools)],
-        )
-
-    return browse(viewer, session_id, source, knobs, page, read)
-
-
-@router.get("/session/{session_id}/thread/{source}/tool/{tool_call_id}")
-def tool_page(
-    session_id: str,
-    source: str,
-    tool_call_id: str,
-    viewer: ViewerDep,
-    knobs: KnobsDep,
-    page: int = 1,
-) -> Response:
-    """One tool call: what it was passed, and what it returned. Nothing hangs under it."""
-
-    def read(connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, head: Row) -> Seen:
-        bindings = bound(
-            Page.TOOL_HEADER,
-            bounds.HEADER_WIDTHS,
-            {"detail_chars": knobs.detail},
-            session_id=session_id,
-            source=source,
-            tool_call_id=tool_call_id,
-        )
-        keyed = {"session_id": session_id, "source": source, "tool_call_id": tool_call_id}
-        rows = page_rows(connection, Page.TOOL_HEADER, **bindings)
-        if not rows:
-            raise HTTPException(404, "No tool call with that id is in this thread.")
-        row = rows[0]
-        return Seen(
-            header=row,
-            # The whole path down, out of one read: the call that made it, and the turn
-            # that call answers — else that thread's bucket, by the same rule.
-            trail=[
-                nav_tree.home(source, row["turn_id"]),
-                Ref(Kind.CALL, source, row["api_call_id"]),
-                Ref(Kind.TOOL, source, tool_call_id),
-            ],
-            shape=Shape.NONE,
-            rows=[],
-            total=0,
-            details=details(
-                # The command first, where the call ran one: it is what the input is about,
-                # and the input below it is the record it was read out of.
-                preview(detail.TOOL_COMMAND, row, size=knobs.detail, **keyed),
-                preview(detail.TOOL_INPUT, row, size=knobs.detail, **keyed),
-                preview(detail.TOOL_RESULT, row, size=knobs.detail, **keyed),
-            ),
-            record=None,
-            ran=[(Page.TOOL_HEADER, bindings)],
-        )
-
-    return browse(viewer, session_id, source, knobs, page, read)
-
-
-@router.get("/session/{session_id}/thread/{source}/compaction/{compaction_id}")
-def compaction_page(
-    session_id: str,
-    source: str,
-    compaction_id: str,
-    viewer: ViewerDep,
-    knobs: KnobsDep,
-    page: int = 1,
-) -> Response:
-    """One compaction: where a thread's context was rewritten, and what that cost it.
-
-    Read out of the thread's markers rather than by id — a compaction has no query of its
-    own because the thread's whole set is what the NavTree beside it renders anyway.
-    """
-
-    def read(connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, head: Row) -> Seen:
-        bindings = bound(
-            Page.COMPACTIONS, bounds.HEADER_WIDTHS, session_id=session_id, source=source
-        )
-        found = [
-            row
-            for row in page_rows(connection, Page.COMPACTIONS, **bindings)
-            if row["compaction_id"] == compaction_id
-        ]
-        if not found:
-            raise HTTPException(404, "No compaction with that id is in this thread.")
-        # Where it hangs is what the query already answered: under the turn it happened
-        # during, else beside the turns of its thread. Seeded rather than resolved,
-        # because a turn a timestamp lands in is a read this row has made.
-        turn_id = found[0]["turn_id"]
-        return Seen(
-            header=found[0],
-            trail=[
-                *([Ref(Kind.TURN, source, turn_id)] if turn_id is not None else []),
-                Ref(Kind.COMPACTION, source, compaction_id),
-            ],
-            shape=Shape.NONE,
-            rows=[],
-            total=0,
-            details=[],
-            record=None,
-            ran=[(Page.COMPACTIONS, bindings)],
-        )
-
-    return browse(viewer, session_id, source, knobs, page, read)
+    return browse(viewer, session_id, Ref(Kind.RUN, run_id, run_id), knobs, page)
 
 
 @router.get("/session/{session_id}/thread/{source}/unattributed")
@@ -341,24 +81,7 @@ def unattributed_page(
 ) -> Response:
     """One thread's api calls that answer no turn — a resume's calls answer turns that
     live in the session it resumed, and this is where they are read."""
-
-    def read(connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, head: Row) -> Seen:
-        standing = nav_tree.unattributed(connection, corpus, source)
-        if standing is None:
-            raise HTTPException(404, "Every api call on this thread answers a turn.")
-        calls, log_rows, ran = call_log(connection, corpus, source, None, page, knobs.log)
-        return Seen(
-            header=standing.row,
-            trail=[Ref(Kind.UNATTRIBUTED, source, source)],
-            shape=Shape.CALLS,
-            rows=log_rows,
-            total=calls.total,
-            details=[],
-            record=None,
-            ran=[standing.ran, *ran],
-        )
-
-    return browse(viewer, session_id, source, knobs, page, read)
+    return browse(viewer, session_id, Ref(Kind.UNATTRIBUTED, source, source), knobs, page)
 
 
 @router.get("/session/{session_id}/unattached")
@@ -373,21 +96,4 @@ def unattached_page(
     Session-scoped rather than per thread: what makes a run unattached is that nothing says
     which thread spawned it, so the bucket hangs off the session itself.
     """
-
-    def read(connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, head: Row) -> Seen:
-        loose = [run for run in corpus.runs if run["spawn_source"] is None]
-        if not loose:
-            raise HTTPException(404, "Every agent run in this session was placed.")
-        runs = sliced(loose, page, knobs.log)
-        return Seen(
-            header=head,
-            trail=[Ref(Kind.UNATTACHED, None, session_id)],
-            shape=Shape.RUNS,
-            rows=run_log(corpus, runs.rows),
-            total=runs.total,
-            details=[],
-            record=None,
-            ran=[],
-        )
-
-    return browse(viewer, session_id, MAIN_SOURCE, knobs, page, read)
+    return browse(viewer, session_id, Ref(Kind.UNATTACHED, None, session_id), knobs, page)

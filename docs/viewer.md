@@ -41,11 +41,8 @@ Solid edges lead to pages with their own URLs. Dotted edges fetch a fragment int
 | Projects page | `/` | Every project the store holds sessions for, most recently active first |
 | Session list | `/sessions` | One page of sessions, under the filter, sort and size the URL carries |
 | A session | `/session/{session_id}` | A session's own node: what it was, and its main thread as the NavTree's first level |
-| A turn | `/session/{session_id}/thread/{source}/turn/{turn_id}` | One turn: what it was asked, and the api calls that answered it |
+| A node on a thread | `/session/{session_id}/thread/{source}/{kind}/{node_id}` | One node recorded on a thread: a turn, an api call, a tool call, or a compaction |
 | An agent run | `/session/{session_id}/run/{run_id}` | One agent run: the brief it was given, and its own thread of turns |
-| An api call | `/session/{session_id}/thread/{source}/call/{api_call_id}` | One api call: what it answered, what it thought, and the tools it called |
-| A tool call | `/session/{session_id}/thread/{source}/tool/{tool_call_id}` | One tool call: what it was passed, and what it returned |
-| A compaction | `/session/{session_id}/thread/{source}/compaction/{compaction_id}` | One compaction: where a thread's context was rewritten, and what that cost it |
 | Unattributed calls | `/session/{session_id}/thread/{source}/unattributed` | One thread's api calls that answer no turn — a resume's calls answer turns that live in the session it resumed, and this is where they are read |
 | Unattached runs | `/session/{session_id}/unattached` | The session's agent runs no spawning call resolved |
 | Errors page | `/session/{session_id}/errors` | Every failed tool call of one session, in the order they happened |
@@ -55,6 +52,8 @@ Solid edges lead to pages with their own URLs. Dotted edges fetch a fragment int
 <!-- aigarden:end -->
 
 `build_app` in `src/hyphae/view/app.py` extends the routes of one package per page onto the app, fragments included, and the table above is read back off the app it builds. Nothing renders in the reading pane that a cold GET of its own URL doesn't render whole, NavTree and all.
+
+Eight kinds of node share one page, so the routes above are fewer than the kinds: four are recorded on a thread and read at one URL that names the kind. What a kind's page reads, lists and previews is its own row in `src/hyphae/view/pages/node/kinds.py:KINDS`, and what hangs under it in each preset is its row in `src/hyphae/view/pages/node/nav_tree.py:LEVELS`.
 
 ## The landing page counts projects
 

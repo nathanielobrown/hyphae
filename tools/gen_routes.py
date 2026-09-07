@@ -44,17 +44,15 @@ EXCLUDED = ("/openapi.json",)
 
 # What a reader calls each page, keyed by the route that serves it. These are terms, not
 # summaries: `CONTEXT.md` fixes the ones it defines, and the node pages are named for the kind
-# of node they open. A route with no name here crashes `generate` — naming a new page is the
+# of node they open — except where one route reads four kinds, which is named for the slot the
+# kind arrives in. A route with no name here crashes `generate` — naming a new page is the
 # same act as coining the word for it, and the description column is where the sentence goes.
 PAGE_NAMES = {
     "/": "Projects page",
     "/sessions": "Session list",
     "/session/{session_id}": "A session",
-    "/session/{session_id}/thread/{source}/turn/{turn_id}": "A turn",
+    "/session/{session_id}/thread/{source}/{kind}/{node_id}": "A node on a thread",
     "/session/{session_id}/run/{run_id}": "An agent run",
-    "/session/{session_id}/thread/{source}/call/{api_call_id}": "An api call",
-    "/session/{session_id}/thread/{source}/tool/{tool_call_id}": "A tool call",
-    "/session/{session_id}/thread/{source}/compaction/{compaction_id}": "A compaction",
     "/session/{session_id}/thread/{source}/unattributed": "Unattributed calls",
     "/session/{session_id}/unattached": "Unattached runs",
     "/session/{session_id}/errors": "Errors page",

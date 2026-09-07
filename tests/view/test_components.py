@@ -222,6 +222,7 @@ def test_importing_a_component_pulls_in_no_web_framework() -> None:
 # --- What a component's signature must look like ------------------------------------------
 
 
+@pytest.mark.reads_the_repo  # reads viewer source
 @pytest.mark.parametrize("module", MODULES, ids=lambda module: module.name)
 def test_every_component_clears_the_signature_floor(module: Path) -> None:
     """Each component takes keyword arguments the checker can hold and hands back markup.
