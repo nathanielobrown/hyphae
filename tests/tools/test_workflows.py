@@ -34,6 +34,22 @@ FORK_GUARD = "github.event.pull_request.head.repo.full_name == github.repository
 # ever running on main — where the baseline every later build is measured against comes from.
 PUSH_CLAUSE = "github.event_name != 'pull_request'"
 
+# The PR branch's own tip, which stays in history and lands on main. `github.sha` on a
+# `pull_request` event is not this: it is the merge preview GitHub builds for the run and throws
+# away, whose content moves whenever the base does.
+HEAD_SHA = "${{ github.event.pull_request.head.sha }}"
+
+# What the upload tells Chromatic about the commit it is sending, beside the token. The four
+# `chromaui/action` sets on a pull request, since a bare `npx chromatic` sets none of them; every
+# one reads empty on a push, which is what turns the override off.
+CHROMATIC_ENV = {
+    "CHROMATIC_PROJECT_TOKEN": "${{ secrets.CHROMATIC_PROJECT_TOKEN }}",
+    "CHROMATIC_SHA": HEAD_SHA,
+    "CHROMATIC_BRANCH": "${{ github.head_ref }}",
+    "CHROMATIC_SLUG": "${{ github.event.pull_request.head.repo.full_name }}",
+    "CHROMATIC_PULL_REQUEST_SHA": "${{ github.sha }}",
+}
+
 
 def workflows() -> dict[str, str]:
     """Every workflow GitHub would run, by file name, as text."""
@@ -71,6 +87,46 @@ def test_the_browser_tier_checks_out_the_history_a_baseline_is_found_in() -> Non
     checkouts = [step for step in steps(UPLOADER) if "actions/checkout" in step.get("uses", "")]
     assert len(checkouts) == 1, f"{UPLOADER} checks out {len(checkouts)} times"
     assert checkouts[0].get("with", {}).get("fetch-depth") == 0
+
+
+def test_the_browser_tier_snapshots_the_commit_it_tells_chromatic_it_snapshotted() -> None:
+    """The sweep runs on the PR branch's own tip, not on GitHub's merge preview.
+
+    A baseline is accepted against a commit, so the pages a build sends have to be the pages that
+    commit renders. Checked out by default, a `pull_request` run builds a throwaway merge of the
+    branch into whatever main is at that moment: the same commit snapshots differently every time
+    the base moves, and a change accepted on one run comes back on the next.
+    """
+    checkouts = [step for step in steps(UPLOADER) if "actions/checkout" in step.get("uses", "")]
+    # Empty on a push, where the default checkout is already the commit that ran.
+    assert checkouts[0].get("with", {}).get("ref") == HEAD_SHA
+
+
+def test_the_browser_tier_names_the_commit_chromatic_measures_it_against() -> None:
+    """The upload hands Chromatic the PR's own commit, branch, repo and merge commit.
+
+    Left to itself the CLI reads `GITHUB_SHA` — the merge preview, which no later build descends
+    from — and files the build under a commit nothing can walk back to, so the next build finds no
+    baseline and every page reads as new.
+    """
+    upload = [step for step in steps(UPLOADER) if SECRET in yaml.safe_dump(step.get("env", {}))]
+    assert len(upload) == 1, f"{len(upload)} steps in {UPLOADER} upload"
+    # The whole mapping: a missing one of these is a silent fallback, not an error.
+    assert upload[0]["env"] == CHROMATIC_ENV
+
+
+def test_a_superseded_pull_request_run_is_cancelled_rather_than_uploaded() -> None:
+    """Two runs of one pull request can't send two builds of the same commit to Chromatic.
+
+    Each build asks for its own review, so a second one is a second queue of changes to accept for
+    a commit already accepted. A push to main is never cancelled: it is where the baseline every
+    branch measures against comes from.
+    """
+    workflow = yaml.safe_load(workflows()[UPLOADER])
+    assert workflow["concurrency"] == {
+        "group": "e2e-${{ github.event.pull_request.number || github.ref }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
+    }
 
 
 def test_a_fork_runs_the_browser_tier_and_only_the_upload_stands_behind_the_guard() -> None:
