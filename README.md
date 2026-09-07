@@ -34,7 +34,7 @@ Read the guide for each stage: [the store](docs/store.md), [enrichment](docs/enr
 ## Set up the project
 
 ```bash
-mise run sync     # install the environment from uv.lock
+mise run setup    # install the environment from uv.lock and the pre-commit hook
 mise run check    # format, lint, type-check, lint the docs, and test
 ```
 

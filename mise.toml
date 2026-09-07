@@ -50,6 +50,40 @@ minimum_release_age_excludes = ["github:nathanielobrown/aigarden"]
 description = "Install/refresh the virtualenv from uv.lock"
 run = "uv sync --all-groups"
 
+# What a fresh clone runs. Loud, for the reason the header gives: it installs something.
+#
+# `git rev-parse --git-path hooks` rather than a hardcoded `.git/hooks` is what makes this work
+# from a worktree, where `.git` is a file and the hooks live in the shared common dir. That
+# sharing is also why we install a *dispatcher* and not a symlink to `tools/pre-commit`: one
+# hooks dir stands behind the main checkout and every worktree, so a fixed link would run one
+# checkout's script no matter which worktree fired it. The shim re-resolves the firing worktree
+# at run time. The heredoc is unquoted so `$name` expands at install time, while the per-run
+# `$top`/`$script`/`$@` are escaped to land in the shim verbatim.
+[tasks.setup]
+description = "Sync the virtualenv and install the git pre-commit hook — what a fresh clone runs"
+run = """
+uv sync --all-groups
+hooks="$(git rev-parse --git-path hooks)"
+mkdir -p "$hooks"
+install_hook() {
+  # rm first: an existing install may be a symlink, and `cat >` would follow it and clobber
+  # the target instead of replacing the hook.
+  local name="$1" dst="$hooks/$1"
+  rm -f "$dst"
+  cat > "$dst" <<HOOK
+#!/usr/bin/env bash
+top="\\$(git rev-parse --show-toplevel)"
+script="\\$top/tools/$name"
+[[ -x "\\$script" ]] && exec "\\$script" "\\$@"
+echo "$name: no $name script found under \\$top" >&2
+exit 1
+HOOK
+  chmod +x "$dst"
+  echo "$name hook installed → $dst"
+}
+install_hook pre-commit
+"""
+
 [tasks.format]
 description = "Format Python with ruff"
 run = "tools/gate.py uv run ruff format ."
@@ -106,9 +140,10 @@ run = 'aigarden mv "$usage_src" "$usage_dst"'
 [tasks.lint-shell]
 description = "Lint the repo's shell scripts with shellcheck"
 # The hooks run on every tool call; a syntax error there is invisible until it
-# silently stops firing. `tests/e2e` holds the Chromatic uploader, where a slip
+# silently stops firing. `tools/pre-commit` is the same trap one level up — it gates every
+# commit. `tests/e2e` holds the Chromatic uploader, where a slip
 # would be seen once a month. Run flat, for the reason the pin in `[tools]` gives.
-run = "tools/gate.py shellcheck .claude/hooks/*.sh tests/e2e/*.sh"
+run = "tools/gate.py shellcheck .claude/hooks/*.sh tests/e2e/*.sh tools/pre-commit"
 
 [tasks.diagram-check]
 description = "Validate a Mermaid file or Markdown's ```mermaid blocks by rendering it"

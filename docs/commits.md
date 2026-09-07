@@ -6,6 +6,8 @@ Each commit is a review unit. Keep it to one change and write a subject a review
 
 Commit as often as you need while working. Before review, shape the branch into a few atomic commits. The reviewed commits land on `main` unchanged, without a squash.
 
+A pre-commit hook holds the staged Python and Markdown to the gates, so a commit can fail before it lands (`tools/pre-commit`, installed by `mise run setup`). Fix what it reports rather than passing `--no-verify`.
+
 Never commit extracted session data or a backend ingest key. `.gitignore` covers `data/` and `.env`; ignore any related files you add.
 
 ## Say what changed in the subject
