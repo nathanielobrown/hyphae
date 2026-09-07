@@ -20,6 +20,7 @@ import duckdb
 
 from hyphae.view.citation import Ran
 from hyphae.view.nodes import Node, Preset
+from hyphae.view.pages.node.models import Walked
 from hyphae.view.pages.node.nav_tree import Corpus, children
 
 
@@ -49,20 +50,11 @@ class _Reader:
         raise ValueError(f"{node.key} is not in the level it was reached through")
 
 
-class Step(NamedTuple):
-    """Where one control goes, and whether taking it leaves the level the reader is on."""
-
-    node: Node
-    # True where the step lands at an ancestor's level rather than beside the selection, which
-    # is what the control marks: the reader is coming out of the branch they were reading.
-    climbed: bool
-
-
 class Walk(NamedTuple):
     """What the two controls point at, and every query answering them."""
 
-    previous: Step | None
-    next: Step | None
+    previous: Walked | None
+    next: Walked | None
     ran: Ran
 
 
@@ -78,7 +70,7 @@ def neighbours(
     return Walk(_previous(reader, chain), _next(reader, chain), reader.ran)
 
 
-def _next(reader: _Reader, chain: Sequence[Node]) -> Step | None:
+def _next(reader: _Reader, chain: Sequence[Node]) -> Walked | None:
     """The node read next: the following sibling, else what follows the thing this sits inside.
 
     Climbing is what closes the walk — a node at the end of its level hands on to whatever
@@ -89,11 +81,11 @@ def _next(reader: _Reader, chain: Sequence[Node]) -> Step | None:
         siblings = reader.children(chain[depth - 1])
         after = reader.place(siblings, chain[depth]) + 1
         if after < len(siblings):
-            return Step(siblings[after], climbed=depth != len(chain) - 1)
+            return Walked(siblings[after], climbed=depth != len(chain) - 1)
     return None
 
 
-def _previous(reader: _Reader, chain: Sequence[Node]) -> Step | None:
+def _previous(reader: _Reader, chain: Sequence[Node]) -> Walked | None:
     """The node read before: the sibling ahead of this one, else the node that holds it.
 
     The parent rather than the parent's previous sibling, which is what next's climb would
@@ -105,5 +97,5 @@ def _previous(reader: _Reader, chain: Sequence[Node]) -> Step | None:
     siblings = reader.children(chain[-2])
     place = reader.place(siblings, chain[-1])
     if place == 0:
-        return Step(chain[-2], climbed=True)
-    return Step(siblings[place - 1], climbed=False)
+        return Walked(chain[-2], climbed=True)
+    return Walked(siblings[place - 1], climbed=False)

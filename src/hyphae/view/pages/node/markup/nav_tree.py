@@ -9,43 +9,12 @@ written here is written that many times (`.claude/rules/viewer-ui.md`).
 """
 
 from collections.abc import Sequence
-from dataclasses import dataclass
-from typing import NamedTuple
 
 import htpy
 
 from hyphae.view.components import Html, parts
-from hyphae.view.nodes import Node, Preset
+from hyphae.view.pages.node.models import NavTreeRow, PresetChoice
 from hyphae.view.text import format as fmt
-
-
-@dataclass(frozen=True)
-class NavTreeRow:
-    """One line of the NavTree: a node at its depth, or the tail standing for what a cap cut."""
-
-    node: Node
-    depth: int
-    selected: bool
-    # Whether this row is a step of the open path above the selection: the stylesheet clamps
-    # those at the top of the scroller, so a reader deep in a level sees what they are inside.
-    ancestor: bool
-    # On a tail row, how many of `node`'s children the cap left out. Zero on a node's own row,
-    # which is what tells the two apart.
-    cut: int = 0
-    # On a tail row, the key of the child the open path descends through, when this level holds
-    # one. The row's own fetch carries it: the cap keeps that child whatever its place in the
-    # level, so the fetch has to know it to leave it out of what it sends back.
-    opened: str | None = None
-
-
-class PresetChoice(NamedTuple):
-    """One preset as the control above the NavTree offers it: where it goes, and whether we are
-    in it."""
-
-    preset: Preset
-    url: str
-    current: bool
-
 
 # What a click on a NavTree row or a log row's wide column does: swap the reading pane, and the
 # NavTree beside it, for the child's own. Written once here and read by every surface that links

@@ -1,23 +1,14 @@
 """The errors page's markup: the list of failures, and one row of it."""
 
-from collections.abc import Mapping, Sequence
-
 import htpy
 
-from hyphae.view.citation import Cited
 from hyphae.view.components import Html, citation, layout
 from hyphae.view.failures import Failure
+from hyphae.view.pages.errors.models import ErrorsPage
 from hyphae.view.text import format as fmt
 
 
-def errors_page(
-    *,
-    session_id: str,
-    listed: Sequence[Failure],
-    cut: int,
-    citations: Mapping[str, Cited],
-    dev: bool,
-) -> Html:
+def errors_page(*, page: ErrorsPage, dev: bool) -> Html:
     """Where one session failed, whichever thread it happened on.
 
     A list rather than a pane: a failure is not a place in the NavTree, so there is nothing to
@@ -25,37 +16,39 @@ def errors_page(
     place it.
     """
     return layout.page(
-        tab_title=f"{session_id} errors — hyphae",
+        tab_title=f"{page.session_id} errors — hyphae",
         scripts=None,
         main=htpy.section(id="errors")[
             [
                 htpy.h1["Failed tool calls"],
                 htpy.p(".numbers")[
                     [
-                        htpy.a(href=f"/session/{session_id}")[session_id],
+                        htpy.a(href=f"/session/{page.session_id}")[page.session_id],
                         htpy.span[
                             [
-                                htpy.span(data_field="matched")[fmt.count(len(listed) + cut)],
+                                htpy.span(data_field="matched")[
+                                    fmt.count(len(page.listed) + page.cut)
+                                ],
                                 " failed call(s)",
                             ]
                         ],
                     ]
                 ],
-                htpy.ol(".errors")[[_failure(item=item) for item in listed]],
+                htpy.ol(".errors")[[_failure(item=item) for item in page.listed]],
                 # What the page left out, said rather than dropped: the store keeps every
                 # failure, and this page shows the first of them in the order they happened.
-                htpy.p(".more", data_more_errors=cut)[
+                htpy.p(".more", data_more_errors=page.cut)[
                     [
                         "+",
-                        htpy.span(data_field="cut")[fmt.count(cut)],
+                        htpy.span(data_field="cut")[fmt.count(page.cut)],
                         " more failed call(s)",
                     ]
                 ]
-                if cut
+                if page.cut
                 else None,
             ]
         ],
-        footer=citation.footer(citations=citations),
+        footer=citation.footer(citations=page.citations),
         dev=dev,
     )
 

@@ -1,14 +1,15 @@
 """The query page's markup: the statement, the bindings it was cited with, and the setup."""
 
+from collections.abc import Mapping
+
 import htpy
 
 from hyphae.view.components import Html, layout, parts
+from hyphae.view.pages.query.models import QueryPage
 from hyphae.view.text.highlight import Syntax
 
 
-def query_page(
-    *, name: str, sql: str, macro_setup: str, bindings: dict[str, str], dev: bool
-) -> Html:
+def query_page(*, page: QueryPage, dev: bool) -> Html:
     """One library query as the page that cited it links to.
 
     The SQL this build ships, under the bindings that page ran it with. Nothing is executed
@@ -17,14 +18,14 @@ def query_page(
     statement calls a library macro, and is empty where it calls none.
     """
     return layout.page(
-        tab_title=f"{name}.sql · hyphae",
+        tab_title=f"{page.name}.sql · hyphae",
         scripts=None,
-        main=htpy.article(id="query", data_sql=name)[
+        main=htpy.article(id="query", data_sql=page.name)[
             [
-                htpy.h1[f"{name}.sql"],
-                _bindings(bindings),
-                _setup(macro_setup),
-                parts.code(value=sql, syntax=Syntax.SQL, field="sql"),
+                htpy.h1[f"{page.name}.sql"],
+                _bindings(page.bindings),
+                _setup(page.macro_setup),
+                parts.code(value=page.sql, syntax=Syntax.SQL, field="sql"),
             ]
         ],
         footer=None,
@@ -32,7 +33,7 @@ def query_page(
     )
 
 
-def _bindings(bindings: dict[str, str]) -> Html:
+def _bindings(bindings: Mapping[str, str]) -> Html:
     """What the citing page bound the statement to, or a line saying it bound nothing."""
     if not bindings:
         return htpy.p(".plain")["Cited with no bindings."]

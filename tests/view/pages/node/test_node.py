@@ -381,6 +381,13 @@ def test_the_thread_page_reads_the_kinds_recorded_on_one_and_refuses_every_other
         assert fields(page.text, "id", "error")["message"] == ON_THREAD.get(str(kind), NO_PAGE), (
             kind
         )
+    # Two things wrong at once are answered in the order they have always been answered: a
+    # knob outside its bounds is a 400 before the URL is asked whether it names a kind at all,
+    # and only a URL naming a kind is asked for a page number. Which is the order the
+    # dependencies behind the page resolve in (`routes/pages.py:reading`).
+    wrong = f"/session/{SPINE}/thread/{MAIN}/banana/{MISSING}"
+    assert client.get(wrong, params={"nav": "sideways"}).status_code == 400
+    assert client.get(wrong, params={"page": 0}).status_code == 404
 
 
 def test_a_call_opened_in_its_turn_lists_the_tools_it_called(

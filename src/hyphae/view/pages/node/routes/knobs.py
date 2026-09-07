@@ -1,7 +1,7 @@
-"""How one node-page URL becomes the four knobs its routes read, or a 400.
+"""How one node-page URL becomes the four knobs its routes read and the page it asked for, or a 400.
 
-`KnobsDep` is what a node route declares instead of four query parameters of its own, so the
-four defaults and the four refusals are written once. What a checked `Knobs` then does — the
+`KnobsDep` and `PageDep` are what a node route declares instead of five query parameters of its
+own, so the defaults and the refusals are written once. What a checked `Knobs` then does — the
 suffix every link on the page carries, the paging it drives — is the presenter's
 (`view/pages/node/knobs.py`).
 """
@@ -47,3 +47,20 @@ def asked(
 
 # What a node route declares instead of four query parameters of its own.
 KnobsDep = Annotated[Knobs, Depends(asked)]
+
+
+def numbered(page: int = 1) -> int:
+    """The children log page a URL asked for, or a 400 — declared here and in no handler.
+
+    A page number below the first is a bad ask like a size outside its bounds, and is answered
+    the same way: no level has such a page, so what is wrong is the number and not the node the
+    URL names. A number past a level's *last* page is a 404 further down: that one is a question
+    about the node, and only the level can answer it.
+    """
+    if page < 1:
+        raise HTTPException(400, "Ask for a children log page from one upwards.")
+    return page
+
+
+# What a node route declares instead of a page number of its own.
+PageDep = Annotated[int, Depends(numbered)]

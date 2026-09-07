@@ -1,54 +1,19 @@
 """The projects landing: one row per project the store holds sessions for.
 
 A table of one row per thing, like the session list beside it — a typed row in, a `<tr>` out.
-What a row prints is what its type carries; the link it mints is `view/links.py`'s, and the
-SQL behind it `view/store.py`'s.
+What a row prints is what its type carries (`models.py`), and where those values came from is
+`read.py`'s business rather than this file's.
 """
-
-import datetime as dt
-from collections.abc import Mapping, Sequence
-from typing import NamedTuple
 
 import htpy
 
-from hyphae.view.citation import Cited
 from hyphae.view.components import Html, citation, layout, parts
+from hyphae.view.pages.projects.models import ProjectRow, ProjectsPage
 from hyphae.view.text import cuts
 from hyphae.view.text import format as fmt
 
 
-class ProjectRow(NamedTuple):
-    """One project as the landing page prints it: three windows of spend, and when it last ran.
-
-    `link` is the session list narrowed to this project, or None where there is no list to
-    open — a session that named no directory, or a path longer than the head the page shows.
-    A window the project has no sessions in sums nothing, so its cost and its unpriced count
-    are absent rather than zero.
-    """
-
-    project_dir: str | None
-    link: str | None
-    recent_sessions: int
-    recent_cost: float | None
-    recent_unpriced: int | None
-    window_sessions: int
-    window_cost: float | None
-    window_unpriced: int | None
-    sessions: int
-    cost_usd: float
-    unpriced_api_calls: int
-    last_active: dt.datetime | None
-
-
-def projects_page(
-    *,
-    rows: Sequence[ProjectRow],
-    recent_days: int,
-    window_days: int,
-    cut: int,
-    citations: Mapping[str, Cited],
-    dev: bool,
-) -> Html:
+def projects_page(*, page: ProjectsPage, dev: bool) -> Html:
     """Every project the store holds sessions for, most recently active first.
 
     The two trailing windows are headed with the days they were bound to, so a heading cannot
@@ -68,24 +33,26 @@ def projects_page(
                                     htpy.th(scope="col")["Project"],
                                     # Set the way the cells under them are: a count is read
                                     # down its column.
-                                    htpy.th(".number", scope="col")[f"{recent_days}d"],
-                                    htpy.th(".number", scope="col")[f"{window_days}d"],
+                                    htpy.th(".number", scope="col")[f"{page.recent_days}d"],
+                                    htpy.th(".number", scope="col")[f"{page.window_days}d"],
                                     htpy.th(".number", scope="col")["All time"],
                                     htpy.th(scope="col")["Last active"],
                                 ]
                             ]
                         ],
-                        htpy.tbody[[_project(row=row) for row in rows]],
+                        htpy.tbody[[_project(row=row) for row in page.rows]],
                     ]
                 ],
                 # What the page left out, said rather than dropped: the store keeps every
                 # project, and this one shows the most recently active.
-                htpy.p(".more", data_more_projects=cut)[f"+{fmt.count(cut)} more project(s)"]
-                if cut
+                htpy.p(".more", data_more_projects=page.cut)[
+                    f"+{fmt.count(page.cut)} more project(s)"
+                ]
+                if page.cut
                 else None,
             ]
         ],
-        footer=citation.footer(citations=citations),
+        footer=citation.footer(citations=page.citations),
         dev=dev,
     )
 

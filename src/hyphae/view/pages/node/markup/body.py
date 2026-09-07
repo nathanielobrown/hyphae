@@ -9,9 +9,8 @@ somebody else's page. The facts a kind reads are a type rather than a store row,
 that stopped returning a column is a type error rather than a fact that quietly prints a dash.
 """
 
-import datetime as dt
 from collections.abc import Mapping, Sequence
-from typing import NamedTuple, assert_never
+from typing import assert_never
 from urllib.parse import quote
 
 import htpy
@@ -20,148 +19,20 @@ from hyphae.view.citation import Cited
 from hyphae.view.components import Html, citation, parts
 from hyphae.view.nodes import Node, run_url
 from hyphae.view.pages.node.columns import Shape
-from hyphae.view.pages.node.markup.logs import Logged, log
+from hyphae.view.pages.node.markup.logs import log
+from hyphae.view.pages.node.models import (
+    BucketFacts,
+    CallFacts,
+    CompactionFacts,
+    Facts,
+    Logged,
+    RunFacts,
+    SessionFacts,
+    ToolFacts,
+    TurnFacts,
+)
 from hyphae.view.text import cuts, render
 from hyphae.view.text import format as fmt
-
-
-class SessionFacts(NamedTuple):
-    """The session everything else was recorded in: where it ran, and what it came to.
-
-    Neither the name it was recorded under nor the directory it ran in is here: the heading
-    above prints the one and the crumb above that links the other, and a fact is for what
-    nothing else on the page says.
-    """
-
-    session_id: str
-    git_branch: str | None
-    version: str | None
-    entrypoint: str | None
-    started_at: dt.datetime | None
-    wall_ms: int | None
-    active_ms: int | None
-    turns: int
-    api_calls: int
-    tool_calls: int
-    tool_errors: int
-    agent_runs: int
-    compactions: int
-    cost_usd: float | None
-    unpriced_api_calls: int
-    output_tokens: int
-    # The one list among the facts, and the pull requests the session's commands touched. Each
-    # grows with the session, so the query cuts it and says how many it left: a pane is the one
-    # part of a page no size a reader types bounds.
-    skills: Sequence[str]
-    skills_cut: int
-    pr_urls: Sequence[str]
-    pr_urls_cut: int
-
-
-class TurnFacts(NamedTuple):
-    """One turn: what it was asked, when, and what answering it took.
-
-    `command_name` is set where the turn was typed as a slash command — its prompt is the
-    `<command-…>` wrapper Claude Code expanded it into, and what a reader is looking for is the
-    command.
-    """
-
-    turn_id: str
-    command_name: str | None
-    turn_index: int
-    started_at: dt.datetime | None
-    replayed: bool
-    api_calls: int
-    tool_calls: int
-    tool_errors: int
-    cost_usd: float | None
-    unpriced_api_calls: int
-
-
-class RunFacts(NamedTuple):
-    """One agent run: the definition it ran, where it was spawned, and what its thread came to."""
-
-    run_id: str
-    agent_type: str | None
-    model: str | None
-    spawn_depth: int
-    is_fork: bool
-    started_at: dt.datetime | None
-    wall_ms: int | None
-    turns: int
-    api_calls: int
-    tool_calls: int
-    tool_errors: int
-    compactions: int
-    cost_usd: float | None
-    unpriced_api_calls: int
-    output_tokens: int
-
-
-class CallFacts(NamedTuple):
-    """One api call: the request that was made, and what came back."""
-
-    call_index: int
-    model: str | None
-    fallback_from: str | None
-    effort: str | None
-    stop_reason: str | None
-    attribution_skill: str | None
-    started_at: dt.datetime | None
-    tool_calls: int
-    input_tokens: int
-    output_tokens: int
-    cache_read_tokens: int
-    cache_creation_tokens: int
-    cost_usd: float | None
-    unpriced_api_calls: int
-
-
-class ToolFacts(NamedTuple):
-    """One tool call. No cost of its own: what it took is the api call's.
-
-    `run_id` is set on a `Task` call, which is where an agent run begins; `offload_file` where
-    the result was too large for the transcript and Claude Code wrote it beside one.
-    """
-
-    session_id: str
-    run_id: str | None
-    tool_index: int
-    name: str | None
-    server_side: bool
-    is_error: bool
-    incomplete: bool
-    started_at: dt.datetime | None
-    wall_ms: int | None
-    offload_file: str | None
-
-
-class CompactionFacts(NamedTuple):
-    """One compaction: where the thread's context was rewritten, and what it cost in tokens."""
-
-    trigger: str | None
-    timestamp: dt.datetime | None
-    pre_tokens: int | None
-    post_tokens: int | None
-    duration_ms: int | None
-
-
-class BucketFacts(NamedTuple):
-    """A bucket, which is not a row of the store.
-
-    It stands for what attached to nothing, so it has a spend and a count and no fields of its
-    own — both of them read off the node rather than off a query.
-    """
-
-    cost_usd: float | None
-    unpriced_api_calls: int
-
-
-# What a body may be handed. Total over the kinds a URL can name — a kind with no member would
-# render a heading and nothing under it, which reads as a node with no facts.
-type Facts = (
-    SessionFacts | TurnFacts | RunFacts | CallFacts | ToolFacts | CompactionFacts | BucketFacts
-)
 
 
 def body(*, node: Node, facts: Facts, suffix: str) -> Html:

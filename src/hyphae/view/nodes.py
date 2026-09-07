@@ -176,7 +176,7 @@ class Ref:
 class Ledger:
     """What one session spent, and what the runs under each of its nodes cost.
 
-    Read once per page (`view/pages/node/routes/browse.py`) and handed to every node built for
+    Read once per page (`view/pages/node/browser.py`) and handed to every node built for
     it: a badge's first half is what the node's own thread spent, its second that plus what
     `under` holds for the node, and both are washed against `whole`. A node absent from `under`
     has no run below it and draws one number.

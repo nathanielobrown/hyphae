@@ -69,8 +69,8 @@ def test_every_surface_declares_the_widths_it_prints_at() -> None:
 # it reads at the wider of the two and cuts again at each; the tail row's fetch draws NavTree
 # rows and nothing else, so it reads at a row's width.
 RUNS_READS = [
-    ("pages/node/routes/browse.py", "LOG_WIDTHS"),
-    ("pages/node/routes/expansions.py", "NAV_TREE_WIDTHS"),
+    ("pages/node/browser.py", "LOG_WIDTHS"),
+    ("pages/node/browser.py", "NAV_TREE_WIDTHS"),
 ]
 
 

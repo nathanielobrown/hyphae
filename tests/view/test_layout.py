@@ -42,6 +42,22 @@ TEXT_MODULES = frozenset(
 # module or a package: a page small enough writes `routes.py`, and the node page needs `routes/`.
 KINDS = ("routes", "markup")
 
+# The names a page gives the modules that read the store for it, on the far side of the seam
+# from its markup (`plans/deepen-viewer-reads/design.md`). A page small enough has one `read.py`;
+# the node page names its two for what they do — `browser.py` for the documents, `fragments.py`
+# for the small fetches under them.
+READS = frozenset({"read", "browser", "fragments"})
+
+# What a value crossing that seam may not be made of: a request, a response, or an element.
+# The store is banned by name below rather than listed here — `duckdb` is not what a raw row
+# arrives as, `view.store.Row` is.
+FRAMEWORKS = frozenset({"fastapi", "starlette", "htpy"})
+
+# And the two of those a routes module is the one place for. Split from the set above because
+# the same probe answers both questions and each wants a different answer: markup holds htpy
+# legally, so a leaf asking what a presenter reached for must not be told about it.
+WEB = frozenset({"fastapi", "starlette"})
+
 # Names that say nothing about what a module builds. A presenter is named for the thing it
 # makes — `nav_tree.py`, `walk.py` — and these are where the unnamed leftovers collect.
 UNNAMED = frozenset({"logic.py", "utils.py", "helpers.py", "common.py", "misc.py"})
@@ -57,6 +73,17 @@ SERVER, PAGE, SHARED, BASE, LEAF = 4, 3, 2, 1, 0
 # before the first row, which a paged route takes as its default rather than cutting to it.
 NOT_A_SIZE = frozenset({"FIRST_PAGE"})
 
+# What a routes module may still take from the store: the words a session-list URL is written
+# in. A route's job is to refuse a URL, and refusing `?sort=banana` means holding the list of
+# sorts (`view/store.py`). Everything else the store exports is a query, a binding or a row.
+URL_WORDS = frozenset({"SORTS", "FILTERS", "DIRECTIONS"})
+
+# And what it may still take from the query library: the cursor above, plus the two names for
+# what a URL word is once it is parsed. The session list's filters arrive as text and are bound
+# to the types `FILTERS` declares; the refusal for text that will not bind is a 400, which only
+# a routes module raises, so the parse stays there and the types it reads and produces with it.
+BINDABLE = frozenset({"ParamType", "ParamValue"})
+
 # The modules of each layer by name, for the ones that are not decided by their directory. The
 # top level has no default: a module that lands there and is not listed reds `layer()`, because
 # guessing a layer for it is how an edge nobody meant to allow becomes sideways and legal.
@@ -67,6 +94,7 @@ LAYERED = {
     # and `checked`. Shared is also what makes an import of a page from here point up and red.
     "deps": SHARED,
     "nodes": SHARED,
+    "models": SHARED,
     "enrichment": SHARED,
     "citation": SHARED,
     "links": SHARED,
@@ -74,18 +102,18 @@ LAYERED = {
     "builders": SHARED,
     "detail": SHARED,
     "store": BASE,
-    "manifest": BASE,
     "bounds": LEAF,
 }
 
-# Import the named modules in a fresh interpreter and report which web frameworks came in with
-# them. A list built from the tree rather than written down, so a presenter that lands next year
-# is covered without anyone remembering this file.
+# Import the named modules in a fresh interpreter and report which of the watched frameworks came
+# in with them. A list built from the tree rather than written down, so a presenter that lands
+# next year is covered without anyone remembering this file. Transitively, which is the point: a
+# module that names none of these itself still holds them if anything it imports does.
 PROBE = """
 import importlib, sys
 for name in {names!r}:
     importlib.import_module(name)
-sys.stdout.write(",".join(sorted({{"fastapi", "starlette"}} & set(sys.modules))))
+sys.stdout.write(",".join(sorted({watch!r} & set(sys.modules))))
 """
 
 
@@ -148,6 +176,16 @@ def imports(path: Path) -> set[str]:
     # A module reaching into itself is not an edge, and neither is the package root, which
     # holds a docstring and nothing to import.
     return {name for name in found if name and name != here}
+
+
+def taken(path: Path, module: str) -> set[str]:
+    """Every name one file imports out of one module of the viewer, by that module's own name."""
+    return {
+        alias.name
+        for node in ast.walk(ast.parse(path.read_text()))
+        if isinstance(node, ast.ImportFrom) and node.module == f"{PACKAGE}.{module}"
+        for alias in node.names
+    }
 
 
 def queried(path: Path) -> set[str]:
@@ -217,10 +255,29 @@ def markup_modules() -> list[Path]:
     ]
 
 
-def frameworks(names: Sequence[str]) -> str:
-    """The web frameworks a fresh interpreter importing `names` ended up holding."""
+def read_modules() -> list[Path]:
+    """Every module of a page that reads the store for it, whatever the page named it."""
+    return [
+        path
+        for page in page_packages()
+        for path in sources(page)
+        if kind_of(page, path) in READS and path.name != "__init__.py"
+    ]
+
+
+def model_modules() -> list[Path]:
+    """Every page's neutral model module — the typed value its read hands its markup."""
+    return [path for path in sources(PAGES) if path.name == "models.py"]
+
+
+def frameworks(names: Sequence[str], watch: frozenset[str]) -> str:
+    """Which of `watch` a fresh interpreter importing `names` ended up holding, comma separated.
+
+    No default for `watch`: the two callers ask different questions of the same probe, and the
+    wrong set turns either into a leaf that passes on anything.
+    """
     done = subprocess.run(
-        [sys.executable, "-c", PROBE.format(names=list(names))],
+        [sys.executable, "-c", PROBE.format(names=list(names), watch=set(watch))],
         capture_output=True,
         text=True,
         timeout=120,
@@ -259,9 +316,9 @@ def test_only_a_pages_routes_module_reaches_a_web_framework(page: Path) -> None:
     assert routes, f"{page.name} declares no routes"
     assert rest, f"{page.name} is nothing but routes"
     # ...nothing but the routes reaches a framework...
-    assert frameworks([f"{PACKAGE}.{dotted(path)}" for path in rest]) == ""
+    assert frameworks([f"{PACKAGE}.{dotted(path)}" for path in rest], WEB) == ""
     # ...and the routes do, which is what shows the probe can see a framework at all.
-    assert frameworks([f"{PACKAGE}.{dotted(path)}" for path in routes]) == "fastapi,starlette"
+    assert frameworks([f"{PACKAGE}.{dotted(path)}" for path in routes], WEB) == "fastapi,starlette"
 
 
 @pytest.mark.parametrize("page", page_packages(), ids=lambda page: page.name)
@@ -302,29 +359,120 @@ def test_no_module_of_a_page_is_named_for_nothing() -> None:
     assert [str(path.relative_to(VIEW)) for path in found if path.name in UNNAMED] == []
 
 
-def test_a_models_module_appears_only_where_a_second_markup_module_reads_it() -> None:
-    """A view-model lives in the markup that consumes it until a second markup module reads it.
+def test_a_models_module_stands_between_its_pages_read_and_its_markup() -> None:
+    """A page model is the typed value one page's read hands its own markup, and nothing else.
 
-    Both halves, because today the first is empty: no page has a `models.py`, and the design
-    says none should until one model gains a second reader (`design.md`, "Decisions"). So the
-    leaf pins the absence as well as the rule, and reds the day a `models.py` arrives with one
-    reader — the split of a `NamedTuple` from the one function that reads it.
+    It earns its file by having two readers on opposite sides of a seam
+    (`plans/deepen-viewer-reads/design.md`, "Put models at the new seam"). A model only the
+    markup reads belongs beside the markup, and a model only the read builds is not a model —
+    so both halves are asserted, and a third page reaching for one is already forbidden by
+    `test_no_page_package_imports_a_sibling_page`.
     """
-    for path in sources(PAGES):
-        if path.name != "models.py":
-            continue
+    found = model_modules()
+    # There are page models to read...
+    assert found, "no page declares a `models.py`, so this rule holds nothing"
+    for path in found:
         page = path.parent
-        readers = [
+        here = dotted(path)
+        # ...each is built by the read on one side of the seam...
+        assert [
+            module
+            for module in read_modules()
+            if module.is_relative_to(page) and here in imports(module)
+        ], f"{path.relative_to(VIEW)} is built by no read module of its page"
+        # ...and read by the markup on the other.
+        assert [
             module
             for module in markup_modules()
-            if module.is_relative_to(page) and dotted(path) in imports(module)
-        ]
-        assert len(readers) > 1, f"{path.relative_to(VIEW)} is read by {len(readers)} markup module"
-    # And the other half: no page has one, so the first to arrive is a decision the design
-    # asked to be revisited rather than a file that slipped in under the rule above.
-    assert [
-        str(path.relative_to(VIEW)) for path in sources(PAGES) if path.name == "models.py"
-    ] == [], "a `models.py` arrived — revisit `design.md`'s decision and say so here"
+            if module.is_relative_to(page) and here in imports(module)
+        ], f"{path.relative_to(VIEW)} is read by no markup module of its page"
+
+
+def test_a_page_model_is_made_of_nothing_either_side_of_the_seam_owns() -> None:
+    """The value that crosses is neutral: no request, no response, no element, no raw row.
+
+    What makes the seam worth having. A model carrying a `Request` would put FastAPI on the
+    markup's side of it, and one carrying a `Row` would leave the raw store columns to be
+    indexed by whoever prints them. Typed citations are not on this list: evidence is part of
+    what the read produced.
+
+    A fresh interpreter for the frameworks, for the reason the routes leaf takes one and one
+    more: an in-process check reads `sys.modules` this tier has already filled, and a source
+    scan sees only what a model names on its own first lines. Neither can see the shape that
+    reaches htpy through the module it was imported from, which is the way this rule breaks —
+    so what is asserted is that importing a model holds none of them, however far away.
+    """
+    found = model_modules()
+    # There are page models to read...
+    assert found, "no page declares a `models.py`, so this rule holds nothing"
+    for path in found:
+        here = f"{PACKAGE}.{dotted(path)}"
+        assert frameworks([here], FRAMEWORKS) == "", f"{path.relative_to(VIEW)} holds a framework"
+        assert "Row" not in taken(path, "store"), f"{path.relative_to(VIEW)} carries a store row"
+    # ...and the probe can see one where one is: every page's markup names htpy, and holds it.
+    assert all("htpy" in named(path) for path in markup_modules())
+    marked = [f"{PACKAGE}.{dotted(path)}" for path in markup_modules()]
+    assert frameworks(marked, FRAMEWORKS) == "htpy"
+
+
+def test_neither_side_of_a_pages_seam_imports_the_other() -> None:
+    """A read and its markup meet at the model and nowhere else, in both directions.
+
+    The split is only real while it is a wall rather than a one-way street. Markup that
+    imported its page's read could open the store while a page renders, which is the window
+    `deps.py` closes. A read that imported its page's markup would name an element's own type
+    on the store's side of the seam, which is what `models.py` is there to stop — so a shape
+    both halves need moves into the model between them rather than being reached for.
+    """
+    reads, markups = read_modules(), markup_modules()
+    # There are modules on both sides of the seam to reach across it...
+    assert reads, "no page declares a read module"
+    assert markups, "no page holds a markup module"
+    for path in reads:
+        page = path.parent
+        here = dotted(path)
+        mine = [module for module in markups if module.is_relative_to(page)]
+        # ...no markup of a read's own page reads back into it...
+        assert [module for module in mine if here in imports(module)] == [], (
+            f"markup of {page.name} imports {here}"
+        )
+        # ...and the read reaches for none of that markup either.
+        reached = sorted(imports(path) & {dotted(module) for module in mine})
+        assert reached == [], f"{here} imports its page's markup: {reached}"
+
+
+def test_no_routes_module_of_a_page_names_the_stores_vocabulary() -> None:
+    """A route holds a URL and a refusal; what a query is, what it binds and what it answers
+    stops in the read.
+
+    The other half of the seam. `test_only_a_pages_routes_module_reaches_a_web_framework` keeps
+    FastAPI out of the reads, and this keeps the store out of the routes — without it a page
+    can pass both directions of the model rule and still run its query beside its endpoint,
+    which is the window `deps.py` exists to close.
+
+    `Db` stays legal, because a fragment's lock window is deliberate (`view/deps.py`): what is
+    banned is the query member, the bindings and the raw row, not the connection they run on.
+    """
+    found = [
+        path
+        for page in page_packages()
+        for path in sources(page)
+        if kind_of(page, path) == "routes"
+    ]
+    # There are routes to read...
+    assert found, "no page declares a routes module"
+    for path in found:
+        names = taken(path, "store")
+        # ...none of them takes the store module whole, which would hide the names below...
+        assert "store" not in imports(path) or names, f"{dotted(path)} imports the store whole"
+        # ...none names anything the store exports but the words a URL is written in...
+        assert names <= URL_WORDS, f"{dotted(path)} names the store's {sorted(names - URL_WORDS)}"
+        # ...and none names a query the library declares.
+        asked = queried(path)
+        assert asked <= NOT_A_SIZE | BINDABLE, f"{dotted(path)} names the library's {sorted(asked)}"
+    # ...and the scan can see that vocabulary where it belongs: the reads run the queries.
+    ran = {name for path in read_modules() for name in taken(path, "store")}
+    assert {"page_rows", "bound"} <= ran
 
 
 # --- Rule 2: a page package is a leaf ------------------------------------------------------
@@ -364,6 +512,9 @@ def test_no_import_inside_the_viewer_points_up_a_layer() -> None:
     assert any(
         imported == "nodes" and importer.split(".")[-1] == "walk" for importer, imported in found
     )
+    # ...every module the map above names is still on the tree, because a layer written down
+    # for a module that was deleted is a rule nothing holds...
+    assert [name for name in LAYERED if not exists(name)] == []
     # ...and every edge in it goes down a layer or sideways.
     for importer, imported in sorted(found):
         assert layer(imported) <= layer(importer), f"{importer} → {imported}"

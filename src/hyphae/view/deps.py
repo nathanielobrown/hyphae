@@ -6,8 +6,9 @@ one request's read-only connection, opened and closed around the route.
 
 `Db` holds that connection until the response is built, which is longer than an explicit
 `with open_store(...)` inside the route. Short windows are what let `hp extract` write while a
-page is open, so `Db` is for the fragment routes, whose markup is a line or two. A route that
-renders a document opens the store itself and closes it before `viewer.html(...)` runs.
+page is open, so `Db` is for the fragment routes, whose markup is a line or two. A document is
+read by a dependency of its own, which opens the store and closes it before any markup runs
+(`view/pages/`).
 
 `checked` is here rather than beside the sizes it reads because refusing what is out of bounds
 is a route's job: a presenter is callable without a request, and a module that imports

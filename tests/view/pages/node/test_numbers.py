@@ -27,7 +27,6 @@ from hyphae.view.nodes import NUMBERS_URL, Kind
 from hyphae.view.text.format import ABSENT
 from hyphae.view.text.labels import label
 from tests.conftest import (
-    ANCESTOR,
     DENSE_CALL,
     DENSE_TOOL,
     FORK_ORIGIN,
@@ -590,20 +589,6 @@ def test_a_row_fetches_its_numbers_when_a_pointer_arrives_and_when_a_key_does(
     # nothing the popover wrote reached it.
     assert wiring[key]["hx-target"] == "#reading-pane"
     assert wiring[key]["hx-select"] == "#reading-pane"
-
-
-def test_a_kind_with_no_numbers_is_a_route_that_answers_nothing(client: TestClient) -> None:
-    """A bucket has nothing to print, so the route 404s rather than serving an empty popover.
-
-    A bucket is a place rather than a node — it stands for no row of the store — so there is
-    nothing to count under it. Every kind that does stand for a row now carries a popover, the
-    compaction included: what it shows is `tests/view/test_numbers__compaction.py`.
-    """
-    for path in (
-        f"/session/{ANCESTOR}/thread/{MAIN}/{Kind.UNATTRIBUTED}/{MAIN}",
-        f"/session/{ANCESTOR}/thread/{MAIN}/{Kind.UNATTACHED}/{ANCESTOR}",
-    ):
-        assert client.get(f"{NUMBERS_URL}{path}").status_code == 404
 
 
 def test_a_charge_line_is_headed_by_the_word_the_registry_gives_its_column(

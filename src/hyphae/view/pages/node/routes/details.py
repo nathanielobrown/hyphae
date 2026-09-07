@@ -3,100 +3,69 @@
 Every fat value on a node page is printed to its cut and marked, and the mark links here
 (`docs/viewer-bounds.md`). One handler serves all sixteen, because a Detail declares
 everything the fetch needs (`view/detail.py:DETAILS`): the query behind it, how it was
-written, and the keys its route carries. A row that exists with nothing under it is a 404:
-nothing links here unless there is a value to fetch.
+written, and the keys its route carries.
 
-The record route is the exception and keeps its own handler — it arrives with a header line
-of its own, nothing previews a head of it, and no pane files it under a name.
+One dependency behind each endpoint rather than a read and a markup either side of a typed
+seam: what a fetch reads is a single value, and a model carrying one value is the value
+(`plans/deepen-viewer-reads/design.md`). What the endpoint never sees is the query, the
+bindings or the row — those stop in `pages/node/fragments.py`.
+
+The record route is the exception and keeps its own read: it arrives with a header line of
+its own, nothing previews a head of it, and no pane files it under a name.
 """
 
 from collections.abc import Callable, Mapping
-from typing import assert_never
+from typing import Annotated, assert_never
 
-import duckdb
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
-from hyphae.analyze import queries
-from hyphae.analyze.queries import ParamValue
-from hyphae.view import bounds
-from hyphae.view.deps import Db, Viewer, ViewerDep
-from hyphae.view.detail import DETAILS, Spec, Written, syntax_of
-from hyphae.view.enrichment import enriched
-from hyphae.view.pages.node import reads
+from hyphae.view.components import Html
+from hyphae.view.deps import Db, ViewerDep
+from hyphae.view.detail import DETAILS, Spec, Written
+from hyphae.view.pages.node import fragments
+from hyphae.view.pages.node.browser import Missing
 from hyphae.view.pages.node.markup import values
-from hyphae.view.store import Row, Value, bound, page_rows
 
 router = APIRouter()
 
 
-def fetched(
-    connection: duckdb.DuckDBPyConnection,
-    value: Value,
-    keyed: Mapping[str, ParamValue],
-    column: str,
-) -> tuple[Row, str]:
-    """The one row a per-value fragment is for, and the query that found it.
-
-    `column` is where the query puts the value this fragment is for. A row can exist with
-    nothing under it — a `Read` has no command, a turn no prompt — and that is a 404 and
-    not an empty page: nothing on a pane links here unless there is a value to fetch, so a
-    request for one that is not there is a URL somebody typed or a link somebody kept.
-    """
-    rows = page_rows(connection, value, **keyed)
-    if not rows or rows[0][column] is None:
-        raise HTTPException(404, "Nothing in this store is stored under that id.")
-    return rows[0], queries.citation(value, keyed)
-
-
-def fetch(spec: Spec, request: Request, viewer: Viewer, connection: Db) -> Response:
+def fetch(spec: Spec, keys: Mapping[str, str], connection: Db) -> Html:
     """One Detail whole, in the block its head was previewed in.
 
-    The keys come off the request rather than a signature per route: the path named them, the
-    spec's own route template is what minted the URL, and `queries.citation` prints them back
-    into the line the fragment carries. A key the query does not bind is a crash there, which
-    is a route registered against the wrong `whole`.
-
-    `Written` decides the rest — the gate, the extra binding, and which of the three blocks
-    the value comes back in. Nothing here asks the row what it is holding except through
-    `syntax_of`, so a pane and its fetch cannot mark the same value up two ways.
+    `Written` decides which of the three blocks the value comes back in; the read decides
+    what a value that is not there means, and says the same nothing a missing row does.
     """
-    if spec.written is Written.LINE and not enriched(connection):
-        # A pass creates the enrichment tables rather than the exporter, so a store none has
-        # touched holds no such line — the same nothing a missing row is, and the same answer
-        # (`view/enrichment.py`). Asked per request and not at startup, because a pass can run
-        # against the store while the viewer is reading it. Ahead of the read, which would
-        # otherwise fail on the missing table rather than on the missing line.
-        raise HTTPException(404, "No enrichment pass has written to this store.")
-    # The statement decides which of the sixteen takes a width, not the `Written` arm: only
-    # the named-file read declares `head_chars`, and it is not a cut of the answer — which
-    # rides whole — but the bound on the file suffix beside it, which says how the answer is
-    # marked up. A fetch prints at the pane's widths, so it names the pane's surface.
-    keyed = bound(spec.whole, bounds.HEADER_WIDTHS, **request.path_params)
-    row, citation = fetched(connection, spec.whole, keyed, "value")
-    whole = values.Whole(row["value"], spec.name, citation)
+    try:
+        read = fragments.detailed(connection, spec, keys)
+    except Missing as gone:
+        raise HTTPException(404, str(gone)) from gone
     match spec.written:
         case Written.LINE:
-            return viewer.html(values.enrichment_line(node=whole))
+            return values.enrichment_line(node=read.whole)
         case Written.MARKDOWN:
-            return viewer.html(values.prose(node=whole))
+            return values.prose(node=read.whole)
         case Written.BASH | Written.JSON | Written.NAMED_FILE:
-            syntax = syntax_of(spec.written, row)
-            assert syntax is not None  # noqa: S101  # only the two prose arms answer None
-            return viewer.html(values.code(node=whole, syntax=syntax))
+            assert read.syntax is not None  # noqa: S101  # only the two prose arms answer None
+            return values.code(node=read.whole, syntax=read.syntax)
         case _:
             assert_never(spec.written)
 
 
-def serving(spec: Spec) -> Callable[[Request, ViewerDep, Db], Response]:
+def serving(spec: Spec) -> Callable[..., Response]:
     """One spec bound into an endpoint FastAPI can read a signature off.
 
-    A closure rather than sixteen stubs: what changes between the routes is the spec, and
-    what stays is the three things every fragment takes.
+    A closure rather than sixteen stubs: what changes between the routes is the spec, and what
+    stays is the fetch behind it and the viewer that answers with what came back. The keys come
+    off the request rather than a signature per route: the path named them, and the spec's own
+    route template is what minted the URL.
     """
 
-    def serve(request: Request, viewer: ViewerDep, connection: Db) -> Response:
-        return fetch(spec, request, viewer, connection)
+    def fetched(request: Request, connection: Db) -> Html:
+        return fetch(spec, request.path_params, connection)
+
+    def serve(value: Annotated[Html, Depends(fetched)], viewer: ViewerDep) -> Response:
+        return viewer.html(value)
 
     return serve
 
@@ -115,17 +84,20 @@ def register(on: APIRouter) -> None:
 register(router)
 
 
-@router.get("/fragment/record/session/{session_id}/thread/{source}/line/{line_no}")
-def record_value(
-    session_id: str, source: str, line_no: int, viewer: ViewerDep, connection: Db
-) -> Response:
+def recorded(session_id: str, source: str, line_no: int, connection: Db) -> Html:
     """One raw transcript record whole, as the browser's preview was cut from.
 
     Its own renderer rather than a value fragment: a record arrives with a header line of
     its own, and it is the line a node was read from rather than one of the node's values,
     so nothing on a pane files it under a name and nothing swaps it into a detail.
     """
-    keyed = {"session_id": session_id, "source": source, "line_no": line_no}
-    # The record itself, which the store holds NOT NULL.
-    row, citation = fetched(connection, Value.RECORD, keyed, "raw")
-    return viewer.html(values.record(node=reads.record_value(row, citation)))
+    try:
+        return values.record(node=fragments.recorded(connection, session_id, source, line_no))
+    except Missing as gone:
+        raise HTTPException(404, str(gone)) from gone
+
+
+@router.get("/fragment/record/session/{session_id}/thread/{source}/line/{line_no}")
+def record_value(record: Annotated[Html, Depends(recorded)], viewer: ViewerDep) -> Response:
+    """One raw transcript record whole."""
+    return viewer.html(record)

@@ -59,7 +59,8 @@ def test_a_compactions_popover_cites_the_query_it_was_fetched_by(client: TestCli
     A popover arrives on a page already served, so it cannot ride the footer the pages share.
     Pinned here rather than in the sweeps: `tests/view/test_query.py` reads pages and skips
     every `/fragment/` route, and `test_app.py`'s fragment sweep covers the whole-value
-    fetches. A numbers fragment is cited nowhere else.
+    fetches. The other two numbers queries are pinned the same way, beside each other in
+    `test_numbers__routes.py`.
     """
     assert values(popped(client, PATH), "data-query") == [
         f"-- queries/view_numbers_compaction.sql session_id={COMPACTED} source={MAIN}"

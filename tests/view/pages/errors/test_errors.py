@@ -88,17 +88,24 @@ def test_the_errors_page_lists_every_failure_of_the_session_in_the_order_they_ha
 
 
 def test_a_session_with_no_failure_to_jump_to_has_no_errors_page(client: TestClient) -> None:
-    """A session that never failed a call and one the store never held are different misses."""
-    # A session whose tool calls all succeeded has nothing at this URL...
+    """A session that never failed a call and one the store never held are different misses.
+
+    Each sentence is read against the URL that earns it rather than against the other one: two
+    messages that merely differ would still differ swapped, and a reader told their session is
+    not in a store that holds it goes looking for the wrong thing.
+    """
+    # A session whose tool calls all succeeded is told that, and not that it is missing...
     succeeded = client.get(f"/session/{SPINE}/errors")
     assert succeeded.status_code == 404
-    # ...and neither does a session the store never held, said apart from it: one is a store
-    # that does not hold the session, the other a session that holds no failure.
+    assert (
+        fields(succeeded.text, "id", "error")["message"]
+        == "This session's tool calls all succeeded."
+    )
+    # ...and a session the store never held is told the store does not hold it.
     unheld = client.get(f"/session/{MISSING}/errors")
     assert unheld.status_code == 404
     assert (
-        fields(succeeded.text, "id", "error")["message"]
-        != fields(unheld.text, "id", "error")["message"]
+        fields(unheld.text, "id", "error")["message"] == "No session with that id is in this store."
     )
 
 

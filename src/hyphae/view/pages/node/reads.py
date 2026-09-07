@@ -14,9 +14,8 @@ from typing import NamedTuple
 from hyphae.extract.pricing import TokenUsage
 from hyphae.view.builders import tool_about, tool_titles
 from hyphae.view.nodes import Kind, Node
+from hyphae.view.pages.node import models
 from hyphae.view.pages.node.columns import Shape
-from hyphae.view.pages.node.markup import body as node_body
-from hyphae.view.pages.node.markup import logs, numbers, values
 from hyphae.view.pages.node.numbers import Numbers
 from hyphae.view.store import Row
 
@@ -31,7 +30,7 @@ def _read[F: NamedTuple](facts: type[F], row: Row) -> F:
     return facts._make(row[field] for field in facts._fields)
 
 
-def node_facts(node: Node, row: Row) -> node_body.Facts:
+def node_facts(node: Node, row: Row) -> models.Facts:
     """The facts a node's body prints, read off the row its header query answered.
 
     Where a store row stops being a bag of columns: past here a body reads named fields of a
@@ -40,26 +39,26 @@ def node_facts(node: Node, row: Row) -> node_body.Facts:
     """
     match node.kind:
         case Kind.SESSION:
-            return _read(node_body.SessionFacts, row)
+            return _read(models.SessionFacts, row)
         case Kind.TURN:
-            return _read(node_body.TurnFacts, row)
+            return _read(models.TurnFacts, row)
         case Kind.RUN:
-            return _read(node_body.RunFacts, row)
+            return _read(models.RunFacts, row)
         case Kind.CALL:
-            return _read(node_body.CallFacts, row)
+            return _read(models.CallFacts, row)
         case Kind.TOOL:
-            return _read(node_body.ToolFacts, row)
+            return _read(models.ToolFacts, row)
         case Kind.COMPACTION:
-            return _read(node_body.CompactionFacts, row)
+            return _read(models.CompactionFacts, row)
         case Kind.UNATTRIBUTED | Kind.UNATTACHED:
             # The one kind not read off a row: a bucket stands for no store row, so its two
             # numbers are the ones the node already carries from counting its children.
-            return node_body.BucketFacts(
+            return models.BucketFacts(
                 cost_usd=node.cost_usd, unpriced_api_calls=node.unpriced_api_calls
             )
 
 
-def logged(shape: Shape, node: Node, row: Row) -> logs.Logged:
+def logged(shape: Shape, node: Node, row: Row) -> models.Logged:
     """One row of a children log: the node its wide column links to, beside what the row prints.
 
     Keyed by the log's shape rather than the node's kind, because the shape is what decides the
@@ -67,7 +66,7 @@ def logged(shape: Shape, node: Node, row: Row) -> logs.Logged:
     """
     match shape:
         case Shape.TURNS:
-            return logs.LoggedTurn(
+            return models.LoggedTurn(
                 node=node,
                 turn_index=row["turn_index"],
                 api_calls=row["api_calls"],
@@ -75,7 +74,7 @@ def logged(shape: Shape, node: Node, row: Row) -> logs.Logged:
                 started_at=row["started_at"],
             )
         case Shape.CALLS:
-            return logs.LoggedCall(
+            return models.LoggedCall(
                 node=node,
                 call_index=row["call_index"],
                 model=row["model"],
@@ -88,7 +87,7 @@ def logged(shape: Shape, node: Node, row: Row) -> logs.Logged:
                 started_at=row["started_at"],
             )
         case Shape.TOOLS:
-            return logs.LoggedTool(
+            return models.LoggedTool(
                 node=node,
                 tool_index=row["tool_index"],
                 name=row["name"],
@@ -98,7 +97,7 @@ def logged(shape: Shape, node: Node, row: Row) -> logs.Logged:
                 started_at=row["started_at"],
             )
         case Shape.RUNS:
-            return logs.LoggedRun(
+            return models.LoggedRun(
                 node=node,
                 agent_type=row["agent_type"],
                 tool_errors=row["tool_errors"],
@@ -116,7 +115,7 @@ def node_numbers(row: Row) -> Numbers:
     route past here reads named fields rather than indexing the row six more times.
     """
     return Numbers(
-        window=numbers.Window(
+        window=models.Window(
             model=row["model"],
             fill=row["fill"],
             window_tokens=row["window_tokens"],
@@ -152,13 +151,13 @@ def _usage(group: Row) -> TokenUsage:
     )
 
 
-def tool_numbers(row: Row) -> numbers.Tool:
+def tool_numbers(row: Row) -> models.Tool:
     """A popover's readings for one tool call, off the row `view_numbers_tool` answered.
 
     The siblings are named here rather than in the query: what a tool call is called is
     Python's (`view/text/tool_names.py`), and the query ships the fields each name is composed of.
     """
-    return numbers.Tool(
+    return models.Tool(
         input_chars=row["input_chars"],
         result_chars=row["result_chars"],
         offload_file=row["offload_file"],
@@ -168,9 +167,9 @@ def tool_numbers(row: Row) -> numbers.Tool:
     )
 
 
-def compaction_numbers(row: Row) -> numbers.Compaction:
+def compaction_numbers(row: Row) -> models.Compaction:
     """A popover's readings for one compaction, off `view_numbers_compaction`'s row."""
-    return numbers.Compaction(
+    return models.Compaction(
         pre_tokens=row["pre_tokens"],
         post_tokens=row["post_tokens"],
         freed=row["freed"],
@@ -178,9 +177,9 @@ def compaction_numbers(row: Row) -> numbers.Compaction:
     )
 
 
-def record_value(row: Row, citation: str) -> values.Record:
+def record_value(row: Row, citation: str) -> models.Record:
     """One archived record as its fragment prints it, off `Value.RECORD`'s row."""
-    return values.Record(
+    return models.Record(
         line_no=row["line_no"],
         type=row["type"],
         uuid=row["uuid"],

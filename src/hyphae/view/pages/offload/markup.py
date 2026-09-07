@@ -1,58 +1,38 @@
 """The offload page's markup: the typed file, and the chunk of it this page serves."""
 
-from collections.abc import Mapping
-from typing import NamedTuple
 from urllib.parse import quote
 
 import htpy
 
-from hyphae.view.citation import Cited
 from hyphae.view.components import Html, citation, layout
+from hyphae.view.pages.offload.models import OffloadPage
 from hyphae.view.text import format as fmt
 
 
-class OffloadFile(NamedTuple):
-    """One offloaded tool result as its page prints it, built from its store row."""
-
-    name: str
-    size_bytes: int
-    content_chars: int
-    lossy_decode: bool
-    chunk: str
-
-
-def offload_page(
-    *,
-    session_id: str,
-    file: OffloadFile,
-    after: int | None,
-    size: int,
-    citations: Mapping[str, Cited],
-    dev: bool,
-) -> Html:
+def offload_page(*, page: OffloadPage, dev: bool) -> Html:
     """One chunk of a tool result Claude Code wrote to a file beside the transcript.
 
-    `after` is where the next chunk starts, or None where this one reached the end.
+    `page.after` is where the next chunk starts, or None where this one reached the end.
     """
     return layout.page(
-        tab_title=f"{file.name} — hyphae",
+        tab_title=f"{page.file.name} — hyphae",
         scripts=None,
-        main=htpy.section(id="offload", data_offload=file.name)[
+        main=htpy.section(id="offload", data_offload=page.file.name)[
             [
-                htpy.h1(data_field="name")[file.name],
+                htpy.h1(data_field="name")[page.file.name],
                 htpy.p(".numbers")[
                     [
-                        htpy.a(href=f"/session/{session_id}")[session_id],
+                        htpy.a(href=f"/session/{page.session_id}")[page.session_id],
                         htpy.span[
                             [
-                                htpy.span(data_field="size_bytes")[fmt.count(file.size_bytes)],
+                                htpy.span(data_field="size_bytes")[fmt.count(page.file.size_bytes)],
                                 " bytes on disk",
                             ]
                         ],
                         htpy.span[
                             [
                                 htpy.span(data_field="content_chars")[
-                                    fmt.count(file.content_chars)
+                                    fmt.count(page.file.content_chars)
                                 ],
                                 " chars stored",
                             ]
@@ -61,21 +41,21 @@ def offload_page(
                         # text and replaced what it could not read, so what is shown here is
                         # not what the tool wrote.
                         htpy.span(data_field="lossy_decode")["some bytes did not decode as text"]
-                        if file.lossy_decode
+                        if page.file.lossy_decode
                         else None,
                     ]
                 ],
-                htpy.pre(data_field="content")[file.chunk],
-                htpy.p(".more", data_more_offload=after)[
+                htpy.pre(data_field="content")[page.file.chunk],
+                htpy.p(".more", data_more_offload=page.after)[
                     htpy.a(
-                        href=f"/session/{session_id}/offload/{quote(file.name, safe='/')}"
-                        f"?after={after}&size={size}"
-                    )[f"next {fmt.count(size)} chars"]
+                        href=f"/session/{page.session_id}/offload/{quote(page.file.name, safe='/')}"
+                        f"?after={page.after}&size={page.size}"
+                    )[f"next {fmt.count(page.size)} chars"]
                 ]
-                if after is not None
+                if page.after is not None
                 else None,
             ]
         ],
-        footer=citation.footer(citations=citations),
+        footer=citation.footer(citations=page.citations),
         dev=dev,
     )

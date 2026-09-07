@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from hyphae.projects import project_predicate
 from hyphae.view import bounds
 from hyphae.view.app import build_app
+from hyphae.view.components.parts import unpriced
 from hyphae.view.store import Page
 from hyphae.view.text import format as fmt
 from hyphae.view.text.format import ABSENT, ELLIPSIS
@@ -163,6 +164,31 @@ def test_project_spend_is_counted_through_the_corpus_views(
     assert fields(client.get("/").text, "data-project", MYCELIA)["cost_usd"] == f"${corpus:.2f}"
 
 
+def test_a_call_our_price_table_missed_marks_every_column_that_summed_it(plant: Planter) -> None:
+    """Each spend a project row prints says when the dollars under it are a call short.
+
+    Two things are planted because the corpus holds neither: every recorded api call was
+    priced, and every recorded timestamp has receded past both trailing windows, so a
+    session has to be dated back inside them for their columns to sum anything at all.
+    `cost_usd` is a column the store already leaves NULL when a response names a model our
+    price table has no row for, so nulling one is what an unpriced call looks like.
+    """
+    path = plant(
+        ("UPDATE sessions SET started_at = ? WHERE id = ?", [dt.datetime.now(dt.UTC), SPINE]),
+        (
+            "UPDATE api_calls SET cost_usd = NULL"
+            " WHERE id = (SELECT min(id) FROM api_calls WHERE session_id = ?)",
+            [SPINE],
+        ),
+    )
+    with TestClient(build_app(path)) as planted:
+        page = planted.get("/").text
+    # The session folds onto the checkout, and it now sits inside both windows, so all three
+    # of that row's costs summed the call whose price is missing — and all three say so.
+    (mark,) = re.findall(r'title="([^"]*)"', str(unpriced(calls=1)))
+    assert inside(page, "data-project", MYCELIA, "title") == [mark] * 3
+
+
 def test_the_windows_count_the_sessions_inside_the_window_the_page_cites(
     plant: Planter,
 ) -> None:
@@ -296,10 +322,12 @@ def test_the_page_cites_the_query_and_the_window_it_ran(client: TestClient) -> N
 def test_the_page_is_ordered_by_what_ran_most_recently(
     client: TestClient, store: duckdb.DuckDBPyConnection
 ) -> None:
-    """Projects arrive newest first, with the sessions that named no directory last.
+    """Projects arrive newest first, each printing the instant it was ranked on.
 
-    The store holds no timestamp for those, so they sort where every NULL the viewer prints
-    sorts: at the end, rather than at the top of a page ranked by recency.
+    The store holds no timestamp for the sessions that named no directory, so they sort where
+    every NULL the viewer prints sorts: at the end, rather than at the top of a page ranked by
+    recency. The order and the cell are one assertion because they are one fact — a column of
+    dashes would sort correctly and tell a reader nothing.
     """
     page = client.get("/").text
     last = dict(
@@ -311,6 +339,10 @@ def test_the_page_is_ordered_by_what_ran_most_recently(
         reverse=True,
     )
     assert values(page, "data-project") == [*ordered, ""]
+    # And each row says when, down to the minute the store holds.
+    assert [fields(page, "data-project", root)["last_active"] for root in ordered] == [
+        fmt.when(last[root]) for root in ordered
+    ]
 
 
 def test_the_filter_box_suggests_the_projects_the_landing_page_lists(plant: Planter) -> None:
