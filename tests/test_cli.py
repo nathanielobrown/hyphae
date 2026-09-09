@@ -19,24 +19,11 @@ from hyphae.export.otlp import DEFAULT_MAX_CHARS
 from hyphae.export.otlp_delivery import DEFAULT_RATE, GENERIC
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT
 from hyphae.projects import encode_project_path
-from hyphae.store_path import HP_DB
 from hyphae.view.app import PORT
-from tests.conftest import FIXTURES, SPINE, stored_rows
+from tests.conftest import FIXTURES, PINNED_DB, SPINE, stored_rows
 from tests.extract.test_layout import make_projects_root
 
 PROJECT = Path("repos/mycelia")
-
-# The store every parser this file builds defaults to. `--db` resolves out of the environment
-# now (`hyphae/store_path.py`), so a suite reading the ambient one would pass or fail with the
-# machine it ran on; the fixture below names one instead. What it resolves *from* is
-# `tests/test_store_path.py`.
-PINNED_DB = Path("/pinned/traces.duckdb")
-
-
-@pytest.fixture(autouse=True)
-def pinned_store(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(HP_DB, str(PINNED_DB))
-
 
 # The two zones furthest apart on the planet: UTC+14 and UTC-11, 25 hours from each other, so
 # their local dates never agree. That is what lets the zone leaf below force a disagreement at

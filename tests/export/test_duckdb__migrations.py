@@ -17,6 +17,7 @@ from hyphae.export.schema import (
     SchemaVersionError,
     declared_shape,
     missing_steps,
+    table_ddl,
 )
 from hyphae.model import SessionTrace
 from tests.conftest import (
@@ -47,6 +48,36 @@ def shape(path: Path) -> dict[str, list[str]]:
             ]
             for (table,) in connection.execute("SELECT table_name FROM duckdb_tables()").fetchall()
         }
+
+
+def _primary_keys(connection: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
+    """Each keyed table and the columns of its key, in key order.
+
+    The half of a table's shape `declared_shape` cannot see: it reads columns, and so does
+    `check_shape`, so a step that spells every column right and drops the key opens fine and
+    then accepts a row the DDL forbids. A table with no key is simply absent, which makes a
+    lookup for one raise rather than compare two absences.
+    """
+    return {
+        table: list(columns)
+        for table, columns in connection.execute(
+            "SELECT table_name, constraint_column_names FROM duckdb_constraints() "
+            "WHERE constraint_type = 'PRIMARY KEY'"
+        ).fetchall()
+    }
+
+
+def stored_keys(path: Path) -> dict[str, list[str]]:
+    """The keys a store on disk holds."""
+    with duckdb.connect(str(path), read_only=True) as connection:
+        return _primary_keys(connection)
+
+
+def declared_keys(ddl: str) -> dict[str, list[str]]:
+    """The keys a DDL declares, derived by running it — the way `declared_shape` reads columns."""
+    with duckdb.connect() as scratch:
+        scratch.execute(table_ddl(ddl))
+        return _primary_keys(scratch)
 
 
 def stamped_version(path: Path) -> int | None:
@@ -199,6 +230,9 @@ def test_an_older_store_is_migrated_and_keeps_its_rows(db: Path, fixture_trace: 
     # differently would open fine here and die at the first insert...
     assert stored_rows(exporter.path, "SELECT count(*) FROM session_tags") == [(0,)]
     assert set(shape(db)["session_tags"]) == declared_shape(TRACE_SCHEMA)["session_tags"]
+    # ...keyed the way the DDL keys it, which its columns cannot say: a migrated store missing
+    # the key takes a session's tag twice, and `tagged()` then answers that session twice.
+    assert stored_keys(db)["session_tags"] == declared_keys(TRACE_SCHEMA)["session_tags"]
     # ...and the store stamped at the version this build writes.
     assert stored_rows(exporter.path, "SELECT schema_version FROM meta") == [(SCHEMA_VERSION,)]
     assert stamped_version(db) == SCHEMA_VERSION

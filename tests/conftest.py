@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Generator, Iterable, Sequence
+from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -34,8 +34,23 @@ from hyphae.export.schema import table_ddl
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
 from hyphae.model import SessionTrace
+from hyphae.store_path import HP_DB
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+# The store every parser the suite builds defaults to, and a path nothing can be written to
+# by accident. `--db` resolves out of the environment (`hyphae/store_path.py`) at parser
+# build, so a run reading the ambient `HP_DB` passes or fails with the machine it ran on: an
+# empty one refuses, taking every test that builds a parser with it. What the resolution
+# itself is held to is `tests/test_store_path.py`, which sets the variable it needs.
+PINNED_DB = Path("/pinned/traces.duckdb")
+
+
+@pytest.fixture(autouse=True)
+def pinned_store(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Name the default store for every test, and for the subprocesses one spawns."""
+    monkeypatch.setenv(HP_DB, str(PINNED_DB))
+
 
 _opened = duckdb.connect
 
@@ -267,20 +282,25 @@ FIXTURE_TAG = {FIXTURE_TAG_KEY: FIXTURE_TAG_VALUE}
 TAGGED_SESSIONS = (SPINE, SERVER_TOOLS)
 
 
-def build_store(path: Path, transcripts: Iterable[Path]) -> None:
+def build_store(
+    path: Path, transcripts: Iterable[Path], tags: Mapping[str, str] | None = None
+) -> None:
     """Extract each transcript into a store at `path`, as `refresh()` would.
 
     Tiers that query the store want their evidence to be rows the real pipeline wrote, so
     they build one from recorded transcripts rather than inserting rows by hand. Building
     costs an extraction per transcript — build once per test session and copy the file for
     any test that plants or deletes rows.
+
+    `tags` stamps every transcript, as one `hp extract --tag` does; left out, the corpus's
+    own rule applies and only `TAGGED_SESSIONS` carry `FIXTURE_TAG`.
     """
     exporter = DuckDbExporter(path, wait=NO_WAIT)
     for transcript in transcripts:
         session = SessionFiles(id=transcript.stem, transcript=transcript)
         source = ClaudeCodeSource(id=session.id, fingerprint="fixture", files=session)
-        tags = FIXTURE_TAG if session.id in TAGGED_SESSIONS else {}
-        exporter.export(ClaudeCodeExtractor(tags=tags).extract(source), source.fingerprint)
+        stamped = tags if tags is not None else FIXTURE_TAG if session.id in TAGGED_SESSIONS else {}
+        exporter.export(ClaudeCodeExtractor(tags=stamped).extract(source), source.fingerprint)
 
 
 def macro_connection() -> duckdb.DuckDBPyConnection:
