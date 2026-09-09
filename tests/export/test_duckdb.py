@@ -127,11 +127,11 @@ def test_re_exporting_a_session_replaces_it_wholly(db: Path, fixture_trace: Trac
         "pr_links": 2,
         "offload_files": 0,
         "raw_records": 58,
-        "session_tags": 0,
+        "session_tags": 1,
     }
 
     # ...and the same session comes back shorter — one turn, one call, three lines,
-    # and no PR link at all...
+    # no PR link at all, and none of the tags the first extract was stamped with...
     trimmed = replace(
         trace,
         turns=trace.turns[:1],
@@ -140,6 +140,7 @@ def test_re_exporting_a_session_replaces_it_wholly(db: Path, fixture_trace: Trac
         agent_runs=trace.agent_runs[:1],
         pr_links=[],
         raw_records=trace.raw_records[:3],
+        session_tags=[],
     )
     exporter.export(trimmed, "fingerprint-2")
 
@@ -204,7 +205,7 @@ def test_tags_are_replaced_with_the_session_they_were_stamped_on(
     assert tags_of(exporter, SPINE) == [("batch_id", "b2")]
 
     # ...one with no tags at all clears them...
-    exporter.export(spine, "fingerprint-3")
+    exporter.export(stamped(spine), "fingerprint-3")
     assert tags_of(exporter, SPINE) == []
 
     # ...and the session nobody re-extracted still carries what it was stamped with.

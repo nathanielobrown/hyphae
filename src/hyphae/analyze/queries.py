@@ -114,6 +114,9 @@ PARAM_TYPES: dict[str, ParamType] = {
     # Text a caller chooses rather than an id: which level to read, a phrase to keep rows by,
     # the seed a draw hashes with.
     **dict.fromkeys(("level", "mentions", "missing", "seed", "signature"), ParamType.TEXT),
+    # The pair a `tagged(...)` join binds: the caller's own word about an extract, so hyphae
+    # gives neither a default and neither means anything to it (`docs/store.md`).
+    **dict.fromkeys(("key", "value"), ParamType.TEXT),
     # The widths a value is cut to before it is printed. A width is the surface's number
     # rather than the query's; the ones an analysis query defaults to are the constants below.
     **dict.fromkeys(

@@ -125,6 +125,17 @@ _CONTEXT_WINDOW = (
     + "\n}[model]\n"
 )
 
+# The sessions carrying one tag, as a relation a query joins against. A table macro rather
+# than a predicate each query re-writes: the join is the whole rule, and two queries spelling
+# it apart would count one batch two ways. An unknown pair answers no rows, which is an
+# absence a query can join on rather than an error.
+# This is the one macro that reads a stored table, so `install` needs the store's tables in
+# the catalog — DuckDB binds a macro body at creation, not at call.
+_TAGGED = """
+CREATE OR REPLACE TEMP MACRO tagged(k, v) AS TABLE
+SELECT session_id FROM session_tags WHERE key = k AND value = v
+"""
+
 # What a tool call carried, for the rules that name one (`view/text/tool_names.py`) — one struct
 # rather than a column apiece, so a query adds the whole set with one expression and a
 # formatter reads what it needs by name.
@@ -180,6 +191,7 @@ DEFINITIONS = {
     "context_fill": _CONTEXT_FILL,
     "context_added": _CONTEXT_ADDED,
     "context_window": _CONTEXT_WINDOW,
+    "tagged": _TAGGED,
     **BOUNDING,
 }
 
@@ -203,6 +215,9 @@ def install(connection: duckdb.DuckDBPyConnection) -> None:
 
     Temp macros, so this works on the read-only connection both consumers open: what it
     creates lives in the session's own catalog rather than in the store.
+
+    Needs a connection that already has the store's tables: `tagged` reads `session_tags`, and
+    DuckDB binds a macro body when the macro is created rather than when it is called.
     """
     for macro in DEFINITIONS.values():
         connection.execute(macro)

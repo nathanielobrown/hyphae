@@ -21,13 +21,16 @@ from typing import Any
 import duckdb
 import pytest
 
+from hyphae.analyze import macros
 from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.store import EnrichmentStore
 from hyphae.enrich.taxonomy import TAXONOMY_VERSION, Category, Outcome
 from hyphae.enrich.validation import Enrichment
+from hyphae.export.duckdb import _SCHEMA as TRACE_SCHEMA
 from hyphae.export.duckdb import DuckDbExporter, open_trace_store
+from hyphae.export.schema import table_ddl
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
 from hyphae.model import SessionTrace
@@ -254,6 +257,16 @@ def fixture_transcripts(*directories: str) -> tuple[Path, ...]:
     )
 
 
+# The tag the fixture corpus carries, and the two sessions stamped with it. Two rather than
+# the whole corpus, because a query that filters by tag has to be able to tell a tagged
+# session from an untagged one. Invented, and no recording could supply it: a tag is the
+# caller's word about an extract, and Claude Code records nothing about that.
+FIXTURE_TAG_KEY = "batch_id"
+FIXTURE_TAG_VALUE = "fixture-batch"
+FIXTURE_TAG = {FIXTURE_TAG_KEY: FIXTURE_TAG_VALUE}
+TAGGED_SESSIONS = (SPINE, SERVER_TOOLS)
+
+
 def build_store(path: Path, transcripts: Iterable[Path]) -> None:
     """Extract each transcript into a store at `path`, as `refresh()` would.
 
@@ -266,7 +279,21 @@ def build_store(path: Path, transcripts: Iterable[Path]) -> None:
     for transcript in transcripts:
         session = SessionFiles(id=transcript.stem, transcript=transcript)
         source = ClaudeCodeSource(id=session.id, fingerprint="fixture", files=session)
-        exporter.export(ClaudeCodeExtractor().extract(source), source.fingerprint)
+        tags = FIXTURE_TAG if session.id in TAGGED_SESSIONS else {}
+        exporter.export(ClaudeCodeExtractor(tags=tags).extract(source), source.fingerprint)
+
+
+def macro_connection() -> duckdb.DuckDBPyConnection:
+    """An in-memory connection carrying the store's tables and the library's macros.
+
+    The tables come first because `tagged` reads one, and DuckDB binds a macro body when the
+    macro is created rather than when it is called — so a bare connection cannot hold the
+    set at all, whatever the leaf under it goes on to ask.
+    """
+    connection = duckdb.connect(":memory:")
+    connection.execute(table_ddl(TRACE_SCHEMA))
+    macros.install(connection)
+    return connection
 
 
 def corpus_transcripts() -> tuple[Path, ...]:
@@ -576,9 +603,15 @@ def planted_source(tmp_path: Path) -> PlantedFactory:
 
 @pytest.fixture
 def fixture_trace(fixture_source: SourceFactory) -> TraceFactory:
-    """Extract one fixture transcript, for tests that need a trace but not the parsing."""
+    """Extract one fixture transcript, for tests that need a trace but not the parsing.
+
+    Carries the same tags `build_store` stamps, so a trace built here and the rows the shared
+    corpus store holds for that session are the same trace — which is what lets a round-trip
+    leaf compare the two whole.
+    """
 
     def build(directory: str, stem: str) -> SessionTrace:
-        return ClaudeCodeExtractor().extract(fixture_source(directory, stem))
+        tags = FIXTURE_TAG if stem in TAGGED_SESSIONS else {}
+        return ClaudeCodeExtractor(tags=tags).extract(fixture_source(directory, stem))
 
     return build

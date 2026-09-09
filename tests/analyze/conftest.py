@@ -57,14 +57,19 @@ class _PinnedDateTime(dt.datetime):
 
 
 @pytest.fixture(autouse=True)
-def far_future(monkeypatch: pytest.MonkeyPatch) -> None:
+def far_future(monkeypatch: pytest.MonkeyPatch, corpus_db: Path) -> None:
     """Run every analysis test long after the corpus was recorded.
 
     Patched on `datetime` itself rather than on the one caller (`cli`'s `--as-of` default),
     so a clock read added anywhere under a test here is pinned too — both spellings of it,
-    because the CLI reads the zone-aware one and a leaf may read either. The stores are built
-    by session-scoped fixtures, which pytest sets up before this one — a recording keeps the
+    because the CLI reads the zone-aware one and a leaf may read either. A recording keeps the
     dates it was recorded with, and only the reading of it moves.
+
+    Takes `corpus_db` it never reads, so the corpus is built before the first patched test
+    rather than by whichever leaf happens to ask for a store first. DuckDB resolves
+    `datetime.datetime` once and caches it, so a store built after any converting statement
+    has run under this patch cannot bind a real timestamp at all — and which leaf pays that
+    is otherwise a matter of collection order.
     """
     monkeypatch.setattr(dt, "date", _PinnedDate)
     monkeypatch.setattr(dt, "datetime", _PinnedDateTime)

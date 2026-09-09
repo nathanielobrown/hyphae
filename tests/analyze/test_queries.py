@@ -29,6 +29,8 @@ from tests.conftest import (
     DENSE_TOOL,
     DENSE_TURN,
     DENSE_TURN_CALL,
+    FIXTURE_TAG_KEY,
+    FIXTURE_TAG_VALUE,
     FORK_ORIGIN,
     FORK_ORIGIN_RUN,
     MAIN,
@@ -85,6 +87,9 @@ VIEW_SIZES = {
 # Bindings that make a query return something on the fixture corpus, per query name. The
 # production defaults are pinned by their own leaves; these are the fixture-sized values.
 FIXTURE_BINDINGS: dict[str, dict[str, str]] = {
+    # The pair `build_store` stamps on two of its sessions: hyphae reserves no key, so the
+    # library can have no default for either half.
+    "tagged_sessions": {"key": FIXTURE_TAG_KEY, "value": FIXTURE_TAG_VALUE},
     # The production floor of 3 sessions holds no pair on a 16-session store, so the smoke
     # run would exercise the filter and never the join under it.
     "co_occurrence": {"min_sessions": "1"},
@@ -448,6 +453,14 @@ def test_a_cross_session_query_counts_through_the_corpus_views(name: str) -> Non
     # `corpus_*` views to reach what the runner put in scope (`queries.CORPUS_RELATIONS`).
     assert not {word for word in read if word.startswith("live_")}
     assert not (read & set(TABLES))
+    # Both negatives pass vacuously for a query whose tables this scan cannot see: `relations`
+    # reads bare identifiers, and a macro call — `tagged(...)` — hides the table in its body.
+    # So the rule is also stated the other way round: a corpus query reaches its rows through
+    # a `corpus_*` view, whatever else it joins.
+    assert {word for word in read if word.startswith("corpus_")}, (
+        f"{name} is a corpus query reading no corpus_* view. A macro can hide a base table "
+        "from this scan, so the join that values a resumed session once has to be visible here"
+    )
 
 
 @pytest.mark.parametrize("name", NAMES)

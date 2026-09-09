@@ -50,7 +50,7 @@ A tag is a `KEY=VALUE` pair you stamp on an extract: which batch of runs it belo
 hp extract ~/repos/mycelia --tag batch_id=b1 --tag experiment=retry-prompt
 ```
 
-Every session that extract wrote gets both pairs, in `session_tags`. Hyphae reserves no key and reads no meaning out of one; the `tagged(key, value)` macro answers the session ids carrying a pair, and any query can join on it (`src/hyphae/analyze/macros.py`).
+Every session that extract wrote gets both pairs, in `session_tags`. Hyphae reserves no key and reads no meaning out of one; the `tagged(key, value)` macro answers the session ids carrying a pair, and any query can join on it (`src/hyphae/analyze/macros.py`). `hp query tagged_sessions --param key=batch_id --param value=b1` is the worked example.
 
 Tags belong to the extraction, not to the session's files, so a re-extract replaces the whole set: different pairs overwrite the old ones, and no `--tag` at all clears them.
 
