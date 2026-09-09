@@ -157,10 +157,8 @@ def _query(args: argparse.Namespace) -> None:
         return
     if args.name is None:
         raise SystemExit("hp query takes the name of a query, or --list to see them")
-    try:
-        params = dict(pair.split("=", 1) for pair in args.param)
-    except ValueError:
-        raise SystemExit("--param takes KEY=VALUE") from None
+    # Parsed at the flag (`_key_value`); a later pair wins the name an earlier one bound.
+    params = dict(args.param)
     try:
         result = run(
             args.db,
@@ -210,6 +208,7 @@ def _query_arguments(subcommand: argparse.ArgumentParser) -> None:
     subcommand.add_argument(
         "--param",
         action="append",
+        type=_key_value,
         default=[],
         metavar="KEY=VALUE",
         help="Bind one of the query's parameters, overriding its production default",
@@ -429,6 +428,19 @@ def _add_db_argument(subcommand: argparse.ArgumentParser, description: str) -> N
     subcommand.add_argument(
         "--db", type=Path, default=DEFAULT_DB, help=f"{description} (default: {DEFAULT_DB})"
     )
+
+
+def _key_value(text: str) -> tuple[str, str]:
+    """One `KEY=VALUE` pair off the command line, split once so a value keeps its own `=`.
+
+    The `type` of every pair-valued flag, so argparse names the flag in the refusal. A pair
+    with no `=`, or one naming nothing, is refused: bound to the wrong name — or to the empty
+    one — a value produces a plausible answer and no signal.
+    """
+    key, separator, value = text.partition("=")
+    if not separator or not key:
+        raise argparse.ArgumentTypeError(f"takes KEY=VALUE, not {text!r}")
+    return key, value
 
 
 # Every subcommand, in the order `--help` lists them. A project is a positional argument where

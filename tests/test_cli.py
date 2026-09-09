@@ -178,6 +178,29 @@ def test_the_store_flag_is_one_flag_wherever_it_appears() -> None:
         assert parsed.db == Path("elsewhere.duckdb"), name
 
 
+def test_a_param_pair_splits_on_its_first_equals(capsys: pytest.CaptureFixture[str]) -> None:
+    """`--param` takes `KEY=VALUE`, repeats, and refuses anything else at the flag.
+
+    The pairs are the reader's own binding of a query, so a pair that does not parse has to
+    stop the run: bound to the wrong name, a value produces a plausible number and no signal.
+    """
+    # If pairs are given in order, each splitting once so a value keeps its own `=`...
+    parsed = cli.build_parser().parse_args(
+        ["query", "agent_types", "--param", "session_id=abc", "--param", "note=a=b"]
+    )
+    # ...they parse to the pairs a run binds, in the order they were typed...
+    assert parsed.param == [("session_id", "abc"), ("note", "a=b")]
+    # ...while a pair with no `=`, or one naming nothing, is a parse error against the flag —
+    # `dict()` over the split would have taken `=v` as a binding of the empty name.
+    for broken in ["nokey", "=v"]:
+        with pytest.raises(SystemExit):
+            cli.build_parser().parse_args(["query", "agent_types", "--param", broken])
+        # The refusal is the last line, under the usage argparse prints above it — and it
+        # names the flag, the shape it wanted, and what it was handed instead.
+        refusal = capsys.readouterr().err.splitlines()[-1]
+        assert refusal == f"hp query: error: argument --param: takes KEY=VALUE, not {broken!r}"
+
+
 def test_the_sessions_command_lists_the_transcripts_it_found(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
