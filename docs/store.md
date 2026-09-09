@@ -1,6 +1,14 @@
 # The trace store
 
-The trace store is one DuckDB file, `data/traces.duckdb`: the archive `hp extract` writes to and every query reads. It is gitignored with the rest of `data/`. Treat it as an archive — read this guide before deleting it, moving it, or changing a version constant.
+The trace store is one DuckDB file per person, outside every checkout: the archive `hp extract` writes to and every query reads. Treat it as an archive — read this guide before deleting it, moving it, or changing a version constant.
+
+## One store, wherever the command runs from
+
+Every `hp` command reads and writes `traces.duckdb` in the data directory this operating system gives `hyphae` — `~/Library/Application Support/hyphae` on macOS, `$XDG_DATA_HOME/hyphae` on Linux. `src/hyphae/store_path.py` resolves it, by asking `platformdirs` rather than inventing a convention, and every subcommand's `--help` prints the path it landed on. Sitting outside the checkouts means one machine keeps one archive whatever directory you are standing in, and an extract can never land in a commit.
+
+Two things move it: `HP_DB` names another store for every command in that environment, and `--db` names one for a single command.
+
+A store an earlier build left in a checkout stays where it is. Nothing copies or moves `data/traces.duckdb`, and `--db data/traces.duckdb` opens it as before. Point `HP_DB` at it, or extract into the new store and let the sessions still on disk land there — [comparing session IDs](#compare-session-ids-before-deleting-an-old-store) is what says whether the old file holds anything the new one has never seen.
 
 ## The store holds traces and derived data
 
@@ -68,8 +76,10 @@ A fresh store holds no `otlp_delivery` table at all; the first send to a backend
 You can delete an old store after the canonical store contains every session ID found in it:
 
 ```sql
-ATTACH 'data/traces.duckdb' AS canonical (READ_ONLY);
-ATTACH 'old.duckdb'        AS old       (READ_ONLY);
+-- The canonical store is the path `hp query --help` prints; a checkout's `data/traces.duckdb`
+-- is the old store this project's own move left behind.
+ATTACH '~/Library/Application Support/hyphae/traces.duckdb' AS canonical (READ_ONLY);
+ATTACH 'data/traces.duckdb'                                 AS old       (READ_ONLY);
 SELECT id FROM old.sessions EXCEPT SELECT id FROM canonical.sessions;
 ```
 

@@ -47,10 +47,8 @@ from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.extract.store import StoreSource, UnknownProjectError
 from hyphae.pipeline import refresh
 from hyphae.projects import resolve_project
+from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve
-
-# Gitignored, so an extract never lands in a commit.
-DEFAULT_DB = Path("data") / "traces.duckdb"
 
 
 class Subcommand(NamedTuple):
@@ -424,9 +422,14 @@ def _add_discovery_arguments(subcommand: argparse.ArgumentParser) -> None:
 
 
 def _add_db_argument(subcommand: argparse.ArgumentParser, description: str) -> None:
-    """The trace store flag, defaulted in one place — `description` says read or write."""
+    """The trace store flag, defaulted in one place — `description` says read or write.
+
+    The default is resolved as the parser is built, and printed: the archive lives outside
+    every checkout, so `--help` is where a reader finds out which file they are addressing.
+    """
+    store = default_store()
     subcommand.add_argument(
-        "--db", type=Path, default=DEFAULT_DB, help=f"{description} (default: {DEFAULT_DB})"
+        "--db", type=Path, default=store, help=f"{description} (default: {store})"
     )
 
 

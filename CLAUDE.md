@@ -51,7 +51,7 @@ docs/
   schema.md               Every Claude Code telemetry field hyphae reads, what it means, and the recording that proves it
   transcript-reading.md   Read a Claude Code transcript by these rules: which `user` records start a turn, where a slash command's output went, and which timestamps were measured rather than assigned
   session-layout.md       Where a Claude Code session's files sit on disk, and how the extractor joins them: a subagent transcript to the call that spawned it, a fan-out agent to its launcher, a copied record to the transcript that ran it first
-  store.md                The trace store is one DuckDB file, `data/traces.duckdb`: the archive `hp extract` writes to and every query reads
+  store.md                The trace store is one DuckDB file per person, outside every checkout: the archive `hp extract` writes to and every query reads
   enrichment.md           Enrichment describes every agent run, main turn, and session in the trace store
   viewer.md               `hp view` opens the trace store in a local browser
   viewer-bounds.md        What a viewer URL may ask for, and what the page that comes back is allowed to weigh
@@ -68,7 +68,7 @@ docs/
 plans/                    Designs and testing plans, one directory per change — committed on the implementing branch, not left untracked on main (`docs/documentation.md`)
 reports/                  One analysis pass, written down
 handoffs/                 Gitignored: scratch one agent run leaves for the next (`docs/handoffs.md`)
-data/                     Gitignored: the canonical trace store `traces.duckdb` (`docs/store.md`) and analysis scratch
+data/                     Gitignored: analysis scratch, and any store `--db` pointed an extract at — the canonical one sits outside every checkout (`docs/store.md`)
 ```
 <!-- aigarden:end -->
 

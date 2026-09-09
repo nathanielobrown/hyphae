@@ -7,6 +7,9 @@ requires-python = ">=3.13"
 dependencies = [
   "duckdb>=1.5.5", # the local trace store — an embedded analytical DB, so no service to run
   "pytz>=2025.2",  # duckdb needs it to hand a TIMESTAMPTZ back to Python, but doesn't declare it
+  # Names the per-user data directory the trace store sits in when neither `--db` nor `HP_DB`
+  # says otherwise (`store_path.py`), by each OS's own convention rather than one we invent.
+  "platformdirs>=4.11",
   "python-dotenv>=1.1", # reads the OTLP backends' ingest keys out of .env, which is gitignored
   "fastapi>=0.115", # the trace viewer's routes, and the test client the viewer tier drives
   "uvicorn>=0.34", # serves the viewer on localhost; nothing here is deployed

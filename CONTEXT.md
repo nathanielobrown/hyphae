@@ -30,7 +30,7 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `doc
 
 - **Extractor** — reads one agent's sessions into the model
 - **Exporter** — writes the model to a sink; the store and OTLP are sinks
-- **Store** — the trace store: one DuckDB file, one table per entity, the durable archive rather than a cache
+- **Store** — the trace store: one DuckDB file per person, outside every checkout, one table per entity — the durable archive rather than a cache
 - **Fingerprint** — changes when any of a session's files do; the only thing deciding re-extraction
 - **Price table** — what each model charges per million tokens and the window it answers in; one table, `src/hyphae/extract/pricing.py:MODELS`, read by the extract, the viewer, the analyze macros and the `hp enrich` quote
 - **Corpus** — the rows minus every replayed copy: the basis for any cross-session count

@@ -14,17 +14,29 @@ from typing import Any
 import pytest
 
 from hyphae import cli, settings
-from hyphae.cli import DEFAULT_DB
 from hyphae.enrich.client import DEFAULT_CONCURRENCY, DEFAULT_MODEL
 from hyphae.export.otlp import DEFAULT_MAX_CHARS
 from hyphae.export.otlp_delivery import DEFAULT_RATE, GENERIC
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT
 from hyphae.projects import encode_project_path
+from hyphae.store_path import HP_DB
 from hyphae.view.app import PORT
 from tests.conftest import FIXTURES
 from tests.extract.test_layout import make_projects_root
 
 PROJECT = Path("repos/mycelia")
+
+# The store every parser this file builds defaults to. `--db` resolves out of the environment
+# now (`hyphae/store_path.py`), so a suite reading the ambient one would pass or fail with the
+# machine it ran on; the fixture below names one instead. What it resolves *from* is
+# `tests/test_store_path.py`.
+PINNED_DB = Path("/pinned/traces.duckdb")
+
+
+@pytest.fixture(autouse=True)
+def pinned_store(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(HP_DB, str(PINNED_DB))
+
 
 # The two zones furthest apart on the planet: UTC+14 and UTC-11, 25 hours from each other, so
 # their local dates never agree. That is what lets the zone leaf below force a disagreement at
@@ -69,12 +81,12 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
     ),
     "extract": (
         (str(PROJECT),),
-        {"project": PROJECT, "projects_root": DEFAULT_PROJECTS_ROOT, "db": DEFAULT_DB},
+        {"project": PROJECT, "projects_root": DEFAULT_PROJECTS_ROOT, "db": PINNED_DB},
     ),
     "enrich": (
         (),
         {
-            "db": DEFAULT_DB,
+            "db": PINNED_DB,
             "project": None,
             "model": DEFAULT_MODEL,
             "dry_run": False,
@@ -86,7 +98,7 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
         (str(PROJECT),),
         {
             "project": PROJECT,
-            "db": DEFAULT_DB,
+            "db": PINNED_DB,
             "backend": GENERIC,
             "service_name": None,
             "rate": DEFAULT_RATE,
@@ -99,7 +111,7 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
         ("agent_types",),
         {
             "name": "agent_types",
-            "db": DEFAULT_DB,
+            "db": PINNED_DB,
             "project": None,
             "since": None,
             "as_of": _utc_today,
@@ -108,7 +120,7 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
             "list": False,
         },
     ),
-    "view": ((), {"db": DEFAULT_DB, "port": PORT, "no_browser": False, "dev": False}),
+    "view": ((), {"db": PINNED_DB, "port": PORT, "no_browser": False, "dev": False}),
 }
 
 
@@ -176,6 +188,36 @@ def test_the_store_flag_is_one_flag_wherever_it_appears() -> None:
         parsed = cli.build_parser().parse_args([name, *required, "--db", "elsewhere.duckdb"])
         # A `Path`, not the string argparse hands back untyped.
         assert parsed.db == Path("elsewhere.duckdb"), name
+
+
+def test_the_store_flag_tells_a_reader_which_archive_it_would_write(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`--help` prints the store the command would use, resolved — not the expression behind
+    it.
+
+    The archive lives outside every checkout now, so "where did my sessions go" has to be
+    answerable from the command line itself. Printing it also pins that the default is read
+    when the parser is built, which is what lets an environment set before the call decide it.
+    """
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(["extract", "--help"])
+    assert str(PINNED_DB) in capsys.readouterr().out
+
+
+def test_the_query_listing_runs_from_a_directory_with_no_store_under_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`hp query --list` answers from anywhere on the machine, leaving nothing behind.
+
+    The old default was `data/traces.duckdb` under the working directory, so a command run
+    outside a checkout addressed a store that did not exist — and one that wrote would have
+    made a `data/` wherever it was standing.
+    """
+    monkeypatch.chdir(tmp_path)
+    cli.main("query", "--list")
+    assert "session_counts" in capsys.readouterr().out
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_a_param_pair_splits_on_its_first_equals(capsys: pytest.CaptureFixture[str]) -> None:
@@ -246,8 +288,8 @@ def test_the_viewer_opens_a_browser_unless_the_run_says_not_to(
     cli.main("view", "--dev")
     assert served == [
         (Path("traces.duckdb"), 9000, True, False),
-        (DEFAULT_DB, PORT, False, False),
-        (DEFAULT_DB, PORT, True, True),
+        (PINNED_DB, PORT, False, False),
+        (PINNED_DB, PORT, True, True),
     ]
 
 

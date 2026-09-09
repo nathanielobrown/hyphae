@@ -5,7 +5,7 @@
 ## Preview the exact export
 
 ```console
-hp export-otlp /path/to/repo --db data/traces.duckdb --dry-run
+hp export-otlp /path/to/repo --dry-run
 ```
 
 A dry run counts what the next export would ship, shaping each session with the same mapper the export uses and posting nothing. It counts the sessions the backend has not already acknowledged, not the whole corpus, and says how many it would skip. Name another backend with `--backend` to count against that backend's ledger; a dry run needs no key for it. It opens the store read-only, writes no delivery record, and sends no request.
@@ -27,13 +27,13 @@ A real export reads sessions and writes its delivery ledger through one DuckDB c
 The default `generic` backend sends to `OTLP_ENDPOINT`. Set optional request headers in `OTLP_HEADERS` as comma-separated `name=value` pairs:
 
 ```console
-hp export-otlp /path/to/repo --db data/traces.duckdb
+hp export-otlp /path/to/repo
 ```
 
 Named backends and their key variables live in `BACKENDS` in `src/hyphae/export/otlp_delivery.py`; `--help` lists the accepted names. For example:
 
 ```console
-hp export-otlp /path/to/repo --db data/traces.duckdb --backend honeycomb
+hp export-otlp /path/to/repo --backend honeycomb
 ```
 
 Keys come from `.env` or the environment. The command validates the endpoint and required key before opening the store, and it never prints keys. `OTLP_ENDPOINT` overrides the endpoint of a named backend, which lets you put a collector in front of it.
