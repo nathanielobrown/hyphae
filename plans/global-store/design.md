@@ -38,12 +38,14 @@ src/hyphae/
   cli.py                 changed: DEFAULT_DB gone; --tag on extract; --db help prints the resolved path
   export/duckdb.py       changed: session_tags in _SCHEMA and TABLES, SCHEMA_VERSION + 1, a migration step
   extract/claude_code.py changed: ClaudeCodeExtractor(tags=…) fills SessionTrace.session_tags
+  extract/store.py       changed: ARCHIVE_TABLES → UNSHIPPED_TABLES, which session_tags joins
   analyze/macros.py      changed: tagged(key, value)
   analyze/queries/       changed: one query that filters by tag, as the library's example
 docs/store.md            changed: where the store lives, HP_DB, what a tag is and who writes it
 CONTEXT.md               changed: Tag
 tests/
   test_store_path.py     added
+  conftest.py            changed: the corpus carries a tag, and a connection that binds the macros over it
   test_cli.py            changed: --tag parses; the store flag test still holds
   export/test_duckdb.py  changed: tags written, replaced, cleared on a re-extract without them
   export/test_duckdb__locking.py   changed: an extract under an open viewer connection
@@ -69,11 +71,13 @@ CREATE TABLE IF NOT EXISTS session_tags (
 );
 # TABLES gains  "session_tags": TableSpec(SessionTag, session_key="session_id", order=("key",))
 # model.py gains SessionTag(session_id, key, value); SessionTrace gains `session_tags`, filled
-# from the exporter's `tags` argument rather than from the transcript
+# from the tags the extractor was built with rather than from the transcript
 
-class DuckDbExporter:
-    def export(self, trace: SessionTrace, *, tags: Mapping[str, str]) -> ...   # or wherever the
-    # per-session write is called; the pairs are the caller's, so no default
+class ClaudeCodeExtractor:
+    def __init__(self, *, projects_root: Path = …, tags: Mapping[str, str] = {}):
+    # Every session this extractor reads carries them and every session it skips does not; the
+    # exporter then writes the field like any other, which is what keeps a store → OTLP
+    # re-export carrying its tags. An untagged extract is the ordinary case, hence the default
 
 # cli: hp extract <project> [--projects-root …] [--db …] [--tag KEY=VALUE]...
 # A KEY with no "=" or an empty KEY is a parse error, like --param's
@@ -92,7 +96,7 @@ The exporter and the store: `DuckDbExporter` writing a fixture trace into a temp
 ## Slices
 
 1. **The store path.** `store_path.py`, `platformdirs`, the `--db` default and its help line, `docs/store.md`. Verified by `test_store_path.py` and by `hp query --list` from a directory with no `data/`.
-2. **Tags.** The table, the model, the write, the migration step, `--tag`, the macro and the one example query, `docs/schema.md`. Verified by the exporter tests: written, read back through `tagged`, replaced, and cleared on a re-extract without them; the migration suite crossing the new step.
+2. **Tags.** The table, the model, the write, the migration step, `--tag`, the macro and the one example query, `docs/store.md` — a tag is nothing Claude Code recorded, so `docs/schema.md` says nothing about it. Verified by the exporter tests: written, read back through `tagged`, replaced, and cleared on a re-extract without them; the migration suite crossing the new step.
 3. **Extract under a viewer.** The locking test. If it fails, the fix is on hyphae's side and the factory's close waits on it.
 
 ## Decisions
@@ -105,6 +109,7 @@ The exporter and the store: `DuckDbExporter` writing a fixture trace into a temp
 
 ## Out of scope
 
+- Tags on the spans `hp export-otlp` ships: they stay in the store, where a query reads them, and no exporter carries them out
 - A tag filter in the viewer's session list: a URL parameter on `/sessions` once a tagged store exists to design against
 - Reading factory's `run.json` for tags: the factory passes them, hyphae reads no other tool's record
 - Extracting Codex or pi transcripts: still Claude Code only

@@ -4,7 +4,7 @@ The trace store is one DuckDB file per person, outside every checkout: the archi
 
 ## One store, wherever the command runs from
 
-Every `hp` command reads and writes `traces.duckdb` in the data directory this operating system gives `hyphae` — `~/Library/Application Support/hyphae` on macOS, `$XDG_DATA_HOME/hyphae` on Linux. `src/hyphae/store_path.py` resolves it, by asking `platformdirs` rather than inventing a convention, and every subcommand's `--help` prints the path it landed on. Sitting outside the checkouts means one machine keeps one archive whatever directory you are standing in, and an extract can never land in a commit.
+Every `hp` command that takes `--db` reads or writes `traces.duckdb` in the platform's user data directory for `hyphae` — on macOS, `~/Library/Application Support/hyphae`. `src/hyphae/store_path.py` resolves it, by asking `platformdirs` rather than inventing a convention, and each of those subcommands' `--help` prints the path it landed on. Sitting outside the checkouts means one machine keeps one archive whatever directory you are standing in, and an extract can never land in a commit.
 
 Two things move it: `HP_DB` names another store for every command in that environment, and `--db` names one for a single command.
 
