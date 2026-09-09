@@ -46,7 +46,7 @@ The default export sends the structure of the work: span ids and times, project 
 
 The default omits transcript-derived text: prompts, command arguments, model responses and thinking, tool inputs and results, session titles, session agent names, subagent briefs, PR URLs, and repository names. PR links still become events on the session root, but those events contain only the PR number by default.
 
-Each session becomes one trace. Its root span has children for turns, model calls, tool calls, subagent runs, and compactions. A tool call that starts a subagent becomes the subagent span rather than a second tool span. Rows copied into a fork emit no span because sending them would double-count the work.
+Each session becomes one trace. Its root span has children for turns, model calls, tool calls, subagent runs, and compactions. A tool call that starts a subagent becomes the subagent span rather than a second tool span. Rows copied into a fork emit no span because sending them would double-count the work. The tags an extract stamped on a session stay in the store: no span carries one, and `--include-text` does not add them ([the store guide](store.md)).
 
 `session_spans()` in `src/hyphae/export/otlp.py` defines what ships. `tests/export/test_otlp__privacy.py` scans the raw request bytes for every excluded field.
 
