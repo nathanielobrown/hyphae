@@ -26,7 +26,7 @@ from hyphae.view.app import CSP, build_app, serve
 from hyphae.view.components import parts
 from hyphae.view.nodes import NUMBERS_URL
 from hyphae.view.store import SchemaMoved
-from tests.conftest import SPINE, locked
+from tests.conftest import SPINE, locked, opens_elsewhere
 from tests.view.conftest import fields
 from tests.view.scenarios import SCENARIOS, Group
 
@@ -152,6 +152,23 @@ def test_a_full_document_opens_the_store_once_and_the_query_page_not_at_all(
     monkeypatch.setattr(view_store, "open_trace_store", counted)
     assert enriched_client.get(SCENARIOS[route].url).status_code == 200
     assert opens == DOCUMENTS[route]
+
+
+def test_a_running_viewer_leaves_the_store_free_between_requests(copy: Path) -> None:
+    """A viewer left open on the store is no obstacle to `hp extract` writing to it.
+
+    The window rule from a writer's side: the count above says a document opens the store
+    once, and this says the connection is gone by the time the response is — so what an
+    extract waits out is one page load rather than the viewer's lifetime
+    (`tests/export/test_duckdb__locking.py` runs the extract). Asked of another process,
+    because this one's own open answers differently from the file lock (`tests/conftest.locked`).
+    """
+    # If a viewer is up and has served a page...
+    with TestClient(build_app(copy)) as client:
+        assert client.get(REACHES["page"]).status_code == 200
+        # ...then nothing of it is still on the file: another process can take the write lock
+        # while the viewer stands open behind it.
+        assert opens_elsewhere(copy, read_only=False)
 
 
 def test_a_store_this_build_cannot_read_is_refused_at_launch(copy: Path) -> None:

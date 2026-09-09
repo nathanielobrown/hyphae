@@ -333,6 +333,21 @@ _HOLDER = (
     " time.sleep(float(sys.argv[3]))"
 )
 
+# What a viewer page does to the store: the read-only open `view/store.py:open_store` makes,
+# through hyphae's own opener rather than a bare `duckdb.connect`, so what the holder takes is
+# what a page takes — version check, temp views and all. It holds for the seconds it was told
+# to instead of the length of one request, which is the only difference from a page load.
+_READER = """
+import pathlib, sys, time
+
+from hyphae.export.duckdb import PAGE_WAIT, open_trace_store
+
+path, signal, hold = sys.argv[1:]
+with open_trace_store(pathlib.Path(path), read_only=True, wait=PAGE_WAIT):
+    pathlib.Path(signal).touch()
+    time.sleep(float(hold))
+"""
+
 # How long the holder keeps the lock when the block does not name a shorter hold: longer than
 # any test's block, so `locked()`'s exit is what ends it.
 HOLD_UNTIL_STOPPED = 30.0
@@ -394,8 +409,10 @@ def opens_elsewhere(path: Path, *, read_only: bool) -> bool:
 
 
 @contextmanager
-def locked(path: Path, *, hold: float = HOLD_UNTIL_STOPPED) -> Generator["subprocess.Popen[bytes]"]:
-    """Hold a store's write lock from another process for the length of the block.
+def locked(
+    path: Path, *, hold: float = HOLD_UNTIL_STOPPED, read_only: bool = False
+) -> Generator["subprocess.Popen[bytes]"]:
+    """Hold a store's lock from another process for the length of the block.
 
     A subprocess, not a second connection here: DuckDB answers the same process's second
     open differently from the file lock it takes across processes, so an in-process holder
@@ -406,6 +423,10 @@ def locked(path: Path, *, hold: float = HOLD_UNTIL_STOPPED) -> Generator["subpro
     subject is the waiting gets a writer that finishes while a caller is queued behind it,
     with no thread of its own.
 
+    Pass `read_only` for the shared read lock a viewer page takes, which shuts a writer out
+    just as the write lock does; the store has to exist already, because that is the only
+    kind a page can open. The default holder writes.
+
     The wait for the holder never opens the store. A read-only open takes a shared read
     lock, and DuckDB refuses a write open while one is held — so a wait that polled by
     opening could kill the very holder it waited for. It did, on CI run 31903080480. The
@@ -414,8 +435,9 @@ def locked(path: Path, *, hold: float = HOLD_UNTIL_STOPPED) -> Generator["subpro
     """
     signal = path.with_name(f"{path.name}.locked")
     signal.unlink(missing_ok=True)
+    script = _READER if read_only else _HOLDER
     holder = subprocess.Popen(
-        [sys.executable, "-c", _HOLDER, str(path), str(signal), str(hold)], stderr=subprocess.PIPE
+        [sys.executable, "-c", script, str(path), str(signal), str(hold)], stderr=subprocess.PIPE
     )
     try:
         deadline = time.monotonic() + LOCK_TIMEOUT
