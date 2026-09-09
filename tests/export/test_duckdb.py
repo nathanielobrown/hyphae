@@ -6,6 +6,7 @@ build is carried forward through is `test_duckdb__migrations.py`.
 """
 
 import dataclasses
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from hyphae.export.duckdb import (
     DuckDbExporter,
     open_trace_store,
 )
-from hyphae.model import LiveRows
+from hyphae.model import LiveRows, SessionTag, SessionTrace
 from tests.conftest import MODEL_ONLY, NO_WAIT, TraceFactory, stored_rows
 
 SPINE = "4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b"
@@ -52,6 +53,27 @@ def rows(
     key = "id" if table == "sessions" else "session_id"
     return stored_rows(
         exporter.path, f"SELECT {names} FROM {table} WHERE {key} LIKE ? ORDER BY 1, 2", [session]
+    )
+
+
+def stamped(trace: SessionTrace, **tags: str) -> SessionTrace:
+    """The same trace, carrying the tags a caller would have passed `hp extract`.
+
+    The pairs every leaf below stamps are invented, and no recording could supply them: a tag
+    is the caller's own word about a run, and Claude Code records nothing about that.
+    """
+    return replace(
+        trace,
+        session_tags=[SessionTag(trace.session.id, key, value) for key, value in tags.items()],
+    )
+
+
+def tags_of(exporter: DuckDbExporter, session: str) -> list[tuple[object, ...]]:
+    """Every pair the store holds for one session, in key order."""
+    return stored_rows(
+        exporter.path,
+        "SELECT key, value FROM session_tags WHERE session_id = ? ORDER BY key",
+        [session],
     )
 
 
@@ -105,6 +127,7 @@ def test_re_exporting_a_session_replaces_it_wholly(db: Path, fixture_trace: Trac
         "pr_links": 2,
         "offload_files": 0,
         "raw_records": 58,
+        "session_tags": 0,
     }
 
     # ...and the same session comes back shorter — one turn, one call, three lines,
@@ -131,6 +154,7 @@ def test_re_exporting_a_session_replaces_it_wholly(db: Path, fixture_trace: Trac
         "pr_links": 0,
         "offload_files": 0,
         "raw_records": 3,
+        "session_tags": 0,
     }
     assert rows(exporter, "turns", type(trace.turns[0])) == [dataclasses.astuple(trace.turns[0])]
 
@@ -153,6 +177,38 @@ def test_a_replace_leaves_other_sessions_alone(db: Path, fixture_trace: TraceFac
     # ...then the other session keeps every row it had.
     assert rows(exporter, "raw_records", type(other.raw_records[0]), DUPS) == before
     assert counts(exporter)["raw_records"] == len(other.raw_records)
+
+
+def test_tags_are_replaced_with_the_session_they_were_stamped_on(
+    db: Path, fixture_trace: TraceFactory
+):
+    """A re-extract holds the tags it was handed and none of the ones it was not.
+
+    A tag is a property of the extraction rather than of the session's files, so it lives and
+    dies with the export that wrote it — the rule every other table already obeys, and a
+    second rule for one table is a rule someone forgets.
+    """
+    spine = fixture_trace("spine", SPINE)
+    other = fixture_trace("dup_uuid", DUPS)
+    exporter = DuckDbExporter(db, wait=NO_WAIT)
+
+    # If two sessions are exported carrying tags...
+    exporter.export(stamped(spine, batch_id="b1", task="t1"), "fingerprint-1")
+    exporter.export(stamped(other, batch_id="b1"), "fingerprint-other")
+
+    # ...then each pair reads back under the session it was stamped on...
+    assert tags_of(exporter, SPINE) == [("batch_id", "b1"), ("task", "t1")]
+
+    # ...a re-extract under different tags keeps nothing of the first set...
+    exporter.export(stamped(spine, batch_id="b2"), "fingerprint-2")
+    assert tags_of(exporter, SPINE) == [("batch_id", "b2")]
+
+    # ...one with no tags at all clears them...
+    exporter.export(spine, "fingerprint-3")
+    assert tags_of(exporter, SPINE) == []
+
+    # ...and the session nobody re-extracted still carries what it was stamped with.
+    assert tags_of(exporter, DUPS) == [("batch_id", "b1")]
 
 
 def test_extract_state_records_what_produced_the_rows(db: Path, fixture_trace: TraceFactory):
@@ -436,9 +492,26 @@ def test_an_offloaded_output_is_keyed_by_session_and_name(db: Path, fixture_trac
         exporter.export(replace(trace, offload_files=[offloaded, offloaded]), "f-3")
 
 
-def test_a_failed_export_changes_nothing(db: Path, fixture_trace: TraceFactory):
+@pytest.mark.parametrize(
+    "break_it",
+    [
+        pytest.param(lambda trace: replace(trace, turns=[*trace.turns, trace.turns[0]]), id="turn"),
+        # A `Mapping` cannot carry a key twice, so the only way to a duplicate pair is to plant
+        # one on the trace — which is the shape under test: the table's key, not the flag's.
+        pytest.param(
+            lambda trace: replace(
+                trace,
+                session_tags=[SessionTag(trace.session.id, "batch_id", value) for value in "12"],
+            ),
+            id="tag",
+        ),
+    ],
+)
+def test_a_failed_export_changes_nothing(
+    db: Path, fixture_trace: TraceFactory, break_it: Callable[[SessionTrace], SessionTrace]
+):
     """A trace that violates a key leaves the store exactly as it was."""
-    trace = fixture_trace("spine", SPINE)
+    trace = stamped(fixture_trace("spine", SPINE), batch_id="b1")
 
     exporter = DuckDbExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")
@@ -446,10 +519,11 @@ def test_a_failed_export_changes_nothing(db: Path, fixture_trace: TraceFactory):
 
     # If an export raises partway through...
     with pytest.raises(duckdb.ConstraintException):
-        exporter.export(replace(trace, turns=[*trace.turns, trace.turns[0]]), "fingerprint-2")
+        exporter.export(break_it(trace), "fingerprint-2")
 
     # ...then the rows and the fingerprint from the good export both survive.
     assert counts(exporter) == before
+    assert tags_of(exporter, SPINE) == [("batch_id", "b1")]
     assert exporter.fingerprints() == {SPINE: "fingerprint-1"}
 
 

@@ -23,10 +23,12 @@ from hyphae.model import SessionTrace
 from hyphae.pipeline import SessionSource
 from hyphae.projects import project_predicate, resolve_project
 
-# The tables that are the archive rather than the session's work: every line of every
-# transcript, and the tool outputs Claude Code wrote to files beside it. Nothing ships them,
-# so they say nothing about whether excluding a session loses anything.
-ARCHIVE_TABLES = frozenset({"raw_records", "offload_files"})
+# The tables that hold no work of the session's own: the archive — every line of every
+# transcript, and the tool outputs Claude Code wrote to files beside it — and the tags the
+# caller stamped on the extract, which are the caller's own word and re-typeable at that.
+# Nothing ships any of them, so they say nothing about whether excluding a session loses
+# anything.
+UNSHIPPED_TABLES = frozenset({"raw_records", "offload_files", "session_tags"})
 
 
 class UnplaceableSessionError(Exception):
@@ -130,7 +132,7 @@ class StoreSource:
         they are reported in the message and are never the reason for it.
         """
         owned = [table for table in TABLES if table != "sessions"]
-        work = [table for table in owned if table not in ARCHIVE_TABLES]
+        work = [table for table in owned if table not in UNSHIPPED_TABLES]
         counts = ", ".join(
             f"(SELECT count(*) FROM {table} t WHERE t.session_id = s.id)" for table in owned
         )

@@ -41,6 +41,7 @@ from hyphae.model import (
     PrLink,
     RawRecord,
     Session,
+    SessionTag,
     SessionTrace,
     ToolCall,
     Turn,
@@ -178,6 +179,14 @@ CREATE TABLE IF NOT EXISTS raw_records (
     type VARCHAR NOT NULL,
     raw VARCHAR NOT NULL,
     PRIMARY KEY (session_id, source, line_no)
+);
+CREATE TABLE IF NOT EXISTS session_tags (
+    session_id VARCHAR NOT NULL,
+    -- The caller's own words, off `hp extract --tag`. One value per key per session: a
+    -- second `--tag` naming a key an earlier one bound wins at the flag.
+    key VARCHAR NOT NULL,
+    value VARCHAR NOT NULL,
+    PRIMARY KEY (session_id, key)
 );
 CREATE TABLE IF NOT EXISTS extract_state (
     session_id VARCHAR PRIMARY KEY,
@@ -345,6 +354,7 @@ TABLES: dict[str, TableSpec] = {
     "pr_links": TableSpec(PrLink, session_key="session_id", order=("line_no",)),
     "offload_files": TableSpec(OffloadFile, session_key="session_id", order=("name",)),
     "raw_records": TableSpec(RawRecord, session_key="session_id", order=("source", "line_no")),
+    "session_tags": TableSpec(SessionTag, session_key="session_id", order=("key",)),
 }
 
 

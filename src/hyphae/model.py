@@ -272,6 +272,21 @@ class PrLink:
 
 
 @dataclass(frozen=True)
+class SessionTag:
+    """One `KEY=VALUE` pair the caller who ran the extract stamped on a session.
+
+    The one row here no transcript holds: a tag says what the caller was doing — which batch
+    of runs, which experiment — and Claude Code recorded none of that. It is a property of
+    the extraction, so a re-extract replaces the whole set (`docs/store.md`).
+    """
+
+    session_id: str
+    # The caller's own word. Hyphae reserves no key and reads no meaning out of one.
+    key: str
+    value: str
+
+
+@dataclass(frozen=True)
 class RawRecord:
     """One line of one transcript, kept verbatim.
 
@@ -326,6 +341,9 @@ class SessionTrace:
     pr_links: list[PrLink]
     offload_files: list[OffloadFile]
     raw_records: list[RawRecord]
+    # What the caller stamped on this extraction rather than anything the session recorded,
+    # which is why the extractor is handed them (`extract/claude_code.py`).
+    session_tags: list[SessionTag]
 
     def live(self) -> LiveRows:
         """What this session's files recorded, minus every row a fork copied from another.

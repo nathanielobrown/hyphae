@@ -127,6 +127,7 @@ class ClaudeCodeExtractor:
             pr_links=pr_links(kept[MAIN_SOURCE], source.id),
             offload_files=[read_offload_file(path, source.id) for path in files.offloads],
             raw_records=raw_records,
+            session_tags=[],
         )
 
 

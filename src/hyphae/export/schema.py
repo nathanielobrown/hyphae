@@ -21,7 +21,7 @@ import duckdb
 
 # Bumped whenever any owner's stored tables change. A store older than this is carried
 # forward by `MIGRATIONS`; one older than every step there is refused.
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 # The remedy a version-mismatch message carries when no migration can help, written once
 # because getting it wrong is expensive: a store can be the only copy of a session Claude Code
@@ -155,6 +155,24 @@ def _flag_the_compactions_a_fork_replayed(connection: duckdb.DuckDBPyConnection)
     """)
 
 
+def _add_the_session_tags_table(connection: duckdb.DuckDBPyConnection) -> None:
+    """9 -> 10: `session_tags`, the pairs `hp extract --tag` stamps on a session.
+
+    Nothing to back-fill: no store written before this one holds a tag, and no transcript
+    records one. The columns are spelled again here rather than read off `export/duckdb.py`'s
+    DDL because this module imports nothing from `hyphae`; `check_shape` holds the two
+    spellings to each other at the next open.
+    """
+    connection.execute("""
+        CREATE TABLE session_tags (
+            session_id VARCHAR NOT NULL,
+            key VARCHAR NOT NULL,
+            value VARCHAR NOT NULL,
+            PRIMARY KEY (session_id, key)
+        )
+    """)
+
+
 # Each step keyed by the version it produces, so a store at version N is carried forward by
 # every step above N in order. A step edits tables in place: the archive can hold the only
 # copy of a session Claude Code has pruned, so a schema change moves a store rather than
@@ -162,6 +180,7 @@ def _flag_the_compactions_a_fork_replayed(connection: duckdb.DuckDBPyConnection)
 MIGRATIONS: dict[int, Callable[[duckdb.DuckDBPyConnection], None]] = {
     8: _rename_agent_run_description_to_brief,
     9: _flag_the_compactions_a_fork_replayed,
+    10: _add_the_session_tags_table,
 }
 
 
