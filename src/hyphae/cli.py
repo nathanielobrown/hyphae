@@ -94,7 +94,8 @@ def _sessions(args: argparse.Namespace) -> None:
 
 def _extract(args: argparse.Namespace) -> None:
     """Parse a project's transcripts into the trace store, skipping what has not changed."""
-    extractor = ClaudeCodeExtractor(projects_root=args.projects_root)
+    # Parsed at the flag (`_key_value`); a later pair wins the name an earlier one bound.
+    extractor = ClaudeCodeExtractor(projects_root=args.projects_root, tags=dict(args.tag))
     exporter = DuckDbExporter(args.db, wait=CLI_WAIT)
     result = refresh(args.project, extractor=extractor, exporter=exporter)
     print(f"{len(result.extracted)} session(s) extracted, {len(result.skipped)} unchanged")
@@ -108,6 +109,14 @@ def _extract(args: argparse.Namespace) -> None:
 def _extract_arguments(subcommand: argparse.ArgumentParser) -> None:
     _add_discovery_arguments(subcommand)
     _add_db_argument(subcommand, "Where to write the trace store")
+    subcommand.add_argument(
+        "--tag",
+        action="append",
+        type=_key_value,
+        default=[],
+        metavar="KEY=VALUE",
+        help="Stamp a pair on every session this extract writes, replacing the ones it holds",
+    )
 
 
 def _view(args: argparse.Namespace) -> None:

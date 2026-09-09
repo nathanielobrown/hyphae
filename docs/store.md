@@ -18,6 +18,7 @@ erDiagram
     sessions ||--o{ agent_runs : "spawned"
     sessions ||--o{ compactions : "hit"
     sessions ||--o{ pr_links : "opened"
+    sessions ||--o{ session_tags : "stamped by the extract"
     sessions ||--o{ raw_records : "archived"
     sessions ||--o{ offload_files : "archived"
     sessions ||--|| extract_state : "fingerprinted by"
@@ -40,6 +41,20 @@ Queries use views instead of reading the trace tables directly. `refresh_views` 
 `open_trace_store` in `src/hyphae/export/duckdb.py` is the one way into a store that already exists: the viewer, `hp query`, `hp enrich` and `hp export-otlp` all open through it, and each translates its refusals into the currency it reports in. Every open rebuilds those views, so editing a definition reaches `hp view`, `hp query` and `hp enrich` at once rather than at the next extract. A read-only connection cannot replace a stored view, so it builds the same statements as temporary views; those shadow the stored ones for the life of the connection, including inside a stored view that names one. A reader pays about 3 ms for that on a 15 GB store.
 
 [Enrichment](enrichment.md) adds three `*_enrichments` tables keyed one-to-one to sessions, turns, and agent runs. It also adds views that join the enrichments to those records. Until an enrichment pass writes these tables, queries against them fail with an error that says they don't exist.
+
+## Tags record what the extract was for
+
+A tag is a `KEY=VALUE` pair you stamp on an extract: which batch of runs it belongs to, which experiment it answers. It is the one row in the store no transcript holds — Claude Code records nothing about why a session was run — so it comes off the command line and nowhere else:
+
+```
+hp extract ~/repos/mycelia --tag batch_id=b1 --tag experiment=retry-prompt
+```
+
+Every session that extract wrote gets both pairs, in `session_tags`. Hyphae reserves no key and reads no meaning out of one; the `tagged(key, value)` macro answers the session ids carrying a pair, and any query can join on it (`src/hyphae/analyze/macros.py`).
+
+Tags belong to the extraction, not to the session's files, so a re-extract replaces the whole set: different pairs overwrite the old ones, and no `--tag` at all clears them.
+
+Two traps follow from that. A [fingerprint](../CONTEXT.md) covers a session's files, which a tag is not part of, so `hp extract --tag` over a corpus nothing has touched extracts nothing and stamps nothing — tag at the run you want tagged, or change what the session holds. And an extract without `--tag` clears the tags of every session it *does* re-extract, which is the point of the rule but is easy to walk into.
 
 ## One process writes at a time, and the others queue
 

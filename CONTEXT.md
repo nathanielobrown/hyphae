@@ -32,6 +32,7 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `doc
 - **Exporter** — writes the model to a sink; the store and OTLP are sinks
 - **Store** — the trace store: one DuckDB file per person, outside every checkout, one table per entity — the durable archive rather than a cache
 - **Fingerprint** — changes when any of a session's files do; the only thing deciding re-extraction
+- **Tag** — a `KEY=VALUE` pair the caller stamps on an extract, saying what the run was for; a property of the extraction, so a re-extract replaces the set (`docs/store.md`)
 - **Price table** — what each model charges per million tokens and the window it answers in; one table, `src/hyphae/extract/pricing.py:MODELS`, read by the extract, the viewer, the analyze macros and the `hp enrich` quote
 - **Corpus** — the rows minus every replayed copy: the basis for any cross-session count
 - **Library** — the query files in `analyze/queries/`: each statement declares its own parameters and scope, and Python holds only what a statement cannot say about itself: a parameter's type in `src/hyphae/analyze/queries.py` and a production default in `src/hyphae/analyze/manifest.py`

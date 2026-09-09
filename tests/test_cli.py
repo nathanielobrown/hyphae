@@ -21,7 +21,7 @@ from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT
 from hyphae.projects import encode_project_path
 from hyphae.store_path import HP_DB
 from hyphae.view.app import PORT
-from tests.conftest import FIXTURES
+from tests.conftest import FIXTURES, SPINE, stored_rows
 from tests.extract.test_layout import make_projects_root
 
 PROJECT = Path("repos/mycelia")
@@ -81,7 +81,7 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
     ),
     "extract": (
         (str(PROJECT),),
-        {"project": PROJECT, "projects_root": DEFAULT_PROJECTS_ROOT, "db": PINNED_DB},
+        {"project": PROJECT, "projects_root": DEFAULT_PROJECTS_ROOT, "db": PINNED_DB, "tag": []},
     ),
     "enrich": (
         (),
@@ -220,27 +220,44 @@ def test_the_query_listing_runs_from_a_directory_with_no_store_under_it(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_a_param_pair_splits_on_its_first_equals(capsys: pytest.CaptureFixture[str]) -> None:
-    """`--param` takes `KEY=VALUE`, repeats, and refuses anything else at the flag.
+# Every flag that takes `KEY=VALUE` pairs: the subcommand, the argv that gets it as far as its
+# own flags, and the destination the pairs land in. One parser helper serves them all, so the
+# contract is pinned once and a new pair-flag joins by adding a row.
+PAIR_FLAGS = [
+    pytest.param("query", ["query", "agent_types"], "--param", "param", id="param"),
+    pytest.param("extract", ["extract", str(PROJECT)], "--tag", "tag", id="tag"),
+]
 
-    The pairs are the reader's own binding of a query, so a pair that does not parse has to
-    stop the run: bound to the wrong name, a value produces a plausible number and no signal.
+
+@pytest.mark.parametrize(("subcommand", "argv", "flag", "destination"), PAIR_FLAGS)
+def test_a_pair_flag_splits_on_its_first_equals(
+    subcommand: str,
+    argv: list[str],
+    flag: str,
+    destination: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A pair flag takes `KEY=VALUE`, repeats, and refuses anything else at the flag.
+
+    The pairs are the caller's own words — a query's bindings, an extract's tags — so a pair
+    that does not parse has to stop the run: bound to the wrong name, a value produces a
+    plausible answer and no signal.
     """
     # If pairs are given in order, each splitting once so a value keeps its own `=`...
-    parsed = cli.build_parser().parse_args(
-        ["query", "agent_types", "--param", "session_id=abc", "--param", "note=a=b"]
-    )
-    # ...they parse to the pairs a run binds, in the order they were typed...
-    assert parsed.param == [("session_id", "abc"), ("note", "a=b")]
+    parsed = cli.build_parser().parse_args([*argv, flag, "first=abc", flag, "note=a=b"])
+    # ...they parse to the pairs the run uses, in the order they were typed...
+    assert getattr(parsed, destination) == [("first", "abc"), ("note", "a=b")]
     # ...while a pair with no `=`, or one naming nothing, is a parse error against the flag —
     # `dict()` over the split would have taken `=v` as a binding of the empty name.
     for broken in ["nokey", "=v"]:
         with pytest.raises(SystemExit):
-            cli.build_parser().parse_args(["query", "agent_types", "--param", broken])
+            cli.build_parser().parse_args([*argv, flag, broken])
         # The refusal is the last line, under the usage argparse prints above it — and it
         # names the flag, the shape it wanted, and what it was handed instead.
         refusal = capsys.readouterr().err.splitlines()[-1]
-        assert refusal == f"hp query: error: argument --param: takes KEY=VALUE, not {broken!r}"
+        assert refusal == (
+            f"hp {subcommand}: error: argument {flag}: takes KEY=VALUE, not {broken!r}"
+        )
 
 
 def test_the_sessions_command_lists_the_transcripts_it_found(
@@ -294,12 +311,17 @@ def test_the_viewer_opens_a_browser_unless_the_run_says_not_to(
 
 
 def extracted(
-    tmp_path: Path, fixture: str, capsys: pytest.CaptureFixture[str], strict: bool
+    tmp_path: Path,
+    fixture: str,
+    capsys: pytest.CaptureFixture[str],
+    strict: bool,
+    *tags: str,
 ) -> list[str]:
     """Run `hp extract` over one fixture transcript, and hand back what it printed.
 
     `strict` is what a test run has and an extract does not: the extractor reads it once, at
-    construction, so setting it here is setting it for the run.
+    construction, so setting it here is setting it for the run. Each of `tags` is one
+    `--tag KEY=VALUE` argument, spelled the way a caller types it.
     """
     project = Path("/Users/nob/repos/mycelia")
     root = make_projects_root(tmp_path, project, [fixture])
@@ -314,8 +336,28 @@ def extracted(
             str(root),
             "--db",
             str(tmp_path / "traces.duckdb"),
+            *[argument for tag in tags for argument in ("--tag", tag)],
         )
     return capsys.readouterr().out.splitlines()
+
+
+def test_the_tags_typed_at_the_flag_reach_the_store(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`hp extract --tag` stamps its pairs on every session that extract wrote.
+
+    The one leaf that runs the whole path — argparse, the extractor, the exporter — so a flag
+    parsed into a namespace nothing reads fails here rather than passing every unit above.
+    The pairs are invented, and honestly so: a tag is the caller's word about a run, and no
+    transcript records one.
+    """
+    # If an extract is given two tags, one of whose values carries its own `=`...
+    extracted(tmp_path, SPINE, capsys, True, "batch_id=b1", "note=a=b")
+
+    # ...then the store holds a row per pair, under the session that extract wrote.
+    assert stored_rows(
+        tmp_path / "traces.duckdb", "SELECT session_id, key, value FROM session_tags ORDER BY key"
+    ) == [(SPINE, "batch_id", "b1"), (SPINE, "note", "a=b")]
 
 
 def test_an_extract_prints_the_fields_no_model_declares_under_its_summary(
