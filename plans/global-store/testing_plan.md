@@ -6,11 +6,11 @@ The corpus everywhere below is the recorded fixtures `tests/conftest.py:fixture_
 
 ## Slice 1 — the store path
 
-- **unit (`tests/test_store_path.py`)** — no store, no disk: `default_store()` under a monkeypatched environment and a monkeypatched `platformdirs.user_data_path`
-  - `HP_DB` set names the store exactly, with no directory joined onto it. *Evidence:* `monkeypatch.setenv("HP_DB", tmp_path / "elsewhere.duckdb")`; assertion compares the whole `Path`, and `platformdirs.user_data_path` is monkeypatched to raise so a leaf that consults it fails loudly
-  - `HP_DB` unset falls to `user_data_path("hyphae") / "traces.duckdb"`. *Evidence:* `monkeypatch.delenv("HP_DB", raising=False)` plus a `user_data_path` stub returning `tmp_path`; assertion on the joined path, and on the single call's argument (`"hyphae"`), so the app name cannot drift
+- **unit (`tests/test_store_path.py`)** — no store, no disk: `default_store()` under a monkeypatched environment and a monkeypatched `Path.home`
+  - `HP_DB` set names the store exactly, with no directory joined onto it. *Evidence:* `monkeypatch.setenv("HP_DB", tmp_path / "elsewhere.duckdb")`; assertion compares the whole `Path`, and `Path.home` is monkeypatched to raise so a leaf that consults it fails loudly
+  - `HP_DB` unset falls to `~/.hyphae/traces.duckdb`. *Evidence:* `monkeypatch.delenv("HP_DB", raising=False)` plus a `Path.home` stub returning `tmp_path`; the assertion spells the dotdir and the file name out, so neither can drift
   - **`HP_DB` set but empty refuses rather than falling back.** *Evidence:* `monkeypatch.setenv("HP_DB", "")`; the raised error names `HP_DB`. The design does not say what an empty value means — see *Design findings*
-  - `default_store()` touches no disk: it neither creates the directory nor the file. *Evidence:* the stubbed `user_data_path` returns a path under `tmp_path` that does not exist; assertion that it still does not exist after the call
+  - `default_store()` touches no disk: it neither creates the directory nor the file. *Evidence:* the stubbed `Path.home` returns a path under `tmp_path` that does not exist; assertion that it still does not exist after the call
   - A first write under a store path whose parent does not exist creates it. *Evidence:* `DuckDbExporter(tmp_path / "nested" / "deep" / "traces.duckdb", wait=NO_WAIT)` then `stored_rows`; today's `mkdir(parents=True)` in `DuckDbExporter.__init__` has no leaf naming it, and the per-user default is what makes it load-bearing
 - **unit (`tests/test_cli.py`)** — the parser only, built and asked to parse; no store is opened
   - Every store-taking subcommand still defaults `--db` to one resolved path, and the pinned argument table reads it from a monkeypatched `HP_DB` rather than the developer's ambient one. *Evidence:* the pinned argument table swaps `DEFAULT_DB` for `PINNED_DB`, which the root `tests/conftest.py` sets `HP_DB` to for every test — an empty ambient value refuses at parser build, so the pin belongs to every tier that builds one, not to this file; `test_a_subcommand_parses_to_the_arguments_it_documents` and `test_the_store_flag_is_one_flag_wherever_it_appears` both stay green. A suite that reads the real `HP_DB` passes or fails with the machine, which is the trap here
@@ -72,7 +72,7 @@ Four obligations the design's seam does not reach as written. None is dropped; e
 
 ## Not covered
 
-- **`platformdirs`' own path convention per OS.** The unit leaves monkeypatch `user_data_path`, so they prove hyphae calls it with `"hyphae"` and joins `traces.duckdb`; what that resolves to on macOS versus Linux is the library's contract, tested by the library. The design's open question about `~/Library/Application Support/hyphae` is answered by running `hp query --list`, not by a leaf
+- **What `Path.home()` resolves to on this machine.** The unit leaves monkeypatch it, so they prove hyphae joins `.hyphae/traces.duckdb` onto whatever the home directory is; where that points is the standard library's contract. That the default lands somewhere a person can find is answered by running `hp query --list`, not by a leaf
 - **The old `data/traces.duckdb`.** The design deliberately leaves it in place, so there is nothing to migrate and nothing to assert beyond `--db data/traces.duckdb` still opening it, which `test_the_store_flag_is_one_flag_wherever_it_appears` already covers
 - **A tag filter in the viewer's session list.** Out of scope in the design; no page reads `session_tags` yet
 - **The factory's side.** `plans/live-runs/design.md` lives in another repository and its keys (`run_id`, `batch_id`, `set`, `task`, `profile`) are the caller's words. Hyphae reserves none of them, so no leaf here names one as special

@@ -1,14 +1,12 @@
 """Where `hp` keeps its archive when no `--db` names one.
 
-Both the environment and `platformdirs` are monkeypatched here. What these leaves prove is
-that hyphae asks the library for `hyphae`'s data directory and joins one file name onto it;
-what that directory resolves to on this OS is the library's contract, tested by the library.
+Both the environment and `Path.home` are monkeypatched here, so the leaves name the whole
+path hyphae builds — the dotdir and the file under it — without writing to a real home.
 """
 
 from collections.abc import Callable
 from pathlib import Path
 
-import platformdirs
 import pytest
 
 from hyphae.export.duckdb import DuckDbExporter
@@ -17,43 +15,28 @@ from tests.conftest import NO_WAIT, TraceFactory, stored_rows
 
 SPINE = "4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b"
 
-# What a data directory the test names looks like, so a leaf comparing a whole path reads.
-APP = "hyphae"
-
 
 @pytest.fixture
-def data_dir(monkeypatch: pytest.MonkeyPatch) -> Callable[[Path], list[str]]:
-    """Put a directory of the test's choosing where `platformdirs` would name the real one.
+def home(monkeypatch: pytest.MonkeyPatch) -> Callable[[Path], None]:
+    """Put a directory of the test's choosing where the home directory would be."""
 
-    Hands back the list of app names hyphae asked for, so a leaf can hold the one argument
-    that decides the directory — a drifting app name would otherwise move every reader's
-    archive silently.
-    """
-
-    def stub(root: Path) -> list[str]:
-        asked: list[str] = []
-
-        def user_data_path(appname: str) -> Path:
-            asked.append(appname)
-            return root
-
-        monkeypatch.setattr(platformdirs, "user_data_path", user_data_path)
-        return asked
+    def stub(root: Path) -> None:
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: root))
 
     return stub
 
 
 @pytest.fixture
-def no_data_dir(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make consulting `platformdirs` a failure, for the leaves that must not reach it."""
+def no_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make consulting the home directory a failure, for the leaves that must not reach it."""
 
-    def refuse(appname: str) -> Path:
-        raise AssertionError(f"asked platformdirs for {appname}'s data directory")
+    def refuse(_cls: type[Path]) -> Path:
+        raise AssertionError("asked for the home directory")
 
-    monkeypatch.setattr(platformdirs, "user_data_path", refuse)
+    monkeypatch.setattr(Path, "home", classmethod(refuse))
 
 
-@pytest.mark.usefixtures("no_data_dir")
+@pytest.mark.usefixtures("no_home")
 def test_the_environment_names_the_store_outright(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -61,26 +44,27 @@ def test_the_environment_names_the_store_outright(
     # If the environment names a store...
     store = tmp_path / "elsewhere.duckdb"
     monkeypatch.setenv(HP_DB, str(store))
-    # ...that is the path, joined to nothing — and the data directory is never consulted.
+    # ...that is the path, joined to nothing — and the home directory is never consulted.
     assert default_store() == store
 
 
-def test_a_store_nothing_names_lives_in_the_user_data_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, data_dir: Callable[[Path], list[str]]
+def test_a_store_nothing_names_lives_in_the_home_dotdir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, home: Callable[[Path], None]
 ) -> None:
-    """With no `HP_DB`, the archive is `traces.duckdb` in the data directory this OS gives
-    `hyphae` — one store per person, outside every checkout."""
+    """With no `HP_DB`, the archive is `~/.hyphae/traces.duckdb` — one store per person,
+    outside every checkout, where a person looks for it.
+
+    The literal path is the assertion: a drifting dotdir or file name would move every
+    reader's archive with nothing to say where it went.
+    """
     # If nothing in the environment names a store...
     monkeypatch.delenv(HP_DB, raising=False)
-    asked = data_dir(tmp_path)
-    # ...the store is the one file in the directory the library names...
-    assert default_store() == tmp_path / "traces.duckdb"
-    # ...and the name it was asked under is the project's, once: an app name that drifted
-    # would move every reader's archive with nothing to say where it went.
-    assert asked == [APP]
+    home(tmp_path)
+    # ...the store is the one file in the one dotdir under the home directory.
+    assert default_store() == tmp_path / ".hyphae" / "traces.duckdb"
 
 
-@pytest.mark.usefixtures("no_data_dir")
+@pytest.mark.usefixtures("no_home")
 @pytest.mark.parametrize("value", ["", "   "])
 def test_an_empty_hp_db_refuses_rather_than_falling_back(
     monkeypatch: pytest.MonkeyPatch, value: str
@@ -97,16 +81,16 @@ def test_an_empty_hp_db_refuses_rather_than_falling_back(
 
 
 def test_naming_the_store_creates_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, data_dir: Callable[[Path], list[str]]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, home: Callable[[Path], None]
 ) -> None:
     """Resolving the default store touches no disk: reading `--help` leaves no directory
     behind, and only a write creates one."""
     monkeypatch.delenv(HP_DB, raising=False)
-    # If the data directory does not exist yet...
+    # If the dotdir does not exist yet...
     root = tmp_path / "never-created"
-    data_dir(root)
+    home(root)
     # ...then naming the store neither creates it nor the file under it.
-    assert default_store() == root / "traces.duckdb"
+    assert default_store() == root / ".hyphae" / "traces.duckdb"
     assert not root.exists()
 
 
@@ -116,10 +100,10 @@ def test_the_first_write_creates_the_directories_above_the_store(
     """An extract into a store path whose directories do not exist yet makes them.
 
     This is what lets the per-user default work on a machine that has never run `hp`: the
-    data directory the OS names for `hyphae` does not exist until something writes to it.
+    dotdir under the home directory does not exist until something writes to it.
     """
     # If a session is exported into a store nested under directories nothing created...
-    store = tmp_path / "Application Support" / "hyphae" / "traces.duckdb"
+    store = tmp_path / "home" / ".hyphae" / "traces.duckdb"
     exporter = DuckDbExporter(store, wait=NO_WAIT)
     exporter.export(fixture_trace("spine", SPINE), "planted")
     # ...the directories are made on the way, and the session reads back out of the store.

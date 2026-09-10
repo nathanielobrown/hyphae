@@ -4,7 +4,7 @@ The trace store is one DuckDB file per person, outside every checkout: the archi
 
 ## One store, wherever the command runs from
 
-Every `hp` command that takes `--db` reads or writes `traces.duckdb` in the platform's user data directory for `hyphae` — on macOS, `~/Library/Application Support/hyphae`. `src/hyphae/store_path.py` resolves it, by asking `platformdirs` rather than inventing a convention, and each of those subcommands' `--help` prints the path it landed on. Sitting outside the checkouts means one machine keeps one archive whatever directory you are standing in, and an extract can never land in a commit.
+Every `hp` command that takes `--db` reads or writes `~/.hyphae/traces.duckdb`. `src/hyphae/store_path.py` resolves it, and each of those subcommands' `--help` prints the path it landed on. Sitting outside the checkouts means one machine keeps one archive whatever directory you are standing in, and an extract can never land in a commit.
 
 Two things move it: `HP_DB` names another store for every command in that environment, and `--db` names one for a single command.
 
@@ -93,8 +93,8 @@ You can delete an old store after the canonical store contains every session ID 
 ```sql
 -- The canonical store is the path `hp query --help` prints; a checkout's `data/traces.duckdb`
 -- is the old store this project's own move left behind.
-ATTACH '~/Library/Application Support/hyphae/traces.duckdb' AS canonical (READ_ONLY);
-ATTACH 'data/traces.duckdb'                                 AS old       (READ_ONLY);
+ATTACH '~/.hyphae/traces.duckdb' AS canonical (READ_ONLY);
+ATTACH 'data/traces.duckdb'      AS old       (READ_ONLY);
 SELECT id FROM old.sessions EXCEPT SELECT id FROM canonical.sessions;
 ```
 

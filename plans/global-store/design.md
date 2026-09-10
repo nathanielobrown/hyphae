@@ -16,7 +16,7 @@ Current: `_add_db_argument` gives every store-taking subcommand `--db` defaultin
 
 Proposed:
 
-- `hyphae.store_path.default_store()` returns `Path(os.environ["HP_DB"])` when set, else `platformdirs.user_data_path("hyphae") / "traces.duckdb"`. `_add_db_argument` defaults to it; the help line prints the resolved path so a reader sees where their archive is
+- `hyphae.store_path.default_store()` returns `Path(os.environ["HP_DB"])` when set, else `Path.home() / ".hyphae" / "traces.duckdb"`. `_add_db_argument` defaults to it; the help line prints the resolved path so a reader sees where their archive is
 - `hp extract` takes `--tag KEY=VALUE`, repeatable. The parsed pairs travel on the extractor as `tags: Mapping[str, str]`, which fills `SessionTrace.session_tags`, and the write inserts them into `session_tags` beside the other rows of that session, under the same delete-then-insert. A tag is a property of the extraction, so a re-extract without `--tag` clears it: that is what "replaces" means for every other table, and a caller who wants a tag kept passes it again
 - `session_tags` is one more entry in `TABLES`, so the replace loop and the migration path pick it up; `SCHEMA_VERSION` steps by one with a migration that creates the table
 - The macros gain `tagged(key, value)`: a session-id set for the query library to join on, so a query takes `--param key=… --param value=…` rather than each query re-writing the join
@@ -25,7 +25,7 @@ Proposed:
 ```mermaid
 flowchart LR
     factory["factory run closes"] --> extract["hp extract --tag run_id=…<br>--tag batch_id=…"]
-    extract --> store["~/…/hyphae/traces.duckdb<br>sessions + session_tags"]
+    extract --> store["~/.hyphae/traces.duckdb<br>sessions + session_tags"]
     viewer["hp view, already open"] -. reads per request .-> store
     query["hp query … --param key=batch_id"] --> store
 ```
@@ -34,7 +34,7 @@ flowchart LR
 
 ```
 src/hyphae/
-  store_path.py          added: default_store(), HP_DB, the platformdirs call
+  store_path.py          added: default_store(), HP_DB, the home dotdir
   cli.py                 changed: DEFAULT_DB gone; --tag on extract; --db help prints the resolved path
   export/duckdb.py       changed: session_tags in _SCHEMA and TABLES, SCHEMA_VERSION + 1, a migration step
   extract/claude_code.py changed: ClaudeCodeExtractor(tags=…) fills SessionTrace.session_tags
@@ -50,7 +50,6 @@ tests/
   export/test_duckdb.py  changed: tags written, replaced, cleared on a re-extract without them
   export/test_duckdb__locking.py   changed: an extract under an open viewer connection
   export/test_duckdb__migrations.py   changed: the new step is one the older-store test crosses
-pyproject.toml           changed: platformdirs
 ```
 
 ## Key contracts
@@ -59,8 +58,8 @@ pyproject.toml           changed: platformdirs
 # store_path.py
 HP_DB = "HP_DB"
 def default_store() -> Path:
-    """The one archive `hp` reads and writes unless `--db` says otherwise: `$HP_DB`, else the
-    user data directory platformdirs names for `hyphae`, with `traces.duckdb` in it."""
+    """The one archive `hp` reads and writes unless `--db` says otherwise: `$HP_DB`, else
+    `~/.hyphae/traces.duckdb`."""
 
 # export/duckdb.py — _SCHEMA
 CREATE TABLE IF NOT EXISTS session_tags (
@@ -91,17 +90,17 @@ The tag keys the factory writes are `run_id`, and for a batch's run `batch_id`, 
 
 ## Chosen test seam
 
-The exporter and the store: `DuckDbExporter` writing a fixture trace into a temporary store, then reads with a bare connection, as `tests/export/test_duckdb.py` does today. The CLI's `--tag` is tested at the parser, as the other flags are in `tests/test_cli.py`. `default_store` is tested with `monkeypatch` on the environment and on `platformdirs.user_data_path`.
+The exporter and the store: `DuckDbExporter` writing a fixture trace into a temporary store, then reads with a bare connection, as `tests/export/test_duckdb.py` does today. The CLI's `--tag` is tested at the parser, as the other flags are in `tests/test_cli.py`. `default_store` is tested with `monkeypatch` on the environment and on `Path.home`.
 
 ## Slices
 
-1. **The store path.** `store_path.py`, `platformdirs`, the `--db` default and its help line, `docs/store.md`. Verified by `test_store_path.py` and by `hp query --list` from a directory with no `data/`.
+1. **The store path.** `store_path.py`, the `--db` default and its help line, `docs/store.md`. Verified by `test_store_path.py` and by `hp query --list` from a directory with no `data/`.
 2. **Tags.** The table, the model, the write, the migration step, `--tag`, the macro and the one example query, `docs/store.md` — a tag is nothing Claude Code recorded, so `docs/schema.md` says nothing about it. Verified by the exporter tests: written, read back through `tagged`, replaced, and cleared on a re-extract without them; the migration suite crossing the new step.
 3. **Extract under a viewer.** The locking test. If it fails, the fix is on hyphae's side and the factory's close waits on it.
 
 ## Decisions
 
-- **`platformdirs` for the default**, with `HP_DB` above it. Rejected: `~/.hyphae/traces.duckdb`, a path one tool invents where every tool on the machine has one convention already.
+- **`~/.hyphae/traces.duckdb`**, with `HP_DB` above it. Rejected: platformdirs' user data directory, which on macOS hides the archive under `~/Library/Application Support`; a dotdir in the home is where a person looks.
 - **A table, not a column.** Tags are many per session and the keys are the caller's. Rejected: a JSON column on `sessions`, which no macro can index and every query would parse.
 - **Tags replaced with the session.** Every other table is replaced per session on re-extract, and a second rule for one table is a rule someone forgets. Rejected: merging, which lets a stale tag outlive the extraction that wrote it.
 - **No new `hp tag` command.** The factory tags at extract; a later caller who needs to tag after the fact can ask. Rejected: building it now.
@@ -117,4 +116,3 @@ The exporter and the store: `DuckDbExporter` writing a fixture trace into a temp
 ## Open questions
 
 - ~~**Where the exporter takes tags.**~~ Settled in slice 2: the extractor takes them and fills `SessionTrace.session_tags`. `StoreSource.extract` rebuilds a trace from every `TABLES` entry, so the field is mandatory on the model either way; giving the exporter a second source for one table would leave that field written by one path and read by another, and the store→OTLP round trip would lose its tags.
-- **`platformdirs` on macOS** names `~/Library/Application Support/hyphae`. Fine for an archive; confirm the factory's deny-list entry uses the same path.
