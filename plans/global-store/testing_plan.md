@@ -1,4 +1,4 @@
-# Testing plan: one per-user store, and tags on a session
+# Testing plan: one store at `~/.hyphae`, and tags on a session
 
 Obligations for `plans/global-store/design.md`, one leaf per behavior, grouped by the level each runs at. Nothing here is test code; the implementer discharges each leaf and the auditor traces it to the evidence the leaf names.
 
@@ -11,7 +11,7 @@ The corpus everywhere below is the recorded fixtures `tests/conftest.py:fixture_
   - `HP_DB` unset falls to `~/.hyphae/traces.duckdb`. *Evidence:* `monkeypatch.delenv("HP_DB", raising=False)` plus a `Path.home` stub returning `tmp_path`; the assertion spells the dotdir and the file name out, so neither can drift
   - **`HP_DB` set but empty refuses rather than falling back.** *Evidence:* `monkeypatch.setenv("HP_DB", "")`; the raised error names `HP_DB`. The design does not say what an empty value means — see *Design findings*
   - `default_store()` touches no disk: it neither creates the directory nor the file. *Evidence:* the stubbed `Path.home` returns a path under `tmp_path` that does not exist; assertion that it still does not exist after the call
-  - A first write under a store path whose parent does not exist creates it. *Evidence:* `DuckDbExporter(tmp_path / "nested" / "deep" / "traces.duckdb", wait=NO_WAIT)` then `stored_rows`; today's `mkdir(parents=True)` in `DuckDbExporter.__init__` has no leaf naming it, and the per-user default is what makes it load-bearing
+  - A first write under a store path whose parent does not exist creates it. *Evidence:* `DuckDbExporter(tmp_path / "nested" / "deep" / "traces.duckdb", wait=NO_WAIT)` then `stored_rows`; today's `mkdir(parents=True)` in `DuckDbExporter.__init__` has no leaf naming it, and the home-directory default is what makes it load-bearing
 - **unit (`tests/test_cli.py`)** — the parser only, built and asked to parse; no store is opened
   - Every store-taking subcommand still defaults `--db` to one resolved path, and the pinned argument table reads it from a monkeypatched `HP_DB` rather than the developer's ambient one. *Evidence:* the pinned argument table swaps `DEFAULT_DB` for `PINNED_DB`, which the root `tests/conftest.py` sets `HP_DB` to for every test — an empty ambient value refuses at parser build, so the pin belongs to every tier that builds one, not to this file; `test_a_subcommand_parses_to_the_arguments_it_documents` and `test_the_store_flag_is_one_flag_wherever_it_appears` both stay green. A suite that reads the real `HP_DB` passes or fails with the machine, which is the trap here
   - **`--db`'s help line prints the resolved path.** *Evidence:* `cli.build_parser()` under a monkeypatched `HP_DB`, then the extract subparser's `format_help()` contains `str(default_store())`. This is what makes the parser resolve at build time rather than at import, which is also what lets the leaf above monkeypatch it

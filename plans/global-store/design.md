@@ -1,6 +1,6 @@
-# Design: one per-user store, and tags on a session
+# Design: one store at `~/.hyphae`, and tags on a session
 
-Give `hp` one default store outside any checkout, let `hp extract` stamp a session with tags a caller chooses, and confirm that an extract lands while a viewer is open on the same store. Three small changes, made together because they are what software-factory needs to extract every run as it closes and to view it from any directory.
+Give `hp` one default store in the home directory, shared by every checkout, let `hp extract` stamp a session with tags a caller chooses, and confirm that an extract lands while a viewer is open on the same store. Three small changes, made together because they are what software-factory needs to extract every run as it closes and to view it from any directory.
 
 The factory's side is `plans/live-runs/design.md` in its repository. File references describe the current tree; verify them before each slice.
 

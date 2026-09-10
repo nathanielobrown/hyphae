@@ -183,7 +183,8 @@ def test_the_store_flag_tells_a_reader_which_archive_it_would_write(
     """`--help` prints the store the command would use, resolved — not the expression behind
     it.
 
-    The archive lives outside every checkout now, so "where did my sessions go" has to be
+    The archive lives in the home directory now, not the checkout, so "where did my sessions
+    go" has to be
     answerable from the command line itself. Printing it also pins that the default is read
     when the parser is built, which is what lets an environment set before the call decide it.
     """

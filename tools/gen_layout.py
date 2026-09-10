@@ -108,7 +108,7 @@ ENTRIES = (
         "data/",
         Words(
             "Gitignored: analysis scratch, and any store `--db` pointed an extract at — the "
-            "canonical one sits outside every checkout (`docs/store.md`)"
+            "canonical one is `~/.hyphae/traces.duckdb` (`docs/store.md`)"
         ),
         scratch=True,
     ),

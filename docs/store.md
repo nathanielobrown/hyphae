@@ -1,10 +1,10 @@
 # The trace store
 
-The trace store is one DuckDB file per person, outside every checkout: the archive `hp extract` writes to and every query reads. Treat it as an archive — read this guide before deleting it, moving it, or changing a version constant.
+The trace store is one DuckDB file at `~/.hyphae/traces.duckdb`, shared by every checkout: the archive `hp extract` writes to and every query reads. Treat it as an archive — read this guide before deleting it, moving it, or changing a version constant.
 
 ## One store, wherever the command runs from
 
-Every `hp` command that takes `--db` reads or writes `~/.hyphae/traces.duckdb`. `src/hyphae/store_path.py` resolves it, and each of those subcommands' `--help` prints the path it landed on. Sitting outside the checkouts means one machine keeps one archive whatever directory you are standing in, and an extract can never land in a commit.
+Every `hp` command that takes `--db` reads or writes `~/.hyphae/traces.duckdb`. `src/hyphae/store_path.py` resolves it, and each of those subcommands' `--help` prints the path it landed on. One archive serves every checkout, whatever directory you are standing in, and an extract can never land in a commit.
 
 Two things move it: `HP_DB` names another store for every command in that environment, and `--db` names one for a single command.
 

@@ -433,8 +433,9 @@ def _add_discovery_arguments(subcommand: argparse.ArgumentParser) -> None:
 def _add_db_argument(subcommand: argparse.ArgumentParser, description: str) -> None:
     """The trace store flag, defaulted in one place — `description` says read or write.
 
-    The default is resolved as the parser is built, and printed: the archive lives outside
-    every checkout, so `--help` is where a reader finds out which file they are addressing.
+    The default is resolved as the parser is built, and printed: the archive lives in the home
+    directory, not the checkout, so `--help` is where a reader finds out which file they are
+    addressing.
     """
     store = default_store()
     subcommand.add_argument(

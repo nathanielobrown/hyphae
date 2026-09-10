@@ -61,7 +61,7 @@ uv run hp sessions ~/repos/mycelia
 
 ## Extract and query a project
 
-Extract transcripts into [the trace store](docs/store.md), which is one file per person outside every checkout:
+Extract transcripts into [the trace store](docs/store.md), which is one file at `~/.hyphae/traces.duckdb` shared by every checkout:
 
 ```bash
 uv run hp extract ~/repos/mycelia

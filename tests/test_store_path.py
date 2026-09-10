@@ -51,8 +51,8 @@ def test_the_environment_names_the_store_outright(
 def test_a_store_nothing_names_lives_in_the_home_dotdir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, home: Callable[[Path], None]
 ) -> None:
-    """With no `HP_DB`, the archive is `~/.hyphae/traces.duckdb` — one store per person,
-    outside every checkout, where a person looks for it.
+    """With no `HP_DB`, the archive is `~/.hyphae/traces.duckdb` — one store shared by every
+    checkout, where a person looks for it.
 
     The literal path is the assertion: a drifting dotdir or file name would move every
     reader's archive with nothing to say where it went.
@@ -99,8 +99,8 @@ def test_the_first_write_creates_the_directories_above_the_store(
 ) -> None:
     """An extract into a store path whose directories do not exist yet makes them.
 
-    This is what lets the per-user default work on a machine that has never run `hp`: the
-    dotdir under the home directory does not exist until something writes to it.
+    This is what lets the default work on a machine that has never run `hp`: the dotdir
+    under the home directory does not exist until something writes to it.
     """
     # If a session is exported into a store nested under directories nothing created...
     store = tmp_path / "home" / ".hyphae" / "traces.duckdb"

@@ -18,9 +18,9 @@ def default_store() -> Path:
     """The one archive `hp` reads and writes unless `--db` says otherwise: `$HP_DB`, else
     `~/.hyphae/traces.duckdb`.
 
-    Resolves a path and touches no disk. It sits outside every checkout, so one machine keeps
-    one archive whatever directory a command runs from, and an extract can never land in a
-    commit. The directories above it are made by the first write (`export/duckdb.py`).
+    Resolves a path and touches no disk. One archive serves every checkout, whatever
+    directory a command runs from, and an extract can never land in a commit. The directories
+    above it are made by the first write (`export/duckdb.py`).
     """
     named = os.environ.get(HP_DB)
     # An exported-but-empty variable is what an unset shell variable expands to. Falling back
