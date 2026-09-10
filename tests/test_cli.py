@@ -14,14 +14,13 @@ from typing import Any
 import pytest
 
 from hyphae import cli, settings
-from hyphae.cli import DEFAULT_DB
 from hyphae.enrich.client import DEFAULT_CONCURRENCY, DEFAULT_MODEL
 from hyphae.export.otlp import DEFAULT_MAX_CHARS
 from hyphae.export.otlp_delivery import DEFAULT_RATE, GENERIC
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT
 from hyphae.projects import encode_project_path
 from hyphae.view.app import PORT
-from tests.conftest import FIXTURES
+from tests.conftest import FIXTURES, PINNED_DB, SPINE, stored_rows
 from tests.extract.test_layout import make_projects_root
 
 PROJECT = Path("repos/mycelia")
@@ -69,12 +68,12 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
     ),
     "extract": (
         (str(PROJECT),),
-        {"project": PROJECT, "projects_root": DEFAULT_PROJECTS_ROOT, "db": DEFAULT_DB},
+        {"project": PROJECT, "projects_root": DEFAULT_PROJECTS_ROOT, "db": PINNED_DB, "tag": []},
     ),
     "enrich": (
         (),
         {
-            "db": DEFAULT_DB,
+            "db": PINNED_DB,
             "project": None,
             "model": DEFAULT_MODEL,
             "dry_run": False,
@@ -86,7 +85,7 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
         (str(PROJECT),),
         {
             "project": PROJECT,
-            "db": DEFAULT_DB,
+            "db": PINNED_DB,
             "backend": GENERIC,
             "service_name": None,
             "rate": DEFAULT_RATE,
@@ -99,7 +98,7 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
         ("agent_types",),
         {
             "name": "agent_types",
-            "db": DEFAULT_DB,
+            "db": PINNED_DB,
             "project": None,
             "since": None,
             "as_of": _utc_today,
@@ -108,7 +107,7 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
             "list": False,
         },
     ),
-    "view": ((), {"db": DEFAULT_DB, "port": PORT, "no_browser": False, "dev": False}),
+    "view": ((), {"db": PINNED_DB, "port": PORT, "no_browser": False, "dev": False}),
 }
 
 
@@ -178,6 +177,77 @@ def test_the_store_flag_is_one_flag_wherever_it_appears() -> None:
         assert parsed.db == Path("elsewhere.duckdb"), name
 
 
+def test_the_store_flag_tells_a_reader_which_archive_it_would_write(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`--help` prints the store the command would use, resolved — not the expression behind
+    it.
+
+    The archive lives in the home directory now, not the checkout, so "where did my sessions
+    go" has to be
+    answerable from the command line itself. Printing it also pins that the default is read
+    when the parser is built, which is what lets an environment set before the call decide it.
+    """
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(["extract", "--help"])
+    assert str(PINNED_DB) in capsys.readouterr().out
+
+
+def test_the_query_listing_runs_from_a_directory_with_no_store_under_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`hp query --list` answers from anywhere on the machine, leaving nothing behind.
+
+    The old default was `data/traces.duckdb` under the working directory, so a command run
+    outside a checkout addressed a store that did not exist — and one that wrote would have
+    made a `data/` wherever it was standing.
+    """
+    monkeypatch.chdir(tmp_path)
+    cli.main("query", "--list")
+    assert "session_counts" in capsys.readouterr().out
+    assert list(tmp_path.iterdir()) == []
+
+
+# Every flag that takes `KEY=VALUE` pairs: the subcommand, the argv that gets it as far as its
+# own flags, and the destination the pairs land in. One parser helper serves them all, so the
+# contract is pinned once and a new pair-flag joins by adding a row.
+PAIR_FLAGS = [
+    pytest.param("query", ["query", "agent_types"], "--param", "param", id="param"),
+    pytest.param("extract", ["extract", str(PROJECT)], "--tag", "tag", id="tag"),
+]
+
+
+@pytest.mark.parametrize(("subcommand", "argv", "flag", "destination"), PAIR_FLAGS)
+def test_a_pair_flag_splits_on_its_first_equals(
+    subcommand: str,
+    argv: list[str],
+    flag: str,
+    destination: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A pair flag takes `KEY=VALUE`, repeats, and refuses anything else at the flag.
+
+    The pairs are the caller's own words — a query's bindings, an extract's tags — so a pair
+    that does not parse has to stop the run: bound to the wrong name, a value produces a
+    plausible answer and no signal.
+    """
+    # If pairs are given in order, each splitting once so a value keeps its own `=`...
+    parsed = cli.build_parser().parse_args([*argv, flag, "first=abc", flag, "note=a=b"])
+    # ...they parse to the pairs the run uses, in the order they were typed...
+    assert getattr(parsed, destination) == [("first", "abc"), ("note", "a=b")]
+    # ...while a pair with no `=`, or one naming nothing, is a parse error against the flag —
+    # `dict()` over the split would have taken `=v` as a binding of the empty name.
+    for broken in ["nokey", "=v"]:
+        with pytest.raises(SystemExit):
+            cli.build_parser().parse_args([*argv, flag, broken])
+        # The refusal is the last line, under the usage argparse prints above it — and it
+        # names the flag, the shape it wanted, and what it was handed instead.
+        refusal = capsys.readouterr().err.splitlines()[-1]
+        assert refusal == (
+            f"hp {subcommand}: error: argument {flag}: takes KEY=VALUE, not {broken!r}"
+        )
+
+
 def test_the_sessions_command_lists_the_transcripts_it_found(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -223,18 +293,23 @@ def test_the_viewer_opens_a_browser_unless_the_run_says_not_to(
     cli.main("view", "--dev")
     assert served == [
         (Path("traces.duckdb"), 9000, True, False),
-        (DEFAULT_DB, PORT, False, False),
-        (DEFAULT_DB, PORT, True, True),
+        (PINNED_DB, PORT, False, False),
+        (PINNED_DB, PORT, True, True),
     ]
 
 
 def extracted(
-    tmp_path: Path, fixture: str, capsys: pytest.CaptureFixture[str], strict: bool
+    tmp_path: Path,
+    fixture: str,
+    capsys: pytest.CaptureFixture[str],
+    strict: bool,
+    *tags: str,
 ) -> list[str]:
     """Run `hp extract` over one fixture transcript, and hand back what it printed.
 
     `strict` is what a test run has and an extract does not: the extractor reads it once, at
-    construction, so setting it here is setting it for the run.
+    construction, so setting it here is setting it for the run. Each of `tags` is one
+    `--tag KEY=VALUE` argument, spelled the way a caller types it.
     """
     project = Path("/Users/nob/repos/mycelia")
     root = make_projects_root(tmp_path, project, [fixture])
@@ -249,8 +324,28 @@ def extracted(
             str(root),
             "--db",
             str(tmp_path / "traces.duckdb"),
+            *[argument for tag in tags for argument in ("--tag", tag)],
         )
     return capsys.readouterr().out.splitlines()
+
+
+def test_the_tags_typed_at_the_flag_reach_the_store(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`hp extract --tag` stamps its pairs on every session that extract wrote.
+
+    The one leaf that runs the whole path — argparse, the extractor, the exporter — so a flag
+    parsed into a namespace nothing reads fails here rather than passing every unit above.
+    The pairs are invented, and honestly so: a tag is the caller's word about a run, and no
+    transcript records one.
+    """
+    # If an extract is given two tags, one of whose values carries its own `=`...
+    extracted(tmp_path, SPINE, capsys, True, "batch_id=b1", "note=a=b")
+
+    # ...then the store holds a row per pair, under the session that extract wrote.
+    assert stored_rows(
+        tmp_path / "traces.duckdb", "SELECT session_id, key, value FROM session_tags ORDER BY key"
+    ) == [(SPINE, "batch_id", "b1"), (SPINE, "note", "a=b")]
 
 
 def test_an_extract_prints_the_fields_no_model_declares_under_its_summary(

@@ -33,6 +33,7 @@ from tests.conftest import (
     OFFLOAD_FILE,
     RESUME,
     RESUME_LONG_RECORD,
+    macro_connection,
 )
 from tests.view.budgets import (
     ESCAPED_CHAR_BYTES,
@@ -198,8 +199,7 @@ def test_every_macro_the_scan_trusts_answers_one_character_past_the_width() -> N
     The paths are invented: the shape — inside the project, outside it, no project at all —
     is the whole point, and no recorded session carries all three at these lengths.
     """
-    connection = duckdb.connect(":memory:")
-    macros.install(connection)
+    connection = macro_connection()
     project = "/Users/planted/repos/hyphae"
     inside = json.dumps({"file_path": f"{project}/src/{'v' * 400}.py"})
     outside = json.dumps({"file_path": f"/opt/homebrew/{'v' * 400}.py"})

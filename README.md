@@ -61,13 +61,13 @@ uv run hp sessions ~/repos/mycelia
 
 ## Extract and query a project
 
-Extract transcripts into `data/traces.duckdb`:
+Extract transcripts into [the trace store](docs/store.md), which is one file at `~/.hyphae/traces.duckdb` shared by every checkout:
 
 ```bash
 uv run hp extract ~/repos/mycelia
 ```
 
-Pass `--db` to write elsewhere. Later runs replace all rows for each changed session and skip unchanged sessions.
+`--help` prints the path it resolved to. Pass `--db` to write elsewhere, or set `HP_DB` to move every command's default. Later runs replace all rows for each changed session and skip unchanged sessions.
 
 Run a saved query:
 

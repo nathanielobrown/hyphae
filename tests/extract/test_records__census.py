@@ -8,7 +8,8 @@ citation before the readers move onto the models.
 Off by default. `HYPHAE_LIVE_STORE` names the store, and the store is private session data, so
 `mise run check` never runs this and CI cannot. Run it by hand:
 
-    HYPHAE_LIVE_STORE=data/traces.duckdb uv run pytest tests/extract/test_records__census.py -s
+    HYPHAE_LIVE_STORE=<the path `hp query --help` prints> \
+        uv run pytest tests/extract/test_records__census.py -s
 
 Nothing here asserts on a record. A `raw_records` row is transcript content and a failing
 assertion prints its operands, so every assertion below is on a count or on a field path.

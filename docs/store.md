@@ -1,6 +1,14 @@
 # The trace store
 
-The trace store is one DuckDB file, `data/traces.duckdb`: the archive `hp extract` writes to and every query reads. It is gitignored with the rest of `data/`. Treat it as an archive — read this guide before deleting it, moving it, or changing a version constant.
+The trace store is one DuckDB file at `~/.hyphae/traces.duckdb`, shared by every checkout: the archive `hp extract` writes to and every query reads. Treat it as an archive — read this guide before deleting it, moving it, or changing a version constant.
+
+## One store, wherever the command runs from
+
+Every `hp` command that takes `--db` reads or writes `~/.hyphae/traces.duckdb`. `src/hyphae/store_path.py` resolves it, and each of those subcommands' `--help` prints the path it landed on. One archive serves every checkout, whatever directory you are standing in, and an extract can never land in a commit.
+
+Two things move it: `HP_DB` names another store for every command in that environment, and `--db` names one for a single command.
+
+A store an earlier build left in a checkout stays where it is. Nothing copies or moves `data/traces.duckdb`, and `--db data/traces.duckdb` opens it as before. Point `HP_DB` at it, or extract into the new store and let the sessions still on disk land there — [comparing session IDs](#compare-session-ids-before-deleting-an-old-store) is what says whether the old file holds anything the new one has never seen.
 
 ## The store holds traces and derived data
 
@@ -10,6 +18,7 @@ erDiagram
     sessions ||--o{ agent_runs : "spawned"
     sessions ||--o{ compactions : "hit"
     sessions ||--o{ pr_links : "opened"
+    sessions ||--o{ session_tags : "stamped by the extract"
     sessions ||--o{ raw_records : "archived"
     sessions ||--o{ offload_files : "archived"
     sessions ||--|| extract_state : "fingerprinted by"
@@ -32,6 +41,20 @@ Queries use views instead of reading the trace tables directly. `refresh_views` 
 `open_trace_store` in `src/hyphae/export/duckdb.py` is the one way into a store that already exists: the viewer, `hp query`, `hp enrich` and `hp export-otlp` all open through it, and each translates its refusals into the currency it reports in. Every open rebuilds those views, so editing a definition reaches `hp view`, `hp query` and `hp enrich` at once rather than at the next extract. A read-only connection cannot replace a stored view, so it builds the same statements as temporary views; those shadow the stored ones for the life of the connection, including inside a stored view that names one. A reader pays about 3 ms for that on a 15 GB store.
 
 [Enrichment](enrichment.md) adds three `*_enrichments` tables keyed one-to-one to sessions, turns, and agent runs. It also adds views that join the enrichments to those records. Until an enrichment pass writes these tables, queries against them fail with an error that says they don't exist.
+
+## Tags record what the extract was for
+
+A tag is a `KEY=VALUE` pair you stamp on an extract: which batch of runs it belongs to, which experiment it answers. It is the one row in the store no transcript holds — Claude Code records nothing about why a session was run — so it comes off the command line and nowhere else:
+
+```
+hp extract ~/repos/mycelia --tag batch_id=b1 --tag experiment=retry-prompt
+```
+
+Every session that extract wrote gets both pairs, in `session_tags`. Hyphae reserves no key and reads no meaning out of one; the `tagged(key, value)` macro answers the session ids carrying a pair, and any query can join on it (`src/hyphae/analyze/macros.py`). `hp query tagged_sessions --param key=batch_id --param value=b1` is the worked example.
+
+Tags belong to the extraction, not to the session's files, so a re-extract replaces the whole set: different pairs overwrite the old ones, and no `--tag` at all clears them.
+
+Two traps follow from that. A [fingerprint](../CONTEXT.md) covers a session's files, which a tag is not part of, so `hp extract --tag` over a corpus nothing has touched extracts nothing and stamps nothing — tag at the run you want tagged, or change what the session holds. And an extract without `--tag` clears the tags of every session it *does* re-extract, which is the point of the rule but is easy to walk into.
 
 ## One process writes at a time, and the others queue
 
@@ -68,8 +91,10 @@ A fresh store holds no `otlp_delivery` table at all; the first send to a backend
 You can delete an old store after the canonical store contains every session ID found in it:
 
 ```sql
-ATTACH 'data/traces.duckdb' AS canonical (READ_ONLY);
-ATTACH 'old.duckdb'        AS old       (READ_ONLY);
+-- The canonical store is the path `hp query --help` prints; a checkout's `data/traces.duckdb`
+-- is the old store this project's own move left behind.
+ATTACH '~/.hyphae/traces.duckdb' AS canonical (READ_ONLY);
+ATTACH 'data/traces.duckdb'      AS old       (READ_ONLY);
 SELECT id FROM old.sessions EXCEPT SELECT id FROM canonical.sessions;
 ```
 

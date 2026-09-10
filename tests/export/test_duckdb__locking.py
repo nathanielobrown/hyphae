@@ -12,10 +12,18 @@ from pathlib import Path
 
 import pytest
 
-from hyphae.export.duckdb import DuckDbExporter, StoreLocked, open_trace_store
+from hyphae.export.duckdb import CLI_WAIT, DuckDbExporter, StoreLocked, open_trace_store
 from hyphae.export.schema import SchemaVersionError
 from hyphae.model import SessionTrace
-from tests.conftest import LOCK_TIMEOUT, NO_WAIT, SPINE, TraceFactory, locked, opens_elsewhere
+from tests.conftest import (
+    LOCK_TIMEOUT,
+    NO_WAIT,
+    SPINE,
+    TraceFactory,
+    locked,
+    opens_elsewhere,
+    stored_rows,
+)
 from tests.export.test_duckdb__migrations import foreign_store, unmigratable_store
 
 # How long the holder below keeps the lock before letting go on its own. Every wait the tests
@@ -97,6 +105,54 @@ def test_a_zero_wait_open_fails_at_once(
         # ...then it says so straight away rather than polling even once.
         with pytest.raises(StoreLocked), open_trace_store(db, read_only=False, wait=0):
             pass
+
+
+def test_an_extract_lands_once_an_open_page_lets_go(db: Path, fixture_trace: TraceFactory):
+    """An extract started while a viewer page is reading the store writes its session anyway.
+
+    The collision a person meets daily: `hp view` left open on the store `hp extract` writes
+    to. What saves it is that the page's read lasts one request — the viewer opens the store
+    per request and closes it (`view/deps.py:request_store`) — so the extract queues behind
+    one page load rather than behind the viewer's lifetime.
+    """
+    trace = fixture_trace("spine", SPINE)
+    # If the store exists — a page can only read one an extract already wrote...
+    stored(db)
+
+    # ...and a page holds it read-only the way `view/store.py:open_store` does, letting go
+    # partway through the block...
+    with locked(db, hold=BRIEF_HOLD, read_only=True):
+        started = time.monotonic()
+        # ...then an extract under the CLI's own budget queues behind the read instead of
+        # failing on it.
+        DuckDbExporter(db, wait=CLI_WAIT).export(trace, "fingerprint-0")
+        waited = time.monotonic() - started
+
+    # It really queued: halved because the holder may have been asleep for up to one of
+    # `locked()`'s 50 ms polls before this test's clock started.
+    assert waited >= BRIEF_HOLD / 2
+    # And the session the extract wrote is in the store the page let go of.
+    assert stored_rows(db, "SELECT id FROM sessions") == [(trace.session.id,)]
+
+
+def test_an_extract_gives_up_on_a_page_that_never_lets_go(db: Path, fixture_trace: TraceFactory):
+    """An extract that outwaits its budget behind a reader names the process holding the store.
+
+    A read lock shuts a writer out as surely as a write lock does, so the refusal a page
+    reading forever earns is the same one another writer earns.
+    """
+    stored(db, fixture_trace("spine", SPINE))
+
+    # If a reader holds the store for longer than the extract will wait...
+    with locked(db, read_only=True) as page:
+        # ...then the extract stops rather than hanging, naming the process to go and look at...
+        with pytest.raises(StoreLocked) as refused:
+            DuckDbExporter(db, wait=IMPATIENT)
+        assert str(page.pid) in str(refused.value)
+
+    # ...and the refusal itself left no lock behind: the store opens for write once the page
+    # has gone.
+    assert opens_elsewhere(db, read_only=False), f"the refusal kept the lock: {refused.value}"
 
 
 def open_for_write(path: Path) -> object:

@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Generator, Iterable, Sequence
+from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -21,18 +21,36 @@ from typing import Any
 import duckdb
 import pytest
 
+from hyphae.analyze import macros
 from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.store import EnrichmentStore
 from hyphae.enrich.taxonomy import TAXONOMY_VERSION, Category, Outcome
 from hyphae.enrich.validation import Enrichment
+from hyphae.export.duckdb import _SCHEMA as TRACE_SCHEMA
 from hyphae.export.duckdb import DuckDbExporter, open_trace_store
+from hyphae.export.schema import table_ddl
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
 from hyphae.model import SessionTrace
+from hyphae.store_path import HP_DB
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+# The store every parser the suite builds defaults to, and a path nothing can be written to
+# by accident. `--db` resolves out of the environment (`hyphae/store_path.py`) at parser
+# build, so a run reading the ambient `HP_DB` passes or fails with the machine it ran on: an
+# empty one refuses, taking every test that builds a parser with it. What the resolution
+# itself is held to is `tests/test_store_path.py`, which sets the variable it needs.
+PINNED_DB = Path("/pinned/traces.duckdb")
+
+
+@pytest.fixture(autouse=True)
+def pinned_store(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Name the default store for every test, and for the subprocesses one spawns."""
+    monkeypatch.setenv(HP_DB, str(PINNED_DB))
+
 
 _opened = duckdb.connect
 
@@ -254,19 +272,48 @@ def fixture_transcripts(*directories: str) -> tuple[Path, ...]:
     )
 
 
-def build_store(path: Path, transcripts: Iterable[Path]) -> None:
+# The tag the fixture corpus carries, and the two sessions stamped with it. Two rather than
+# the whole corpus, because a query that filters by tag has to be able to tell a tagged
+# session from an untagged one. Invented, and no recording could supply it: a tag is the
+# caller's word about an extract, and Claude Code records nothing about that.
+FIXTURE_TAG_KEY = "batch_id"
+FIXTURE_TAG_VALUE = "fixture-batch"
+FIXTURE_TAG = {FIXTURE_TAG_KEY: FIXTURE_TAG_VALUE}
+TAGGED_SESSIONS = (SPINE, SERVER_TOOLS)
+
+
+def build_store(
+    path: Path, transcripts: Iterable[Path], tags: Mapping[str, str] | None = None
+) -> None:
     """Extract each transcript into a store at `path`, as `refresh()` would.
 
     Tiers that query the store want their evidence to be rows the real pipeline wrote, so
     they build one from recorded transcripts rather than inserting rows by hand. Building
     costs an extraction per transcript — build once per test session and copy the file for
     any test that plants or deletes rows.
+
+    `tags` stamps every transcript, as one `hp extract --tag` does; left out, the corpus's
+    own rule applies and only `TAGGED_SESSIONS` carry `FIXTURE_TAG`.
     """
     exporter = DuckDbExporter(path, wait=NO_WAIT)
     for transcript in transcripts:
         session = SessionFiles(id=transcript.stem, transcript=transcript)
         source = ClaudeCodeSource(id=session.id, fingerprint="fixture", files=session)
-        exporter.export(ClaudeCodeExtractor().extract(source), source.fingerprint)
+        stamped = tags if tags is not None else FIXTURE_TAG if session.id in TAGGED_SESSIONS else {}
+        exporter.export(ClaudeCodeExtractor(tags=stamped).extract(source), source.fingerprint)
+
+
+def macro_connection() -> duckdb.DuckDBPyConnection:
+    """An in-memory connection carrying the store's tables and the library's macros.
+
+    The tables come first because `tagged` reads one, and DuckDB binds a macro body when the
+    macro is created rather than when it is called — so a bare connection cannot hold the
+    set at all, whatever the leaf under it goes on to ask.
+    """
+    connection = duckdb.connect(":memory:")
+    connection.execute(table_ddl(TRACE_SCHEMA))
+    macros.install(connection)
+    return connection
 
 
 def corpus_transcripts() -> tuple[Path, ...]:
@@ -305,6 +352,21 @@ _HOLDER = (
     " pathlib.Path(sys.argv[2]).touch();"
     " time.sleep(float(sys.argv[3]))"
 )
+
+# What a viewer page does to the store: the read-only open `view/store.py:open_store` makes,
+# through hyphae's own opener rather than a bare `duckdb.connect`, so what the holder takes is
+# what a page takes — version check, temp views and all. It holds for the seconds it was told
+# to instead of the length of one request, which is the only difference from a page load.
+_READER = """
+import pathlib, sys, time
+
+from hyphae.export.duckdb import PAGE_WAIT, open_trace_store
+
+path, signal, hold = sys.argv[1:]
+with open_trace_store(pathlib.Path(path), read_only=True, wait=PAGE_WAIT):
+    pathlib.Path(signal).touch()
+    time.sleep(float(hold))
+"""
 
 # How long the holder keeps the lock when the block does not name a shorter hold: longer than
 # any test's block, so `locked()`'s exit is what ends it.
@@ -367,8 +429,10 @@ def opens_elsewhere(path: Path, *, read_only: bool) -> bool:
 
 
 @contextmanager
-def locked(path: Path, *, hold: float = HOLD_UNTIL_STOPPED) -> Generator["subprocess.Popen[bytes]"]:
-    """Hold a store's write lock from another process for the length of the block.
+def locked(
+    path: Path, *, hold: float = HOLD_UNTIL_STOPPED, read_only: bool = False
+) -> Generator["subprocess.Popen[bytes]"]:
+    """Hold a store's lock from another process for the length of the block.
 
     A subprocess, not a second connection here: DuckDB answers the same process's second
     open differently from the file lock it takes across processes, so an in-process holder
@@ -379,6 +443,10 @@ def locked(path: Path, *, hold: float = HOLD_UNTIL_STOPPED) -> Generator["subpro
     subject is the waiting gets a writer that finishes while a caller is queued behind it,
     with no thread of its own.
 
+    Pass `read_only` for the shared read lock a viewer page takes, which shuts a writer out
+    just as the write lock does; the store has to exist already, because that is the only
+    kind a page can open. The default holder writes.
+
     The wait for the holder never opens the store. A read-only open takes a shared read
     lock, and DuckDB refuses a write open while one is held — so a wait that polled by
     opening could kill the very holder it waited for. It did, on CI run 31903080480. The
@@ -387,8 +455,9 @@ def locked(path: Path, *, hold: float = HOLD_UNTIL_STOPPED) -> Generator["subpro
     """
     signal = path.with_name(f"{path.name}.locked")
     signal.unlink(missing_ok=True)
+    script = _READER if read_only else _HOLDER
     holder = subprocess.Popen(
-        [sys.executable, "-c", _HOLDER, str(path), str(signal), str(hold)], stderr=subprocess.PIPE
+        [sys.executable, "-c", script, str(path), str(signal), str(hold)], stderr=subprocess.PIPE
     )
     try:
         deadline = time.monotonic() + LOCK_TIMEOUT
@@ -576,9 +645,15 @@ def planted_source(tmp_path: Path) -> PlantedFactory:
 
 @pytest.fixture
 def fixture_trace(fixture_source: SourceFactory) -> TraceFactory:
-    """Extract one fixture transcript, for tests that need a trace but not the parsing."""
+    """Extract one fixture transcript, for tests that need a trace but not the parsing.
+
+    Carries the same tags `build_store` stamps, so a trace built here and the rows the shared
+    corpus store holds for that session are the same trace — which is what lets a round-trip
+    leaf compare the two whole.
+    """
 
     def build(directory: str, stem: str) -> SessionTrace:
-        return ClaudeCodeExtractor().extract(fixture_source(directory, stem))
+        tags = FIXTURE_TAG if stem in TAGGED_SESSIONS else {}
+        return ClaudeCodeExtractor(tags=tags).extract(fixture_source(directory, stem))
 
     return build

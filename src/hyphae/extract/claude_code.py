@@ -11,9 +11,10 @@ stops the run. What each field means, and the session that proves it, is in `doc
 
 import hashlib
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 
 from hyphae import settings
 from hyphae.extract.agent_runs import agent_runs
@@ -35,7 +36,7 @@ from hyphae.extract.transcript import (
     session_of,
     workflow_launches,
 )
-from hyphae.model import MAIN_SOURCE, SessionTrace
+from hyphae.model import MAIN_SOURCE, SessionTag, SessionTrace
 from hyphae.pipeline import SessionSource
 from hyphae.projects import encode_project_path
 
@@ -60,8 +61,16 @@ class ClaudeCodeSource(SessionSource):
 class ClaudeCodeExtractor:
     """Discovers and parses Claude Code sessions for one project."""
 
-    def __init__(self, *, projects_root: Path = DEFAULT_PROJECTS_ROOT) -> None:
+    def __init__(
+        self,
+        *,
+        projects_root: Path = DEFAULT_PROJECTS_ROOT,
+        tags: Mapping[str, str] = MappingProxyType({}),
+    ) -> None:
         self.projects_root = projects_root
+        # Stamped on every session this run extracts and on none it skips: a tag is the
+        # caller's word about the extract, so it is the extractor that has it to give.
+        self.tags = tags
         # One tally per extractor, so the session count beside a field means "sessions this
         # run refreshed" rather than "sessions in this file". Strict where a person is looking
         # and a tally in an extract, which is what `settings.UNIT_TESTING` decides.
@@ -127,6 +136,7 @@ class ClaudeCodeExtractor:
             pr_links=pr_links(kept[MAIN_SOURCE], source.id),
             offload_files=[read_offload_file(path, source.id) for path in files.offloads],
             raw_records=raw_records,
+            session_tags=[SessionTag(source.id, key, value) for key, value in self.tags.items()],
         )
 
 

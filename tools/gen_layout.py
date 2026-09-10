@@ -107,8 +107,8 @@ ENTRIES = (
     Entry(
         "data/",
         Words(
-            "Gitignored: the canonical trace store `traces.duckdb` (`docs/store.md`) and "
-            "analysis scratch"
+            "Gitignored: analysis scratch, and any store `--db` pointed an extract at — the "
+            "canonical one is `~/.hyphae/traces.duckdb` (`docs/store.md`)"
         ),
         scratch=True,
     ),

@@ -47,10 +47,8 @@ from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.extract.store import StoreSource, UnknownProjectError
 from hyphae.pipeline import refresh
 from hyphae.projects import resolve_project
+from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve
-
-# Gitignored, so an extract never lands in a commit.
-DEFAULT_DB = Path("data") / "traces.duckdb"
 
 
 class Subcommand(NamedTuple):
@@ -96,7 +94,8 @@ def _sessions(args: argparse.Namespace) -> None:
 
 def _extract(args: argparse.Namespace) -> None:
     """Parse a project's transcripts into the trace store, skipping what has not changed."""
-    extractor = ClaudeCodeExtractor(projects_root=args.projects_root)
+    # Parsed at the flag (`_key_value`); a later pair wins the name an earlier one bound.
+    extractor = ClaudeCodeExtractor(projects_root=args.projects_root, tags=dict(args.tag))
     exporter = DuckDbExporter(args.db, wait=CLI_WAIT)
     result = refresh(args.project, extractor=extractor, exporter=exporter)
     print(f"{len(result.extracted)} session(s) extracted, {len(result.skipped)} unchanged")
@@ -110,6 +109,14 @@ def _extract(args: argparse.Namespace) -> None:
 def _extract_arguments(subcommand: argparse.ArgumentParser) -> None:
     _add_discovery_arguments(subcommand)
     _add_db_argument(subcommand, "Where to write the trace store")
+    subcommand.add_argument(
+        "--tag",
+        action="append",
+        type=_key_value,
+        default=[],
+        metavar="KEY=VALUE",
+        help="Stamp a pair on every session this extract writes, replacing the ones it holds",
+    )
 
 
 def _view(args: argparse.Namespace) -> None:
@@ -157,10 +164,8 @@ def _query(args: argparse.Namespace) -> None:
         return
     if args.name is None:
         raise SystemExit("hp query takes the name of a query, or --list to see them")
-    try:
-        params = dict(pair.split("=", 1) for pair in args.param)
-    except ValueError:
-        raise SystemExit("--param takes KEY=VALUE") from None
+    # Parsed at the flag (`_key_value`); a later pair wins the name an earlier one bound.
+    params = dict(args.param)
     try:
         result = run(
             args.db,
@@ -210,6 +215,7 @@ def _query_arguments(subcommand: argparse.ArgumentParser) -> None:
     subcommand.add_argument(
         "--param",
         action="append",
+        type=_key_value,
         default=[],
         metavar="KEY=VALUE",
         help="Bind one of the query's parameters, overriding its production default",
@@ -425,10 +431,29 @@ def _add_discovery_arguments(subcommand: argparse.ArgumentParser) -> None:
 
 
 def _add_db_argument(subcommand: argparse.ArgumentParser, description: str) -> None:
-    """The trace store flag, defaulted in one place — `description` says read or write."""
+    """The trace store flag, defaulted in one place — `description` says read or write.
+
+    The default is resolved as the parser is built, and printed: the archive lives in the home
+    directory, not the checkout, so `--help` is where a reader finds out which file they are
+    addressing.
+    """
+    store = default_store()
     subcommand.add_argument(
-        "--db", type=Path, default=DEFAULT_DB, help=f"{description} (default: {DEFAULT_DB})"
+        "--db", type=Path, default=store, help=f"{description} (default: {store})"
     )
+
+
+def _key_value(text: str) -> tuple[str, str]:
+    """One `KEY=VALUE` pair off the command line, split once so a value keeps its own `=`.
+
+    The `type` of every pair-valued flag, so argparse names the flag in the refusal. A pair
+    with no `=`, or one naming nothing, is refused: bound to the wrong name — or to the empty
+    one — a value produces a plausible answer and no signal.
+    """
+    key, separator, value = text.partition("=")
+    if not separator or not key:
+        raise argparse.ArgumentTypeError(f"takes KEY=VALUE, not {text!r}")
+    return key, value
 
 
 # Every subcommand, in the order `--help` lists them. A project is a positional argument where

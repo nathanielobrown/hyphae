@@ -24,6 +24,7 @@ from hyphae.extract.store import (
 from hyphae.model import SessionTrace
 from hyphae.pipeline import SessionSource
 from tests.conftest import (
+    FIXTURE_TAG,
     FIXTURES,
     MYCELIA,
     NO_PROJECT_SESSION,
@@ -195,7 +196,10 @@ def test_a_childless_session_with_no_project_is_excluded(tmp_path: Path) -> None
     transcript = tmp_path / f"{NO_PROJECT_SESSION}.jsonl"
     shutil.copy(FIXTURES / "fork_byref" / transcript.name, transcript)
     path = tmp_path / "childless.duckdb"
-    build_store(path, [transcript])
+    # ...and the extract that wrote it was tagged, as `hp extract --tag` tags every session it
+    # finds, this one included: a tag is the caller's own word, re-typeable, and ships nowhere,
+    # so it is no more work of the session's than the archive lines are...
+    build_store(path, [transcript], tags=FIXTURE_TAG)
     # ...then discovery leaves it out without complaint about the session — there is nothing
     # to lose — and what it refuses is the project, which the store then holds nothing under.
     with (

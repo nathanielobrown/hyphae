@@ -53,8 +53,8 @@ class Corpus:
             )
         return destination
 
-    def extractor(self) -> ClaudeCodeExtractor:
-        return ClaudeCodeExtractor(projects_root=self.root)
+    def extractor(self, **tags: str) -> ClaudeCodeExtractor:
+        return ClaudeCodeExtractor(projects_root=self.root, tags=tags)
 
 
 class CountingExtractor:
@@ -129,6 +129,36 @@ def test_a_refresh_ingests_every_session_it_finds(corpus: Corpus, exporter: Duck
         assert len(table(exporter, "turns", source.id)) == len(trace.turns)
         assert len(table(exporter, "api_calls", source.id)) == len(trace.api_calls)
         assert len(table(exporter, "raw_records", source.id)) == len(trace.raw_records)
+
+
+def test_a_tag_reaches_every_session_a_refresh_extracted_and_no_other(
+    corpus: Corpus, exporter: DuckDbExporter
+):
+    """The pairs a caller stamps travel the seam: extractor in, trace across, store out.
+
+    `refresh()` hands the exporter a trace and a fingerprint and nothing else, so the tags
+    ride on the trace or they do not arrive. The pairs are invented, and honestly so: a tag
+    is the caller's word about a run, and no transcript records one.
+
+    The second half is the trap this seam inherits: a fingerprint covers the session's files,
+    which a tag is not part of, so a session the refresh skipped keeps whatever it already
+    held (`docs/store.md`).
+    """
+    # If two sessions are extracted under one pair...
+    corpus.add("spine", SPINE)
+    corpus.add("dup_uuid", DUPS)
+    refresh(corpus.project, extractor=corpus.extractor(batch_id="b1"), exporter=exporter)
+
+    # ...then every session that refresh wrote carries it...
+    assert stored_rows(exporter.path, "SELECT session_id, key, value FROM session_tags") == sorted(
+        [(DUPS, "batch_id", "b1"), (SPINE, "batch_id", "b1")]
+    )
+
+    # ...and a second refresh under a different pair re-tags only what it re-extracted, which
+    # over untouched files is nothing at all.
+    result = refresh(corpus.project, extractor=corpus.extractor(batch_id="b2"), exporter=exporter)
+    assert result.extracted == []
+    assert stored_rows(exporter.path, "SELECT DISTINCT value FROM session_tags") == [("b1",)]
 
 
 def test_an_unchanged_corpus_is_not_re_extracted(corpus: Corpus, exporter: DuckDbExporter):
