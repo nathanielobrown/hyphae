@@ -5,8 +5,10 @@ reads each transcript into lines (`extract/transcript.py`) and those lines into 
 (`extract/parse.py`), and stamps the result with a fingerprint that decides re-extraction.
 
 The reader below it is closed-world on purpose: every record type, every `system` subtype and
-every tag a prompt can lead with is registered in `extract/records/registry.py`, and anything else
-stops the run. What each field means, and the session that proves it, is in `docs/schema.md`.
+every tag a prompt can lead with is registered in `extract/records/registry.py`. A tag outside it
+stops the read; a record kind outside it is archived whole and tallied for the report `hp extract`
+prints (`.claude/rules/python.md`). What each field means, and the session that proves it, is in
+`docs/schema.md`.
 """
 
 import hashlib

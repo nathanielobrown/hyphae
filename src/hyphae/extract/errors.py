@@ -1,9 +1,11 @@
 """What the extractor refuses to guess at: a record it cannot read, a directory it cannot.
 
 Claude Code owns both the transcript schema and the layout on disk and changes either without
-notice, so anything unrecognised stops the run (`.claude/rules/python.md`). Two classes rather
-than one because the response differs: a schema error sends a reader to `docs/schema.md` and a
-record model, a layout error to the session directory itself.
+notice, so anything unrecognised stops rather than guesses (`.claude/rules/python.md`). What it
+stops differs: a schema error costs one session, which `pipeline.refresh` records and `hp extract`
+names before it exits nonzero (`docs/store.md`), while a layout error ends the whole pass. Two
+classes rather than one because the response differs too: a schema error sends a reader to
+`docs/schema.md` and a record model, a layout error to the session directory itself.
 
 No error here carries record content: transcripts are private, and these messages reach logs.
 """
