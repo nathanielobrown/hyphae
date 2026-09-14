@@ -108,6 +108,11 @@ def _extract(args: argparse.Namespace) -> None:
     fields = extractor.unknowns.fields.report()
     if fields:
         print(f"Fields no model declares:\n{fields}")
+    # A session the parser refused is the one thing here that is a failure: the rest of the
+    # project is in the store, and the run says so rather than reporting a clean pass.
+    if result.failed:
+        refused = "\n".join(f"{failure.session_id}: {failure.error}" for failure in result.failed)
+        raise SystemExit(f"{len(result.failed)} session(s) could not be read:\n{refused}")
 
 
 def _extract_arguments(subcommand: argparse.ArgumentParser) -> None:

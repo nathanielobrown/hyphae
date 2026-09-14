@@ -393,6 +393,28 @@ def test_an_extract_prints_the_record_kinds_no_registry_names(
     assert "SUPER-SECRET-PAYLOAD-9f2a" not in "\n".join(printed)
 
 
+def test_an_extract_names_the_sessions_it_could_not_read_and_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A session the parser refuses leaves the others extracted, and the command exits nonzero.
+
+    The two halves an operator needs: the work that succeeded is in the store, and the run
+    does not report success when part of the corpus never arrived. The reason comes with the
+    session id, because the next step is a record model.
+    """
+    # If one session of a project cannot be parsed...
+    with pytest.raises(SystemExit) as refused:
+        extracted(tmp_path, [SPINE, "invented-wrong-field-type"], capsys, strict=False)
+
+    # ...then the summary counts what did land...
+    printed = capsys.readouterr().out.splitlines()
+    assert printed[0] == "1 session(s) extracted, 0 unchanged"
+    # ...and the failure names the session and what the parser said about it, on the way out.
+    message = str(refused.value)
+    assert "invented-wrong-field-type" in message and "AssistantRecord" in message
+    assert "SUPER-SECRET-PAYLOAD-9f2a" not in message
+
+
 def test_an_extract_that_finds_nothing_undeclared_prints_only_its_summary(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
