@@ -1,8 +1,10 @@
 """The closed world of a Claude Code transcript: every record type, subtype, block and tag.
 
 These registries are what makes the reader closed-world. Claude Code owns these shapes and
-changes them without notice, so anything not registered here raises `TranscriptSchemaError`
-(`extract/errors.py`): a type we quietly skip today is a wrong count months from now.
+changes them without notice, so a kind not registered here stops a test run and is archived and
+tallied in an extract (`records/unknown.py`): a type we quietly skip today is a wrong count
+months from now. A block or a tag outside its registry raises wherever it runs, because a reader
+is already reading it.
 
 Names only. The field-by-field models that describe what each shape holds, and the recording
 that proves each claim, are the modules beside this one; `docs/schema.md` prints them.
@@ -12,7 +14,7 @@ from enum import StrEnum
 
 
 class RecordType(StrEnum):
-    """Record types this parser reads. Anything outside both registries crashes."""
+    """Record types this parser reads. A type outside both registries is archived and tallied."""
 
     ASSISTANT = "assistant"
     USER = "user"
@@ -55,10 +57,12 @@ class ArchiveRecordType(StrEnum):
     # Workflow journals only (`subagents/workflows/wf_<id>/journal.jsonl`).
     STARTED = "started"
     RESULT = "result"
+    # The session was continued in another session, whose id the record names.
+    CONTINUED_IN = "continued-in"
 
 
 class SystemSubtype(StrEnum):
-    """Every `system` subtype the corpus holds. An unregistered one crashes."""
+    """Every `system` subtype the corpus holds. An unregistered one is archived and tallied."""
 
     TURN_DURATION = "turn_duration"
     COMPACT_BOUNDARY = "compact_boundary"

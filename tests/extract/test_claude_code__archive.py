@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from hyphae import settings
 from hyphae.extract.claude_code import ClaudeCodeExtractor
 from hyphae.extract.errors import ExtractionError, SessionLayoutError, TranscriptSchemaError
 from hyphae.model import MAIN_SOURCE, OffloadFile, SessionTrace
@@ -92,6 +93,28 @@ def test_an_archived_record_keeps_whatever_envelope_it_carried(fixture_source: S
         ("870b4053-f05f-4b14-9d66-8492a229bf43", datetime(2026, 7, 12, 15, 38, 13, 896000, UTC)),
         ("75a30121-dfe0-4cd4-89d4-1949a4122083", datetime(2026, 7, 12, 15, 38, 13, 897000, UTC)),
     ]
+
+
+def test_a_session_holding_an_unknown_record_kind_still_extracts(
+    fixture_source: SourceFactory, monkeypatch: pytest.MonkeyPatch
+):
+    """Outside a test run, a record kind nobody has read is archived and the session lands.
+
+    This is what the tolerance is for: `continued-in` arrived in one Claude Code release and
+    took down `hp extract` for a whole project, every session of it, on a bookkeeping record
+    no reader opens. INVENTED fixture, because the kind it stands for is registered the day
+    we see one.
+    """
+    # If an extract — lax, as any run outside the suite is — meets a kind no registry names...
+    monkeypatch.setattr(settings, "UNIT_TESTING", False)
+    extractor = ClaudeCodeExtractor()
+
+    trace = extractor.extract(fixture_source("invented", "invented-unknown-type"))
+
+    # ...then the session is extracted, with the record kept whole under its own type...
+    assert [record.type for record in trace.raw_records] == ["mode", "telepathy"]
+    # ...and the kind is news the extract reports rather than a stopped run.
+    assert extractor.unknowns.kinds.report().startswith("telepathy: first in session")
 
 
 def test_a_session_sited_only_by_an_archived_record_still_reports_where_it_ran(

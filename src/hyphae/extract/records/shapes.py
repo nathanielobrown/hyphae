@@ -2,12 +2,11 @@
 
 The families live beside this module: `base` holds the mixin ladder, and `conversation`,
 `system` and `bookkeeping` hold the models themselves. `ArchivedRecord` here takes every
-registered kind no reader opens.
+registered kind no reader opens, and outside a test run every kind neither registry names.
 """
 
 from typing import Any
 
-from hyphae.extract.errors import TranscriptSchemaError
 from hyphae.extract.records.base import Record, SessionContext
 from hyphae.extract.records.bookkeeping import (
     AgentNameRecord,
@@ -29,6 +28,9 @@ from hyphae.extract.records.system import (
 
 class ArchivedRecord(SessionContext):
     """A kind the store keeps verbatim, whose own fields no reader opens.
+
+    Every registered archive kind, and outside a test run every kind no registry names at all
+    (`records/unknown.py`) — which is the same claim either way: the envelope, and nothing else.
 
     It extends `SessionContext` because the envelope is read off every kind that carries one:
     `raw_record` takes `uuid` and `timestamp`, and `session_of` takes `cwd`, `gitBranch`,
@@ -99,11 +101,25 @@ for _model in RECORD_MODELS:
         _SUBTYPE_MODELS[_subtype.value] = _model
 
 
-def model_for(record: dict[str, Any]) -> type[Record]:
-    """The model describing one raw record. Total over both registries: a kind outside them
-    raises, because a record type we quietly skip is a wrong count months from now.
+def kind_of(record: dict[str, Any]) -> str:
+    """How a record's kind is spelled wherever one is named: its type, or `system/<subtype>`.
 
-    The caller adds the session and the line, which are what a reader needs to find the record.
+    The two registries name two levels of one envelope, so a subtype on its own would read as a
+    type. One string, carrying the level it was found at.
+    """
+    kind = str(record.get("type", ""))
+    if kind == RecordType.SYSTEM:
+        return f"{kind}/{record.get('subtype', '')}"
+    return kind
+
+
+def model_for(record: dict[str, Any]) -> type[Record] | None:
+    """The model describing one raw record, or `None` for a kind neither registry names.
+
+    `None` is a schema change, not a record to skip: the caller archives it verbatim under
+    `ArchivedRecord` and tallies the kind, or stops if a person is looking (`records/unknown.py`).
+    Nothing is dropped either way, because a record we quietly skip is a wrong count months from
+    now. A field a reader needs inside a kind we do read is the other tier, and still raises.
     """
     kind = record.get("type", "")
     if kind == RecordType.SYSTEM:
@@ -111,12 +127,8 @@ def model_for(record: dict[str, Any]) -> type[Record]:
         modelled = _SUBTYPE_MODELS.get(subtype)
         if modelled is not None:
             return modelled
-        if subtype in _ARCHIVED_SUBTYPES:
-            return ArchivedRecord
-        raise TranscriptSchemaError(f"Unknown system subtype {subtype!r}")
+        return ArchivedRecord if subtype in _ARCHIVED_SUBTYPES else None
     modelled = _TYPE_MODELS.get(kind)
     if modelled is not None:
         return modelled
-    if kind in _ARCHIVED_TYPES:
-        return ArchivedRecord
-    raise TranscriptSchemaError(f"Unknown record type {kind!r}")
+    return ArchivedRecord if kind in _ARCHIVED_TYPES else None

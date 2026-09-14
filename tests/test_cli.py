@@ -300,21 +300,22 @@ def test_the_viewer_opens_a_browser_unless_the_run_says_not_to(
 
 def extracted(
     tmp_path: Path,
-    fixture: str,
+    fixtures: list[str],
     capsys: pytest.CaptureFixture[str],
     strict: bool,
     *tags: str,
 ) -> list[str]:
-    """Run `hp extract` over one fixture transcript, and hand back what it printed.
+    """Run `hp extract` over one project of fixture transcripts, and hand back what it printed.
 
     `strict` is what a test run has and an extract does not: the extractor reads it once, at
     construction, so setting it here is setting it for the run. Each of `tags` is one
     `--tag KEY=VALUE` argument, spelled the way a caller types it.
     """
     project = Path("/Users/nob/repos/mycelia")
-    root = make_projects_root(tmp_path, project, [fixture])
-    source = next(FIXTURES.rglob(f"{fixture}.jsonl"))
-    (root / encode_project_path(project) / f"{fixture}.jsonl").write_text(source.read_text())
+    root = make_projects_root(tmp_path, project, fixtures)
+    for fixture in fixtures:
+        source = next(FIXTURES.rglob(f"{fixture}.jsonl"))
+        (root / encode_project_path(project) / f"{fixture}.jsonl").write_text(source.read_text())
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(settings, "UNIT_TESTING", strict)
         cli.main(
@@ -340,7 +341,7 @@ def test_the_tags_typed_at_the_flag_reach_the_store(
     transcript records one.
     """
     # If an extract is given two tags, one of whose values carries its own `=`...
-    extracted(tmp_path, SPINE, capsys, True, "batch_id=b1", "note=a=b")
+    extracted(tmp_path, [SPINE], capsys, True, "batch_id=b1", "note=a=b")
 
     # ...then the store holds a row per pair, under the session that extract wrote.
     assert stored_rows(
@@ -359,7 +360,7 @@ def test_an_extract_prints_the_fields_no_model_declares_under_its_summary(
     """
     # If an extract meets a record carrying a field no model declares, in an extract's own
     # lax mode...
-    printed = extracted(tmp_path, "invented-unknown-field", capsys, strict=False)
+    printed = extracted(tmp_path, ["invented-unknown-field"], capsys, strict=False)
 
     # ...then the session is extracted, and the tally follows the summary rather than
     # replacing it.
@@ -372,6 +373,26 @@ def test_an_extract_prints_the_fields_no_model_declares_under_its_summary(
     # leaf, which is where the design's rejection of an exit-code flag is written down.
 
 
+def test_an_extract_prints_the_record_kinds_no_registry_names(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An extract archives a record kind nobody has read, reports it, and still succeeds.
+
+    The other half of the tally: a kind Claude Code added yesterday is news too, and the
+    record went into the archive whole, so there is nothing for an operator to do but read
+    the line. Its own header, because a kind and a field are two different pieces of work.
+    """
+    # If an extract meets a record whose type no registry names, in an extract's own lax mode...
+    printed = extracted(tmp_path, ["invented-unknown-type"], capsys, strict=False)
+
+    # ...then the session lands and the kind is reported under the summary...
+    assert printed[0] == "1 session(s) extracted, 0 unchanged"
+    assert printed[1] == "Record kinds no registry names:"
+    assert printed[2].startswith("telepathy: first in session")
+    # ...saying nothing about what the record held.
+    assert "SUPER-SECRET-PAYLOAD-9f2a" not in "\n".join(printed)
+
+
 def test_an_extract_that_finds_nothing_undeclared_prints_only_its_summary(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -381,7 +402,7 @@ def test_an_extract_that_finds_nothing_undeclared_prints_only_its_summary(
     """
     # If every field of every record is declared — a recorded fixture, under strict mode, so
     # the run would have crashed rather than tallied...
-    printed = extracted(tmp_path, "invented-no-cache-creation", capsys, strict=True)
+    printed = extracted(tmp_path, ["invented-no-cache-creation"], capsys, strict=True)
 
     # ...then the summary is the whole output.
     assert printed == ["1 session(s) extracted, 0 unchanged"]

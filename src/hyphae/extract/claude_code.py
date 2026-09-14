@@ -26,7 +26,7 @@ from hyphae.extract.layout import (
     read_offload_file,
 )
 from hyphae.extract.parse import parse
-from hyphae.extract.records.unknown import UnknownFields
+from hyphae.extract.records.unknown import Unknowns
 from hyphae.extract.replays import replayed_lines
 from hyphae.extract.transcript import (
     pr_links,
@@ -71,10 +71,10 @@ class ClaudeCodeExtractor:
         # Stamped on every session this run extracts and on none it skips: a tag is the
         # caller's word about the extract, so it is the extractor that has it to give.
         self.tags = tags
-        # One tally per extractor, so the session count beside a field means "sessions this
-        # run refreshed" rather than "sessions in this file". Strict where a person is looking
-        # and a tally in an extract, which is what `settings.UNIT_TESTING` decides.
-        self.unknown_fields = UnknownFields(strict=settings.UNIT_TESTING)
+        # One pair of tallies per extractor, so the session count beside a kind or a field
+        # means "sessions this run refreshed" rather than "sessions in this file". Strict where
+        # a person is looking and a tally in an extract, which `settings.UNIT_TESTING` decides.
+        self.unknowns = Unknowns(strict=settings.UNIT_TESTING)
 
     def sessions(self, project: Path) -> list[ClaudeCodeSource]:
         """Every session recorded for `project`, with the fingerprint of its files."""
@@ -99,11 +99,9 @@ class ClaudeCodeExtractor:
             (MAIN_SOURCE, files.transcript),
             *((agent.id, agent.transcript) for agent in files.agents),
         ]
-        lines = {
-            name: read_lines(path, source.id, self.unknown_fields) for name, path in transcripts
-        }
+        lines = {name: read_lines(path, source.id, self.unknowns) for name, path in transcripts}
         journals = {
-            name: read_lines(path, source.id, self.unknown_fields) for name, path in files.journals
+            name: read_lines(path, source.id, self.unknowns) for name, path in files.journals
         }
         metas = {agent.id: json.loads(agent.meta.read_text()) for agent in files.agents}
         # The archive keeps every line of every file, duplicates included; the normalized
