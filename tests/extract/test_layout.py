@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 from datetime import datetime
@@ -7,7 +8,7 @@ import pytest
 
 from hyphae.extract.layout import SessionFiles, find_project_dirs, find_sessions
 from hyphae.projects import encode_project_path
-from tests.conftest import FIXTURES
+from tests.conftest import FIXTURES, SPINE
 
 
 def make_projects_root(tmp_path: Path, project: Path, session_ids: list[str]) -> Path:
@@ -36,6 +37,30 @@ def copy_fixture(project_dir: Path, fixture: str, *, written_at: datetime | None
     shutil.copy(source, transcript)
     if source.with_suffix("").is_dir():
         shutil.copytree(source.with_suffix(""), transcript.with_suffix(""), dirs_exist_ok=True)
+    if written_at is not None:
+        os.utime(transcript, (written_at.timestamp(), written_at.timestamp()))
+    return transcript
+
+
+# The one-record transcript `refused_transcript` writes, and the field it bends.
+REFUSED_SESSION = "invented-refused-first-record"
+BENT_FIELD = "customTitle"
+
+
+def refused_transcript(project_dir: Path, *, written_at: datetime | None = None) -> Path:
+    """Write a transcript the parser refuses on its first record into a project directory.
+
+    Invented by bending one field: the record is `spine/`'s opening `custom-title`, as recorded,
+    with `customTitle` set to a number where the model wants a string. Nothing of the session
+    is reachable past line 1. `written_at` as in `copy_fixture`.
+    """
+    source = next(FIXTURES.rglob(f"{SPINE}.jsonl"))
+    first = json.loads(source.read_text().split("\n")[0])
+    assert first["type"] == "custom-title" and isinstance(first[BENT_FIELD], str)
+    first[BENT_FIELD] = 123
+    project_dir.mkdir(parents=True, exist_ok=True)
+    transcript = project_dir / f"{REFUSED_SESSION}.jsonl"
+    transcript.write_text(json.dumps(first) + "\n")
     if written_at is not None:
         os.utime(transcript, (written_at.timestamp(), written_at.timestamp()))
     return transcript

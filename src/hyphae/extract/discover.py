@@ -6,16 +6,20 @@ how many sessions it holds, how many were written this week, and which repositor
 takes them whole.
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from hyphae import settings
+from hyphae.extract.errors import TranscriptSchemaError
 from hyphae.extract.grouping import base_project
 from hyphae.extract.layout import find_project_dirs, find_sessions
 from hyphae.extract.records.base import SessionContext
 from hyphae.extract.records.unknown import Unknowns
 from hyphae.extract.transcript import iter_lines
+
+logger = logging.getLogger(__name__)
 
 # How far back a session counts as recent: a week is long enough to hold a project a person
 # touches on working days, and short enough to drop a checkout an eval created and deleted.
@@ -59,7 +63,16 @@ def discover(projects_root: Path, *, now: datetime) -> list[ProjectDir]:
             for session in find_sessions(directory)
         }
         newest = max(written, key=written.__getitem__)
-        cwd = recorded_cwd(newest)
+        try:
+            cwd = recorded_cwd(newest)
+        except TranscriptSchemaError as error:
+            # A shape the parser does not know, and only that: the walk crosses hundreds of
+            # scratch directories, and one drifted transcript must not hide the rest. The row
+            # keeps its name, and an extract over it refuses the session properly.
+            logger.warning(
+                "%s: labelled by name, its newest transcript is refused: %s", directory.name, error
+            )
+            cwd = None
         rows.append(
             ProjectDir(
                 name=directory.name,

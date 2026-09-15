@@ -2,13 +2,16 @@
 how many there are, how many are recent, and which repository it extends."""
 
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+import pytest
 
 from hyphae.extract.discover import ProjectDir, discover
 from hyphae.projects import encode_project_path
 from tests.conftest import FIXTURES, MYCELIA, SPINE
-from tests.extract.test_layout import copy_fixture
+from tests.extract.test_layout import BENT_FIELD, REFUSED_SESSION, copy_fixture, refused_transcript
 
 # A pinned clock, so "within seven days" is a fact about the fixture's mtime and not the run's.
 NOW = datetime(2026, 9, 15, 12, tzinfo=UTC)
@@ -115,3 +118,35 @@ def test_rows_sort_by_recent_then_sessions_then_name(tmp_path: Path) -> None:
             )
     # ...then `c` and `b` lead on recency, `b` before `c` by name, then `a`, then `d`.
     assert [row.name for row in discover(root, now=NOW)] == ["-b", "-c", "-a", "-d"]
+
+
+def test_a_refused_newest_transcript_yields_a_row_labelled_by_name_and_says_so(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A directory whose newest transcript the parser refuses is still a row — labelled by its
+    name, since no `cwd` was read — and the walk says which directory and why, rather than
+    stopping at one drifted transcript among hundreds of scratch directories."""
+    # If a scratch directory's only transcript is refused on its first record (an invented
+    # bend of a real record: `refused_transcript`), beside the mycelia directory's `spine/`...
+    root = tmp_path / "projects"
+    scratch = "-Users-nob-scratch"
+    refused_transcript(root / scratch, written_at=days_ago(1))
+    copy_fixture(root / MYCELIA_DIR, SPINE, written_at=days_ago(2))
+    with caplog.at_level(logging.WARNING):
+        mycelia, scratch_row = discover(root, now=NOW)
+    # ...then the scratch row has no working directory and still counts its session...
+    assert scratch_row == ProjectDir(
+        name=scratch,
+        directory=root / scratch,
+        cwd=None,
+        base=None,
+        sessions=1,
+        recent=1,
+    )
+    # ...the mycelia row is read as ever...
+    assert (mycelia.name, mycelia.cwd) == (MYCELIA_DIR, Path(MYCELIA))
+    # ...and one warning names the directory and the parser's reason, without record content.
+    assert caplog.messages == [
+        f"{scratch}: labelled by name, its newest transcript is refused: CustomTitleRecord in "
+        f"session {REFUSED_SESSION}, line 1 — {BENT_FIELD}: Input should be a valid string"
+    ]
