@@ -45,7 +45,7 @@ from hyphae.extract.claude_code import ClaudeCodeExtractor
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_sessions
 from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.extract.store import StoreSource, UnknownProjectError
-from hyphae.pipeline import refresh
+from hyphae.pipeline import Failure, refresh
 from hyphae.projects import encode_project_path, resolve_project
 from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve
@@ -92,14 +92,27 @@ def _sessions(args: argparse.Namespace) -> None:
         print(f"{session.id}\t{subagents} subagent(s)\t{session.transcript}")
 
 
+def _sessions_arguments(subcommand: argparse.ArgumentParser) -> None:
+    subcommand.add_argument("project", type=Path, help="Path to the analyzed repository")
+    _add_projects_root_argument(subcommand)
+
+
 def _extract(args: argparse.Namespace) -> None:
-    """Parse a project's transcripts into the trace store, skipping what has not changed."""
+    """Parse each typed project's transcripts into the trace store, skipping the unchanged."""
     # Parsed at the flag (`_key_value`); a later pair wins the name an earlier one bound.
     extractor = ClaudeCodeExtractor(projects_root=args.projects_root, tags=dict(args.tag))
     exporter = DuckDbExporter(args.db, wait=CLI_WAIT)
-    sources = extractor.sessions(args.project)
-    result = refresh(sources, extractor=extractor, exporter=exporter)
-    print(f"{len(result.extracted)} session(s) extracted, {len(result.skipped)} unchanged")
+    # One line per directory, labelled with the path as typed; the refusals wait for the end,
+    # so a bad session in the first directory does not hide the summary of the rest.
+    failed: list[Failure] = []
+    for project in args.project:
+        directory = args.projects_root / encode_project_path(project)
+        result = refresh(extractor.sessions_in(directory), extractor=extractor, exporter=exporter)
+        summary = f"{len(result.extracted)} session(s) extracted, {len(result.skipped)} unchanged"
+        if result.failed:
+            summary += f", {len(result.failed)} refused"
+        print(f"{project}: {summary}")
+        failed += result.failed
     # A kind no registry names and a field no model declares are both news, not failures: the
     # archive kept the record either way, and the exit code stays 0. Silence means the models
     # still describe what Claude Code writes.
@@ -110,14 +123,17 @@ def _extract(args: argparse.Namespace) -> None:
     if fields:
         print(f"Fields no model declares:\n{fields}")
     # A session the parser refused is the one thing here that is a failure: the rest of the
-    # project is in the store, and the run says so rather than reporting a clean pass.
-    if result.failed:
-        refused = "\n".join(f"{failure.session_id}: {failure.error}" for failure in result.failed)
-        raise SystemExit(f"{len(result.failed)} session(s) could not be read:\n{refused}")
+    # corpus is in the store, and the run says so rather than reporting a clean pass.
+    if failed:
+        refused = "\n".join(f"{failure.session_id}: {failure.error}" for failure in failed)
+        raise SystemExit(f"{len(failed)} session(s) could not be read:\n{refused}")
 
 
 def _extract_arguments(subcommand: argparse.ArgumentParser) -> None:
-    _add_discovery_arguments(subcommand)
+    subcommand.add_argument(
+        "project", type=Path, nargs="+", help="Path to an analyzed repository, one or more"
+    )
+    _add_projects_root_argument(subcommand)
     _add_db_argument(subcommand, "Where to write the trace store")
     subcommand.add_argument(
         "--tag",
@@ -429,9 +445,8 @@ def _report_plan(planned: Sequence[PlannedItem], model: str) -> None:
     )
 
 
-def _add_discovery_arguments(subcommand: argparse.ArgumentParser) -> None:
-    """What a subcommand that reads transcripts off disk takes: where to look, and for what."""
-    subcommand.add_argument("project", type=Path, help="Path to the analyzed repository")
+def _add_projects_root_argument(subcommand: argparse.ArgumentParser) -> None:
+    """Where a subcommand that reads transcripts off disk looks for them."""
     subcommand.add_argument(
         "--projects-root",
         type=Path,
@@ -472,11 +487,11 @@ def _key_value(text: str) -> tuple[str, str]:
 SUBCOMMANDS: dict[str, Subcommand] = {
     "sessions": Subcommand(
         help="List the sessions recorded for a project",
-        arguments=_add_discovery_arguments,
+        arguments=_sessions_arguments,
         run=_sessions,
     ),
     "extract": Subcommand(
-        help="Extract a project's sessions into DuckDB",
+        help="Extract projects' sessions into DuckDB",
         arguments=_extract_arguments,
         run=_extract,
     ),

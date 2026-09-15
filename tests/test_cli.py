@@ -20,7 +20,7 @@ from hyphae.export.otlp_delivery import DEFAULT_RATE, GENERIC
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT
 from hyphae.projects import encode_project_path
 from hyphae.view.app import PORT
-from tests.conftest import FIXTURES, PINNED_DB, SPINE, stored_rows
+from tests.conftest import FIXTURES, MYCELIA, PINNED_DB, SPINE, stored_rows
 from tests.extract.test_layout import make_projects_root
 
 PROJECT = Path("repos/mycelia")
@@ -68,7 +68,7 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
     ),
     "extract": (
         (str(PROJECT),),
-        {"project": PROJECT, "projects_root": DEFAULT_PROJECTS_ROOT, "db": PINNED_DB, "tag": []},
+        {"project": [PROJECT], "projects_root": DEFAULT_PROJECTS_ROOT, "db": PINNED_DB, "tag": []},
     ),
     "enrich": (
         (),
@@ -300,34 +300,94 @@ def test_the_viewer_opens_a_browser_unless_the_run_says_not_to(
 
 def extracted(
     tmp_path: Path,
-    fixtures: list[str],
+    projects: dict[Path, list[str]],
     capsys: pytest.CaptureFixture[str],
     strict: bool,
     *tags: str,
 ) -> list[str]:
-    """Run `hp extract` over one project of fixture transcripts, and hand back what it printed.
+    """Run `hp extract` over projects of fixture transcripts, and hand back what it printed.
 
-    `strict` is what a test run has and an extract does not: the extractor reads it once, at
-    construction, so setting it here is setting it for the run. Each of `tags` is one
-    `--tag KEY=VALUE` argument, spelled the way a caller types it.
+    `projects` maps each path the command is typed with to the fixtures its directory holds;
+    the paths are typed in the order given. `strict` is what a test run has and an extract
+    does not: the extractor reads it once, at construction, so setting it here is setting it
+    for the run. Each of `tags` is one `--tag KEY=VALUE` argument, spelled the way a caller
+    types it.
     """
-    project = Path("/Users/nob/repos/mycelia")
-    root = make_projects_root(tmp_path, project, fixtures)
-    for fixture in fixtures:
-        source = next(FIXTURES.rglob(f"{fixture}.jsonl"))
-        (root / encode_project_path(project) / f"{fixture}.jsonl").write_text(source.read_text())
+    for project, fixtures in projects.items():
+        root = make_projects_root(tmp_path, project, fixtures)
+        for fixture in fixtures:
+            source = next(FIXTURES.rglob(f"{fixture}.jsonl"))
+            (root / encode_project_path(project) / f"{fixture}.jsonl").write_text(
+                source.read_text()
+            )
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(settings, "UNIT_TESTING", strict)
         cli.main(
             "extract",
-            str(project),
+            *[str(project) for project in projects],
             "--projects-root",
-            str(root),
+            str(tmp_path / "projects"),
             "--db",
             str(tmp_path / "traces.duckdb"),
             *[argument for tag in tags for argument in ("--tag", tag)],
         )
     return capsys.readouterr().out.splitlines()
+
+
+def test_two_typed_paths_extract_both_directories(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`hp extract` takes several paths and reports each directory on its own line.
+
+    The second project is the one clean fixture recorded under another `cwd`: invented
+    content, but placed the way Claude Code places a project.
+    """
+    # If two paths are typed, each with one session under its directory...
+    printed = extracted(
+        tmp_path,
+        {Path(MYCELIA): [SPINE], Path("/invented/project"): ["invented-no-cache-creation"]},
+        capsys,
+        strict=True,
+    )
+
+    # ...then the store holds both sessions...
+    assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions ORDER BY id") == [
+        (SPINE,),
+        ("invented-no-cache-creation",),
+    ]
+    # ...and each directory got its own summary, labelled with the path as typed.
+    assert printed == [
+        f"{MYCELIA}: 1 session(s) extracted, 0 unchanged",
+        "/invented/project: 1 session(s) extracted, 0 unchanged",
+    ]
+
+
+def test_a_refusal_in_the_first_directory_does_not_stop_the_second(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """One directory's unreadable session leaves the next directory extracted, and the run
+    still exits nonzero naming it."""
+    # If the first typed path holds a session the parser refuses and the second is clean...
+    with pytest.raises(SystemExit) as refused:
+        extracted(
+            tmp_path,
+            {Path("/invented/project"): ["invented-wrong-field-type"], Path(MYCELIA): [SPINE]},
+            capsys,
+            strict=False,
+        )
+
+    # ...then both directories were summarised, the refusal counted on its own line...
+    printed = capsys.readouterr().out.splitlines()
+    assert printed == [
+        "/invented/project: 0 session(s) extracted, 0 unchanged, 1 refused",
+        f"{MYCELIA}: 1 session(s) extracted, 0 unchanged",
+    ]
+    # ...the clean session landed...
+    assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions") == [(SPINE,)]
+    # ...and the exit names the refused session and nothing of what it held.
+    message = str(refused.value)
+    assert "invented-wrong-field-type" in message and "AssistantRecord" in message
+    assert "SUPER-SECRET-PAYLOAD-9f2a" not in message
 
 
 def test_the_tags_typed_at_the_flag_reach_the_store(
@@ -341,7 +401,7 @@ def test_the_tags_typed_at_the_flag_reach_the_store(
     transcript records one.
     """
     # If an extract is given two tags, one of whose values carries its own `=`...
-    extracted(tmp_path, [SPINE], capsys, True, "batch_id=b1", "note=a=b")
+    extracted(tmp_path, {Path(MYCELIA): [SPINE]}, capsys, True, "batch_id=b1", "note=a=b")
 
     # ...then the store holds a row per pair, under the session that extract wrote.
     assert stored_rows(
@@ -360,11 +420,11 @@ def test_an_extract_prints_the_fields_no_model_declares_under_its_summary(
     """
     # If an extract meets a record carrying a field no model declares, in an extract's own
     # lax mode...
-    printed = extracted(tmp_path, ["invented-unknown-field"], capsys, strict=False)
+    printed = extracted(tmp_path, {Path(MYCELIA): ["invented-unknown-field"]}, capsys, strict=False)
 
     # ...then the session is extracted, and the tally follows the summary rather than
     # replacing it.
-    assert printed[0] == "1 session(s) extracted, 0 unchanged"
+    assert printed[0] == f"{MYCELIA}: 1 session(s) extracted, 0 unchanged"
     assert printed[1] == "Fields no model declares:"
     assert printed[2].startswith("assistant.shimmerBudget: first in session")
     # And the value the field held is transcript content, which never leaves the store.
@@ -383,10 +443,10 @@ def test_an_extract_prints_the_record_kinds_no_registry_names(
     the line. Its own header, because a kind and a field are two different pieces of work.
     """
     # If an extract meets a record whose type no registry names, in an extract's own lax mode...
-    printed = extracted(tmp_path, ["invented-unknown-type"], capsys, strict=False)
+    printed = extracted(tmp_path, {Path(MYCELIA): ["invented-unknown-type"]}, capsys, strict=False)
 
     # ...then the session lands and the kind is reported under the summary...
-    assert printed[0] == "1 session(s) extracted, 0 unchanged"
+    assert printed[0] == f"{MYCELIA}: 1 session(s) extracted, 0 unchanged"
     assert printed[1] == "Record kinds no registry names:"
     assert printed[2].startswith("telepathy: first in session")
     # ...saying nothing about what the record held.
@@ -404,11 +464,13 @@ def test_an_extract_names_the_sessions_it_could_not_read_and_fails(
     """
     # If one session of a project cannot be parsed...
     with pytest.raises(SystemExit) as refused:
-        extracted(tmp_path, [SPINE, "invented-wrong-field-type"], capsys, strict=False)
+        extracted(
+            tmp_path, {Path(MYCELIA): [SPINE, "invented-wrong-field-type"]}, capsys, strict=False
+        )
 
-    # ...then the summary counts what did land...
+    # ...then the summary counts what did land, and what did not...
     printed = capsys.readouterr().out.splitlines()
-    assert printed[0] == "1 session(s) extracted, 0 unchanged"
+    assert printed[0] == f"{MYCELIA}: 1 session(s) extracted, 0 unchanged, 1 refused"
     # ...and the failure names the session and what the parser said about it, on the way out.
     message = str(refused.value)
     assert "invented-wrong-field-type" in message and "AssistantRecord" in message
@@ -424,7 +486,9 @@ def test_an_extract_that_finds_nothing_undeclared_prints_only_its_summary(
     """
     # If every field of every record is declared — a recorded fixture, under strict mode, so
     # the run would have crashed rather than tallied...
-    printed = extracted(tmp_path, ["invented-no-cache-creation"], capsys, strict=True)
+    printed = extracted(
+        tmp_path, {Path(MYCELIA): ["invented-no-cache-creation"]}, capsys, strict=True
+    )
 
     # ...then the summary is the whole output.
-    assert printed == ["1 session(s) extracted, 0 unchanged"]
+    assert printed == [f"{MYCELIA}: 1 session(s) extracted, 0 unchanged"]
