@@ -3,11 +3,13 @@ how many there are, how many are recent, and which repository it extends."""
 
 import json
 import logging
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
+from hyphae import settings
 from hyphae.extract.discover import ProjectDir, discover
 from hyphae.projects import encode_project_path
 from tests.conftest import FIXTURES, MYCELIA, SPINE
@@ -40,7 +42,14 @@ def test_cwd_comes_from_the_first_record_carrying_one_in_the_newest_transcript(
     [row] = discover(root, now=NOW)
     assert (row.cwd, row.label) == (OTHER_CWD, str(OTHER_CWD))
     # ...and with `spine` written last, as the mycelia checkout.
-    copy_fixture(root / MYCELIA_DIR, SPINE, written_at=days_ago(0))
+    spine = copy_fixture(root / MYCELIA_DIR, SPINE, written_at=days_ago(0))
+    assert [row.cwd for row in discover(root, now=NOW)] == [Path(MYCELIA)]
+    # `spine/` records mycelia from line 6 and the `wk-triage` worktree over lines 25–32, so
+    # a copy cut after line 32 ends on the worktree: the first sited record still decides.
+    lines = spine.read_text().split("\n")
+    assert json.loads(lines[31])["cwd"] == f"{MYCELIA}/.claude/worktrees/wk-triage"
+    spine.write_text("\n".join(lines[:32]) + "\n")
+    os.utime(spine, (days_ago(0).timestamp(), days_ago(0).timestamp()))
     assert [row.cwd for row in discover(root, now=NOW)] == [Path(MYCELIA)]
 
 
@@ -77,16 +86,20 @@ def test_sessions_counts_top_level_transcripts_only(tmp_path: Path) -> None:
 
 
 def test_recent_counts_transcripts_written_within_seven_days(tmp_path: Path) -> None:
-    """A session written more than a week ago counts as a session, but not as recent."""
-    # If three copies of one transcript were written 1, 6 and 8 days ago (invented mtimes)...
+    """A session written more than a week ago counts as a session, but not as recent; one
+    written exactly a week ago still is."""
+    # If four copies of one transcript were written a day ago, an hour inside the week, on the
+    # week to the second, and an hour past it (invented mtimes)...
     root = tmp_path / "projects"
-    for days in (1, 6, 8):
-        copy_fixture(root / MYCELIA_DIR, OTHER, written_at=days_ago(days)).rename(
-            root / MYCELIA_DIR / f"copy-{days}.jsonl"
+    ages = {"day": timedelta(days=1), "inside": timedelta(days=6, hours=23)}
+    ages |= {"boundary": timedelta(days=7), "outside": timedelta(days=7, hours=1)}
+    for name, age in ages.items():
+        copy_fixture(root / MYCELIA_DIR, OTHER, written_at=NOW - age).rename(
+            root / MYCELIA_DIR / f"copy-{name}.jsonl"
         )
-    # ...then all three are sessions and two are recent.
+    # ...then all four are sessions and three are recent: the boundary is inclusive.
     [row] = discover(root, now=NOW)
-    assert (row.sessions, row.recent) == (3, 2)
+    assert (row.sessions, row.recent) == (4, 3)
 
 
 def test_base_is_the_repository_the_cwd_extends(tmp_path: Path) -> None:
@@ -150,3 +163,25 @@ def test_a_refused_newest_transcript_yields_a_row_labelled_by_name_and_says_so(
         f"{scratch}: labelled by name, its newest transcript is refused: CustomTitleRecord in "
         f"session {REFUSED_SESSION}, line 1 — {BENT_FIELD}: Input should be a valid string"
     ]
+
+
+@pytest.mark.parametrize("strict", [True, False], ids=["test run", "extract"])
+def test_an_unknown_record_kind_stops_the_read_only_where_a_test_would(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch, strict: bool
+) -> None:
+    """Reading a transcript for its `cwd` holds the record models to the same tier the extract
+    does: a kind no registry names is a refusal under a test run and a tally in an extract."""
+    # If the newest transcript is `invented-unknown-type` — a `mode` record, then a kind no
+    # registry names, and no `cwd` anywhere — under each mode...
+    root = tmp_path / "projects"
+    copy_fixture(root / MYCELIA_DIR, "invented-unknown-type", written_at=days_ago(1))
+    monkeypatch.setattr(settings, "UNIT_TESTING", strict)
+    with caplog.at_level(logging.WARNING):
+        [row] = discover(root, now=NOW)
+    # ...then the row has no `cwd` either way, and only the strict read says why.
+    assert row.cwd is None
+    refusal = (
+        f"{MYCELIA_DIR}: labelled by name, its newest transcript is refused: "
+        "Unknown record kind `telepathy` in session invented-unknown-type, line 2"
+    )
+    assert caplog.messages == ([refusal] if strict else [])

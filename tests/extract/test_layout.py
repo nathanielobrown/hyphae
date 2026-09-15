@@ -151,9 +151,12 @@ def test_find_project_dirs_returns_only_directories_holding_a_transcript(tmp_pat
     # If the root holds two project directories with transcripts, listed out of order...
     root = make_projects_root(tmp_path, Path("/Users/nob/repos/mycelia"), ["s1"])
     make_projects_root(tmp_path, Path("/Users/nob/repos/hyphae"), ["s2"])
-    # ...beside an empty directory, a directory holding only a session subdirectory, and a file...
+    # ...beside an empty directory, a directory holding only a session subdirectory — with a
+    # subagent transcript inside it, which is not a session — and a file...
     (root / "-Users-nob-repos-empty").mkdir()
-    (root / "-Users-nob-repos-pruned" / "s3" / "subagents").mkdir(parents=True)
+    pruned = root / "-Users-nob-repos-pruned" / "s3" / "subagents"
+    pruned.mkdir(parents=True)
+    (pruned / "agent-x.jsonl").write_text("")
     (root / "stray.txt").write_text("")
     # ...then only the two with a top-level transcript are projects, sorted by name.
     assert find_project_dirs(root) == [

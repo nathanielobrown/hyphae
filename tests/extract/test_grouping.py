@@ -90,6 +90,9 @@ def test_a_directory_inside_no_repository_maps_to_itself(tmp_path: Path) -> None
     """A working directory git knows nothing about is its own base project, and git's refusal
     is not an error."""
     assert base_project(tmp_path) == tmp_path
+    # The path rule's cut stands when git then refuses what it left: the worktree is folded to
+    # the directory above, not handed back as recorded.
+    assert base_project(tmp_path / "worktrees" / "w") == tmp_path
 
 
 def test_a_parent_of_repositories_does_not_fold_into_any_of_them(repos: Path) -> None:

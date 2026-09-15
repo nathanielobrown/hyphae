@@ -20,13 +20,14 @@ from tests.conftest import MYCELIA
 MYCELIA_DIR = encode_project_path(Path(MYCELIA))
 WK_TRIAGE = Path(MYCELIA) / ".claude" / "worktrees" / "wk-triage"
 WK_TRIAGE_DIR = encode_project_path(WK_TRIAGE)
-# `invented-truncated-tail`'s `/repo`, which is its own base; and a directory whose newest
+# `invented-truncated-tail`'s `/repo`, which is its own base, and busier this week than mycelia
+# so that discovery's order — not the label's — decides the rows; and a directory whose newest
 # transcript records no `cwd`, as `fork_byref/`'s does — the name is invented, and its counts
 # would place it above `/repo` if the picker sorted on counts alone.
 NO_CWD_DIR = "-Users-nob-scratch"
 ROWS = [
+    ProjectDir("-repo", Path("/gone/-repo"), Path("/repo"), Path("/repo"), 5, 3),
     ProjectDir(MYCELIA_DIR, Path("/gone") / MYCELIA_DIR, Path(MYCELIA), Path(MYCELIA), 3, 2),
-    ProjectDir("-repo", Path("/gone/-repo"), Path("/repo"), Path("/repo"), 1, 1),
     ProjectDir(WK_TRIAGE_DIR, Path("/gone") / WK_TRIAGE_DIR, WK_TRIAGE, Path(MYCELIA), 1, 0),
     ProjectDir(NO_CWD_DIR, Path("/gone") / NO_CWD_DIR, None, None, 2, 1),
 ]
@@ -43,7 +44,10 @@ def test_everything_leads_and_a_shared_base_folds_into_one_row() -> None:
     directories' counts summed, then the directories that record no working directory."""
     assert [fields(choice) for choice in choices(ROWS, [])] == [
         # The Everything row first, over every directory...
-        ("Everything  4 directories, 7 session(s)", EVERYTHING, False),
+        ("Everything  4 directories, 11 session(s)", EVERYTHING, False),
+        # ...then a base nobody else shares standing alone under its own path, first because
+        # it is the busiest this week...
+        ("/repo  5 session(s), 3 this week", ["-repo"], False),
         # ...then the mycelia checkout and its worktree as one row, counts summed, the
         # worktree counted as one more directory...
         (
@@ -51,8 +55,6 @@ def test_everything_leads_and_a_shared_base_folds_into_one_row() -> None:
             [MYCELIA_DIR, WK_TRIAGE_DIR],
             False,
         ),
-        # ...a base nobody else shares standing alone under its own path...
-        ("/repo  1 session(s), 1 this week", ["-repo"], False),
         # ...and a directory with no `cwd` last whatever its counts, under its own name.
         (f"{NO_CWD_DIR}  2 session(s), 1 this week", [NO_CWD_DIR], False),
     ]

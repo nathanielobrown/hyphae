@@ -244,10 +244,13 @@ def test_the_bare_command_runs_the_picker_and_remembers_what_it_confirmed(
 ) -> None:
     """A bare `hp extract` offers every discovered directory with the last pick checked,
     extracts what is confirmed, and replaces the memory with that choice."""
-    # If the last pick named the mycelia directory and one since pruned, and the picker
-    # confirms mycelia alone...
+    # If the last pick named the mycelia directory and one since pruned — beside a setting
+    # some other command keeps (invented) — and the picker confirms mycelia alone...
     plant(tmp_path, TWO_PROJECTS)
-    user_settings.write({"extract": {"projects": [MYCELIA_DIR, "-gone"]}}, settings_file(tmp_path))
+    user_settings.write(
+        {"extract": {"projects": [MYCELIA_DIR, "-gone"]}, "other": {"kept": True}},
+        settings_file(tmp_path),
+    )
     with pytest.MonkeyPatch.context() as patch:
         calls = fake_pick(patch, [MYCELIA_DIR])
         printed = run_extract(tmp_path, capsys, True)
@@ -257,8 +260,11 @@ def test_the_bare_command_runs_the_picker_and_remembers_what_it_confirmed(
     # ...the confirmed directory was extracted and no other, labelled with where it ran...
     assert printed == [f"{MYCELIA}: 1 session(s) extracted, 0 unchanged"]
     assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions") == [(SPINE,)]
-    # ...and the memory is the confirmed set, the pruned name gone.
-    assert user_settings.read(settings_file(tmp_path)) == {"extract": {"projects": [MYCELIA_DIR]}}
+    # ...and the memory is the confirmed set, the pruned name gone, the other command's untouched.
+    assert user_settings.read(settings_file(tmp_path)) == {
+        "extract": {"projects": [MYCELIA_DIR]},
+        "other": {"kept": True},
+    }
 
 
 def test_the_bare_command_with_everything_picked_runs_every_directory(
