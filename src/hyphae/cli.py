@@ -12,6 +12,7 @@ from typing import Any, NamedTuple
 
 from dotenv import load_dotenv
 
+from hyphae import user_settings
 from hyphae.analyze.manifest import catalog
 from hyphae.analyze.queries import REQUIRED, QueryError
 from hyphae.analyze.runner import Result, run
@@ -42,6 +43,7 @@ from hyphae.export.otlp_delivery import (
     named_backend,
 )
 from hyphae.extract.claude_code import ClaudeCodeExtractor
+from hyphae.extract.discover import discover
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_sessions
 from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.extract.store import StoreSource, UnknownProjectError
@@ -49,6 +51,12 @@ from hyphae.pipeline import Failure, refresh
 from hyphae.projects import encode_project_path, resolve_project
 from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve
+
+# The extract's namespace in `user_settings`: the directory names it last picked, or the word
+# for every directory under the root.
+EXTRACT_SETTINGS = "extract"
+PROJECTS_SETTING = "projects"
+EVERYTHING = "all"
 
 
 class Subcommand(NamedTuple):
@@ -97,21 +105,28 @@ def _sessions_arguments(subcommand: argparse.ArgumentParser) -> None:
     _add_projects_root_argument(subcommand)
 
 
+class Target(NamedTuple):
+    """One project directory an extract will refresh, and the label its summary line carries."""
+
+    label: str
+    directory: Path
+
+
 def _extract(args: argparse.Namespace) -> None:
-    """Parse each typed project's transcripts into the trace store, skipping the unchanged."""
+    """Parse each chosen project's transcripts into the trace store, skipping the unchanged."""
+    targets = _extract_targets(args)
     # Parsed at the flag (`_key_value`); a later pair wins the name an earlier one bound.
     extractor = ClaudeCodeExtractor(projects_root=args.projects_root, tags=dict(args.tag))
     exporter = DuckDbExporter(args.db, wait=CLI_WAIT)
-    # One line per directory, labelled with the path as typed; the refusals wait for the end,
-    # so a bad session in the first directory does not hide the summary of the rest.
+    # One line per directory; the refusals wait for the end, so a bad session in the first
+    # directory does not hide the summary of the rest.
     failed: list[Failure] = []
-    for project in args.project:
-        directory = args.projects_root / encode_project_path(project)
+    for label, directory in targets:
         result = refresh(extractor.sessions_in(directory), extractor=extractor, exporter=exporter)
         summary = f"{len(result.extracted)} session(s) extracted, {len(result.skipped)} unchanged"
         if result.failed:
             summary += f", {len(result.failed)} refused"
-        print(f"{project}: {summary}")
+        print(f"{label}: {summary}")
         failed += result.failed
     # A kind no registry names and a field no model declares are both news, not failures: the
     # archive kept the record either way, and the exit code stays 0. Silence means the models
@@ -129,9 +144,59 @@ def _extract(args: argparse.Namespace) -> None:
         raise SystemExit(f"{len(failed)} session(s) could not be read:\n{refused}")
 
 
+def _extract_targets(args: argparse.Namespace) -> list[Target]:
+    """What the extract's scope names: typed paths, every directory, or the last pick.
+
+    A typed path skips discovery and is labelled as typed; the two flags label a directory
+    with where its newest session ran. `--last-picked` prints its plan before anything runs.
+    """
+    if args.project:
+        return [
+            Target(str(project), args.projects_root / encode_project_path(project))
+            for project in args.project
+        ]
+    if not args.all_projects and not args.last_picked:
+        raise SystemExit(
+            "The picker is not built yet: type a project path, or pass "
+            "--all-projects or --last-picked"
+        )
+    rows = discover(args.projects_root, now=dt.datetime.now(tz=dt.UTC))
+    if args.all_projects:
+        return [Target(row.label, row.directory) for row in rows]
+    remembered = user_settings.read().get(EXTRACT_SETTINGS, {}).get(PROJECTS_SETTING)
+    if remembered is None:
+        raise SystemExit("Nothing remembered yet: run `hp extract` once and pick")
+    if remembered == EVERYTHING:
+        print(f"Extracting every project, as last picked: {len(rows)} directories")
+        return [Target(row.label, row.directory) for row in rows]
+    # A name no longer on disk is a project Claude Code pruned since the pick: said, skipped,
+    # and dropped from memory by the next confirm.
+    by_name = {row.name: row for row in rows}
+    found = [name for name in remembered if name in by_name]
+    print(f"Extracting {len(found)} of {len(remembered)} remembered project(s):")
+    for name in remembered:
+        if name in by_name:
+            print(f"  {name}  {by_name[name].label}")
+        else:
+            print(f"  {name}  skipped: no longer under {args.projects_root}")
+    return [Target(by_name[name].label, by_name[name].directory) for name in found]
+
+
 def _extract_arguments(subcommand: argparse.ArgumentParser) -> None:
-    subcommand.add_argument(
-        "project", type=Path, nargs="+", help="Path to an analyzed repository, one or more"
+    # One scope per run: the positional, or either flag, and argparse refuses a mix.
+    scope = subcommand.add_mutually_exclusive_group()
+    scope.add_argument(
+        "project", type=Path, nargs="*", help="Path to an analyzed repository, one or more"
+    )
+    scope.add_argument(
+        "--all-projects",
+        action="store_true",
+        help="Every project Claude Code has recorded, scratch checkouts included",
+    )
+    scope.add_argument(
+        "--last-picked",
+        action="store_true",
+        help="The projects picked on the last bare `hp extract`",
     )
     _add_projects_root_argument(subcommand)
     _add_db_argument(subcommand, "Where to write the trace store")

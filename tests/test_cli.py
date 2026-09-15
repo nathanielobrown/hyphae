@@ -13,15 +13,15 @@ from typing import Any
 
 import pytest
 
-from hyphae import cli, settings
+from hyphae import cli, settings, user_settings
 from hyphae.enrich.client import DEFAULT_CONCURRENCY, DEFAULT_MODEL
 from hyphae.export.otlp import DEFAULT_MAX_CHARS
 from hyphae.export.otlp_delivery import DEFAULT_RATE, GENERIC
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT
 from hyphae.projects import encode_project_path
 from hyphae.view.app import PORT
-from tests.conftest import FIXTURES, MYCELIA, PINNED_DB, SPINE, stored_rows
-from tests.extract.test_layout import make_projects_root
+from tests.conftest import MYCELIA, PINNED_DB, SPINE, stored_rows
+from tests.extract.test_layout import copy_fixture, make_projects_root
 
 PROJECT = Path("repos/mycelia")
 
@@ -68,7 +68,14 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
     ),
     "extract": (
         (str(PROJECT),),
-        {"project": [PROJECT], "projects_root": DEFAULT_PROJECTS_ROOT, "db": PINNED_DB, "tag": []},
+        {
+            "project": [PROJECT],
+            "all_projects": False,
+            "last_picked": False,
+            "projects_root": DEFAULT_PROJECTS_ROOT,
+            "db": PINNED_DB,
+            "tag": [],
+        },
     ),
     "enrich": (
         (),
@@ -298,6 +305,40 @@ def test_the_viewer_opens_a_browser_unless_the_run_says_not_to(
     ]
 
 
+def plant(tmp_path: Path, projects: dict[Path, list[str]]) -> Path:
+    """Lay out a projects root of fixture transcripts under `tmp_path`, one directory per
+    project path, and hand back the root."""
+    root = tmp_path / "projects"
+    for project, fixtures in projects.items():
+        for fixture in fixtures:
+            copy_fixture(root / encode_project_path(project), fixture)
+    return root
+
+
+def run_extract(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], strict: bool, *arguments: str
+) -> list[str]:
+    """Run `hp extract` with `arguments` over the root `plant` laid out, and hand back what it
+    printed.
+
+    `strict` is what a test run has and an extract does not: the extractor reads it once, at
+    construction, so setting it here is setting it for the run. `HOME` is `tmp_path`, so a
+    settings file the run writes or reads is under it and nowhere real.
+    """
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(settings, "UNIT_TESTING", strict)
+        patch.setenv("HOME", str(tmp_path))
+        cli.main(
+            "extract",
+            *arguments,
+            "--projects-root",
+            str(tmp_path / "projects"),
+            "--db",
+            str(tmp_path / "traces.duckdb"),
+        )
+    return capsys.readouterr().out.splitlines()
+
+
 def extracted(
     tmp_path: Path,
     projects: dict[Path, list[str]],
@@ -305,33 +346,44 @@ def extracted(
     strict: bool,
     *tags: str,
 ) -> list[str]:
-    """Run `hp extract` over projects of fixture transcripts, and hand back what it printed.
+    """`hp extract` over typed paths: `projects` maps each path the command is typed with to
+    the fixtures its directory holds, typed in the order given. Each of `tags` is one
+    `--tag KEY=VALUE` argument, spelled the way a caller types it."""
+    plant(tmp_path, projects)
+    return run_extract(
+        tmp_path,
+        capsys,
+        strict,
+        *[str(project) for project in projects],
+        *[argument for tag in tags for argument in ("--tag", tag)],
+    )
 
-    `projects` maps each path the command is typed with to the fixtures its directory holds;
-    the paths are typed in the order given. `strict` is what a test run has and an extract
-    does not: the extractor reads it once, at construction, so setting it here is setting it
-    for the run. Each of `tags` is one `--tag KEY=VALUE` argument, spelled the way a caller
-    types it.
-    """
-    for project, fixtures in projects.items():
-        root = make_projects_root(tmp_path, project, fixtures)
-        for fixture in fixtures:
-            source = next(FIXTURES.rglob(f"{fixture}.jsonl"))
-            (root / encode_project_path(project) / f"{fixture}.jsonl").write_text(
-                source.read_text()
-            )
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(settings, "UNIT_TESTING", strict)
-        cli.main(
-            "extract",
-            *[str(project) for project in projects],
-            "--projects-root",
-            str(tmp_path / "projects"),
-            "--db",
-            str(tmp_path / "traces.duckdb"),
-            *[argument for tag in tags for argument in ("--tag", tag)],
-        )
-    return capsys.readouterr().out.splitlines()
+
+def settings_file(tmp_path: Path) -> Path:
+    """Where a run under `run_extract` keeps its settings: `HOME` is `tmp_path`."""
+    return tmp_path / ".hyphae" / "settings.json"
+
+
+# The two-project root every scope leaf runs over: the deepest recorded session under the
+# mycelia directory, and the one clean fixture recorded under another `cwd` — invented content,
+# placed the way Claude Code places a project.
+TWO_PROJECTS = {Path(MYCELIA): [SPINE], Path("/invented/project"): ["invented-no-cache-creation"]}
+INVENTED = "invented-no-cache-creation"
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        (str(PROJECT), "--all-projects"),
+        (str(PROJECT), "--last-picked"),
+        ("--all-projects", "--last-picked"),
+    ],
+)
+def test_a_typed_path_and_a_scope_flag_refuse_each_other(arguments: tuple[str, ...]) -> None:
+    """A path, `--all-projects` and `--last-picked` each name the whole scope, so a mix is
+    refused before anything runs."""
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(["extract", *arguments])
 
 
 def test_two_typed_paths_extract_both_directories(
@@ -343,23 +395,101 @@ def test_two_typed_paths_extract_both_directories(
     content, but placed the way Claude Code places a project.
     """
     # If two paths are typed, each with one session under its directory...
-    printed = extracted(
-        tmp_path,
-        {Path(MYCELIA): [SPINE], Path("/invented/project"): ["invented-no-cache-creation"]},
-        capsys,
-        strict=True,
-    )
+    printed = extracted(tmp_path, TWO_PROJECTS, capsys, strict=True)
 
     # ...then the store holds both sessions...
     assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions ORDER BY id") == [
         (SPINE,),
-        ("invented-no-cache-creation",),
+        (INVENTED,),
     ]
-    # ...and each directory got its own summary, labelled with the path as typed.
+    # ...each directory got its own summary, labelled with the path as typed...
     assert printed == [
         f"{MYCELIA}: 1 session(s) extracted, 0 unchanged",
         "/invented/project: 1 session(s) extracted, 0 unchanged",
     ]
+    # ...and nothing was remembered: a typed path is a one-off, not a choice.
+    assert not settings_file(tmp_path).exists()
+
+
+def test_all_projects_extracts_every_directory_under_the_root(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`hp extract --all-projects` runs every directory, tags every session, and remembers
+    nothing."""
+    # If the root holds two project directories and the run is tagged...
+    plant(tmp_path, TWO_PROJECTS)
+    printed = run_extract(tmp_path, capsys, True, "--all-projects", "--tag", "batch=b1")
+
+    # ...then both sessions are in the store, each with the tag...
+    assert stored_rows(
+        tmp_path / "traces.duckdb",
+        "SELECT session_id, key, value FROM session_tags ORDER BY session_id",
+    ) == [(SPINE, "batch", "b1"), (INVENTED, "batch", "b1")]
+    # ...each directory is summarised under where its sessions ran...
+    assert printed == [
+        f"{MYCELIA}: 1 session(s) extracted, 0 unchanged",
+        "/invented/project: 1 session(s) extracted, 0 unchanged",
+    ]
+    # ...and no choice was remembered.
+    assert not settings_file(tmp_path).exists()
+
+
+def test_last_picked_prints_the_remembered_rows_and_skips_a_vanished_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`hp extract --last-picked` says what it is about to run, marks a remembered directory
+    that is no longer on disk as skipped, and runs the rest."""
+    # If the last pick named the mycelia directory and one that has since been pruned...
+    plant(tmp_path, TWO_PROJECTS)
+    mycelia_dir = encode_project_path(Path(MYCELIA))
+    user_settings.write({"extract": {"projects": [mycelia_dir, "-gone"]}}, settings_file(tmp_path))
+    printed = run_extract(tmp_path, capsys, True, "--last-picked")
+
+    # ...then the plan names both up front, one of them skipped, and only mycelia is summarised...
+    assert printed == [
+        "Extracting 1 of 2 remembered project(s):",
+        f"  {mycelia_dir}  {MYCELIA}",
+        f"  -gone  skipped: no longer under {tmp_path / 'projects'}",
+        f"{MYCELIA}: 1 session(s) extracted, 0 unchanged",
+    ]
+    # ...and the store holds the mycelia session and not the other directory's.
+    assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions") == [(SPINE,)]
+
+
+def test_last_picked_with_everything_remembered_runs_every_directory(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A remembered "all" is the whole root, whatever directories it holds today."""
+    plant(tmp_path, TWO_PROJECTS)
+    user_settings.write({"extract": {"projects": "all"}}, settings_file(tmp_path))
+    run_extract(tmp_path, capsys, True, "--last-picked")
+    assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions ORDER BY id") == [
+        (SPINE,),
+        (INVENTED,),
+    ]
+
+
+def test_last_picked_with_nothing_remembered_names_the_bare_command(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """On a machine where nothing was ever picked, `--last-picked` says how to pick."""
+    plant(tmp_path, TWO_PROJECTS)
+    assert not settings_file(tmp_path).exists()
+    with pytest.raises(SystemExit, match="hp extract"):
+        run_extract(tmp_path, capsys, True, "--last-picked")
+
+
+def test_the_bare_command_is_not_built_yet(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Until the picker lands, a bare `hp extract` refuses rather than guessing a scope."""
+    # A placeholder for the picker leaves, which replace this one.
+    plant(tmp_path, TWO_PROJECTS)
+    with pytest.raises(SystemExit, match="picker"):
+        run_extract(tmp_path, capsys, True)
+    # The refusal comes before the store is opened, so nothing was written anywhere.
+    assert not (tmp_path / "traces.duckdb").exists()
+    assert not settings_file(tmp_path).exists()
 
 
 def test_a_refusal_in_the_first_directory_does_not_stop_the_second(
