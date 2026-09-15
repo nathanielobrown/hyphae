@@ -1,4 +1,5 @@
-"""What `uv tool install` ships: the whole package, one `hp`, and a command that runs anywhere.
+"""What `uv tool install` ships: the whole package, one `hp`, a command that runs anywhere, and
+a `--dev` that refuses rather than hangs.
 
 The dev environment is editable, so a path that reaches out of the package into the checkout,
 or a `[tool.hatch]` exclude that drops a `.sql` or a `.css`, passes every other tier and breaks
@@ -8,6 +9,7 @@ one — from the lock, offline, the same wheel through the same build a tool ins
 
 import configparser
 import os
+import socket
 import subprocess
 from pathlib import Path
 
@@ -26,14 +28,16 @@ def _files_under(root: Path) -> set[Path]:
     }
 
 
-# A real `uv` install and two `hp` subprocesses: about a second, and the one level at which
-# "reaches outside the package" is observable. Reads `src/` and `uv.lock`, so the mutation run
-# drops it — the `mutants/` copy has no lock to install from.
+# A real `uv` install and three `hp` subprocesses: seconds of wall clock, and the one level at
+# which "reaches outside the package" and "installed without the dev group" are observable.
+# Reads `src/` and `uv.lock`, so the mutation run drops it — the `mutants/` copy has no lock to
+# install from.
 @pytest.mark.slow
 @pytest.mark.reads_the_repo
 def test_the_installed_package_is_whole_and_runs_from_anywhere(tmp_path: Path) -> None:
     """A non-editable install carries every file under `src/hyphae`, exposes `hp` as its one
-    command, and answers `hp query --list` from a directory with no checkout above it."""
+    command, answers `hp query --list` from a directory with no checkout above it, and refuses
+    `hp view --dev` on one line rather than hanging."""
     # If the package is installed the way a tool install builds it — from the lock, offline
     # (`mise run sync` cached every wheel), without the dev group, and rebuilt rather than
     # taken from uv's build cache, which would miss a file added since the last build...
@@ -82,5 +86,25 @@ def test_the_installed_package_is_whole_and_runs_from_anywhere(tmp_path: Path) -
         )
         assert done.returncode == 0, done.stderr
     assert "session_counts" in done.stdout
-    # ...and creates no store where it was run from.
+    # ...and creates no store where it was run from...
     assert list(elsewhere.iterdir()) == []
+    # ...and `--dev`, which needs the dev group this install does not carry, exits on one line
+    # naming the checkout remedy — before opening the store it was given — rather than dying
+    # in uvicorn's reload worker and leaving the supervisor waiting for a save that never
+    # comes. The deadline is what turns that hang into a red.
+    store = tmp_path / "never-opened.duckdb"
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    refused = subprocess.run(
+        [hp, "view", "--dev", "--no-browser", "--db", store, "--port", str(port)],
+        cwd=elsewhere,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert refused.returncode != 0
+    assert "uv run hp view --dev" in refused.stderr, refused.stderr
+    assert not store.exists()
