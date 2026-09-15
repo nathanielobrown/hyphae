@@ -8,6 +8,8 @@ Every `hp` command that takes `--db` reads or writes `~/.hyphae/traces.duckdb`. 
 
 Two things move it: `HP_DB` names another store for every command in that environment, and `--db` names one for a single command.
 
+`~/.hyphae` holds one other file: `settings.json`, the settings file — what `hp` remembers for a person between runs, one JSON object namespaced by command (`src/hyphae/user_settings.py`). Today it holds what the last bare `hp extract` picked, and only the picker writes it. A preference is the person's rather than the archive's, so it sits beside the store and not in it, and neither `HP_DB` nor `--db` moves it.
+
 A store an earlier build left in a checkout stays where it is. Nothing copies or moves `data/traces.duckdb`, and `--db data/traces.duckdb` opens it as before. Point `HP_DB` at it, or extract into the new store and let the sessions still on disk land there — [comparing session IDs](#compare-session-ids-before-deleting-an-old-store) is what says whether the old file holds anything the new one has never seen.
 
 ## The store holds traces and derived data
