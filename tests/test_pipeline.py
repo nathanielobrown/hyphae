@@ -501,3 +501,13 @@ def test_a_session_source_carries_every_file_it_owns(corpus: Corpus):
     # An offloaded tool result is part of the session, so it reaches the fingerprint and,
     # from slice 2 on, the parser.
     assert offloaded in source.files.files()
+
+
+def test_a_typed_project_path_discovers_the_same_sources_as_its_directory(corpus: Corpus):
+    """`sessions(project)` is `sessions_in()` over the directory the path encodes to."""
+    corpus.add("spine", SPINE)
+    extractor = corpus.extractor()
+
+    # The two lists agree whole, fingerprints included.
+    assert extractor.sessions(corpus.project) == extractor.sessions_in(corpus.session_dir)
+    assert [source.id for source in extractor.sessions_in(corpus.session_dir)] == [SPINE]

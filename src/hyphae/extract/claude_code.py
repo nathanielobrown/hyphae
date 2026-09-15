@@ -79,15 +79,21 @@ class ClaudeCodeExtractor:
         self.unknowns = Unknowns(strict=settings.UNIT_TESTING)
 
     def sessions(self, project: Path) -> list[ClaudeCodeSource]:
-        """Every session recorded for `project`, with the fingerprint of its files."""
-        project_dir = self.projects_root / encode_project_path(project)
+        """Every session recorded for the typed path `project`, with each one's fingerprint."""
+        return self.sessions_in(self.projects_root / encode_project_path(project))
+
+    def sessions_in(self, directory: Path) -> list[ClaudeCodeSource]:
+        """Every session in one project directory under the root, with each one's fingerprint.
+
+        Cheap: it stats files, it does not read them.
+        """
         return [
             ClaudeCodeSource(
                 id=session.id,
-                fingerprint=fingerprint(session.files(), project_dir),
+                fingerprint=fingerprint(session.files(), directory),
                 files=session,
             )
-            for session in find_sessions(project, projects_root=self.projects_root)
+            for session in find_sessions(directory)
         ]
 
     def extract(self, source: ClaudeCodeSource) -> SessionTrace:

@@ -46,7 +46,7 @@ from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_sessions
 from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.extract.store import StoreSource, UnknownProjectError
 from hyphae.pipeline import refresh
-from hyphae.projects import resolve_project
+from hyphae.projects import encode_project_path, resolve_project
 from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve
 
@@ -87,7 +87,7 @@ def build_client(model: str, *, concurrency: int) -> BatchClient:
 
 def _sessions(args: argparse.Namespace) -> None:
     """List a project's transcripts on disk, with the subagents each session spawned."""
-    for session in find_sessions(args.project, projects_root=args.projects_root):
+    for session in find_sessions(args.projects_root / encode_project_path(args.project)):
         subagents = len(session.subagent_transcripts())
         print(f"{session.id}\t{subagents} subagent(s)\t{session.transcript}")
 
