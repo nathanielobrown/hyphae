@@ -498,9 +498,10 @@ def test_every_record_type_the_corpus_holds_parses(fixture_source: SourceFactory
     trace = ClaudeCodeExtractor().extract(fixture_source("registry_zoo", ZOO))
 
     # ...then extraction returns, and every line lands in the archive with its type intact.
-    assert len(trace.raw_records) == 33
+    assert len(trace.raw_records) == 34
     types = {record.type for record in trace.raw_records}
     assert "worktree-state" in types and "fork-context-ref" in types and "summary" in types
+    assert "continued-in" in types
     assert len([r for r in trace.raw_records if r.type == "system"]) == 10
 
 
@@ -567,11 +568,12 @@ def test_a_compact_summary_is_not_a_turn(fixture_source: SourceFactory):
 def test_an_unknown_record_type_crashes_without_quoting_the_record(
     fixture_source: SourceFactory,
 ):
-    """A type we do not handle is a schema change to surface, and the message stays clean.
+    """A type we do not handle stops a test run, and the message stays clean.
 
     INVENTED fixture — every type in the corpus is registered, which is the registry's
     whole claim. The message is the one place a private transcript could reach a log, so
-    the fixture plants a payload the crash must not repeat.
+    the fixture plants a payload the crash must not repeat. An extract archives the record
+    instead of stopping; the leaf below is that half.
     """
     with pytest.raises(TranscriptSchemaError) as excinfo:
         ClaudeCodeExtractor().extract(fixture_source("invented", "invented-unknown-type"))
@@ -585,7 +587,7 @@ def test_an_unknown_record_type_crashes_without_quoting_the_record(
 def test_an_unknown_system_subtype_crashes(fixture_source: SourceFactory):
     """A `system` record whose subtype is new is as much a schema change as a new type.
 
-    INVENTED fixture — all nine live subtypes are registered.
+    INVENTED fixture — all ten live subtypes are registered.
     """
     with pytest.raises(TranscriptSchemaError) as excinfo:
         ClaudeCodeExtractor().extract(fixture_source("invented", "invented-unknown-subtype"))

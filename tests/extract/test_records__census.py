@@ -2,8 +2,9 @@
 
 The fixtures are redacted excerpts of a few sessions; this is the whole archive. It is what
 answers the question the fixtures cannot: does a Claude Code version nobody trimmed a fixture
-from write a field the models do not declare? Each one it finds becomes a declaration with a
-citation before the readers move onto the models.
+from write a record kind no registry names, or a field the models do not declare? Each one it
+finds becomes a registration or a declaration with a citation before the readers move onto the
+models.
 
 Off by default. `HYPHAE_LIVE_STORE` names the store, and the store is private session data, so
 `mise run check` never runs this and CI cannot. Run it by hand:
@@ -30,8 +31,8 @@ from pydantic import ValidationError
 from hyphae.extract.records.blocks import BLOCK_MODELS, RESULT_MODELS, Kinded
 from hyphae.extract.records.evidence import Described
 from hyphae.extract.records.registry import ArchiveRecordType
-from hyphae.extract.records.shapes import Record, model_for
-from hyphae.extract.records.unknown import UnknownFields
+from hyphae.extract.records.shapes import ArchivedRecord, Record, kind_of, model_for
+from hyphae.extract.records.unknown import Unknowns
 
 # Names a real trace store for the sweep below. Off by default: the store holds private
 # session data (`docs/store.md`).
@@ -56,9 +57,9 @@ class Census:
     result_forms: Counter[str] = field(default_factory=Counter)
     # Every content-block kind, by the record type whose message held it.
     blocks: Counter[tuple[str, str]] = field(default_factory=Counter)
-    # The undeclared fields, tallied rather than raised: the declaration list this sweep exists
-    # to produce.
-    unknown: UnknownFields = field(default_factory=lambda: UnknownFields(strict=False))
+    # The kinds no registry names and the fields no model declares, tallied rather than raised:
+    # the declaration list this sweep exists to produce.
+    unknown: Unknowns = field(default_factory=lambda: Unknowns(strict=False))
     # The other side of that walk: one entry per key sitting where it stops. Keys only —
     # a key is a field name, and this file prints no value.
     unclaimed: Counter[str] = field(default_factory=Counter)
@@ -112,6 +113,12 @@ def swept(census: Census, session_id: str, line_no: int, raw: str) -> None:
     record: dict[str, Any] = json.loads(raw)
     kind = str(record.get("type"))
     model = model_for(record)
+    if model is None:
+        # A kind neither registry names: the extract archives it and reports it, and so does the
+        # sweep — one entry here beats stopping at the first of them, which is the whole point of
+        # reading the archive in one pass.
+        census.unknown.kinds.note(kind_of(record), session_id, line_no)
+        model = ArchivedRecord
     census.models[(kind, model.__name__)] += 1
     try:
         parsed: Record = model.model_validate(record)
@@ -119,7 +126,7 @@ def swept(census: Census, session_id: str, line_no: int, raw: str) -> None:
         for fault in error.errors(include_input=False, include_url=False):
             census.failures[(kind, ".".join(str(part) for part in fault["loc"]))] += 1
         return
-    census.unknown.note(parsed, session_id, line_no)
+    census.unknown.fields.note(parsed, session_id, line_no)
     unclaimed_keys(parsed, kind, census.unclaimed)
     if (result := record.get("toolUseResult")) is not None:
         census.result_forms[type(result).__name__] += 1
@@ -171,6 +178,9 @@ def test_every_recorded_record_validates_against_its_model(census: Census) -> No
     """
     assert census.records > 0, f"{LIVE_STORE} names a store with no records in it"
     assert census.failures == Counter()
+    # A kind no registry names is the other half of the same question, and the message is the
+    # registration list: each one is `ArchiveRecordType` or `SystemSubtype` plus a comment.
+    assert census.unknown.kinds.report() == ""
     # And the sweep really resolved records rather than skipping them: every row was read
     # through a model, so the inventory accounts for all of them.
     assert sum(census.models.values()) == census.records
@@ -184,7 +194,7 @@ def test_no_recorded_record_carries_a_field_the_models_do_not_declare(census: Ce
     is declared with a fixture citation where a session can be trimmed to show it, and with a
     `Cited(scan=...)` where it cannot.
     """
-    assert census.unknown.report() == ""
+    assert census.unknown.fields.report() == ""
 
 
 @pytest.mark.slow  # The same sweep; see above.

@@ -99,11 +99,20 @@ def _extract(args: argparse.Namespace) -> None:
     exporter = DuckDbExporter(args.db, wait=CLI_WAIT)
     result = refresh(args.project, extractor=extractor, exporter=exporter)
     print(f"{len(result.extracted)} session(s) extracted, {len(result.skipped)} unchanged")
-    # A field no model declares is news, not a failure: the archive kept it either way, and the
-    # exit code stays 0. Silence means the models still describe what Claude Code writes.
-    report = extractor.unknown_fields.report()
-    if report:
-        print(f"Fields no model declares:\n{report}")
+    # A kind no registry names and a field no model declares are both news, not failures: the
+    # archive kept the record either way, and the exit code stays 0. Silence means the models
+    # still describe what Claude Code writes.
+    kinds = extractor.unknowns.kinds.report()
+    if kinds:
+        print(f"Record kinds no registry names:\n{kinds}")
+    fields = extractor.unknowns.fields.report()
+    if fields:
+        print(f"Fields no model declares:\n{fields}")
+    # A session the parser refused is the one thing here that is a failure: the rest of the
+    # project is in the store, and the run says so rather than reporting a clean pass.
+    if result.failed:
+        refused = "\n".join(f"{failure.session_id}: {failure.error}" for failure in result.failed)
+        raise SystemExit(f"{len(result.failed)} session(s) could not be read:\n{refused}")
 
 
 def _extract_arguments(subcommand: argparse.ArgumentParser) -> None:

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple, Protocol
 
+from hyphae.extract.errors import TranscriptSchemaError
 from hyphae.model import SessionTrace
 
 
@@ -65,11 +66,21 @@ class Exporter(Protocol):
         ...
 
 
+class Failure(NamedTuple):
+    """One session the extractor refused, and what it said about it."""
+
+    session_id: str
+    # The refusal's own words, which name a model, a field and a line and quote no record
+    # content (`extract/errors.py`) — so a caller may print it.
+    error: str
+
+
 class RefreshResult(NamedTuple):
     """What one pass changed, in session ids — enough for a caller to report or assert on."""
 
     extracted: list[str]
     skipped: list[str]
+    failed: list[Failure]
 
 
 def refresh[SourceT: SessionSource](
@@ -80,14 +91,25 @@ def refresh[SourceT: SessionSource](
     Idempotent by construction: an unchanged session is skipped, and a changed one is sent
     whole — nothing here diffs a session against what the sink already holds. A session in
     the sink whose files are gone keeps its rows.
+
+    A session the parser refuses costs only itself: it lands in `failed` and the pass carries
+    on. The export is all or nothing per session, so there is nothing half-written to undo.
     """
     held = exporter.fingerprints()
     extracted: list[str] = []
     skipped: list[str] = []
+    failed: list[Failure] = []
     for source in extractor.sessions(project):
         if held.get(source.id) == source.fingerprint:
             skipped.append(source.id)
             continue
-        exporter.export(extractor.extract(source), source.fingerprint)
+        try:
+            exporter.export(extractor.extract(source), source.fingerprint)
+        except TranscriptSchemaError as error:
+            # Only a shape the parser does not know. Anything else — the sink refusing to
+            # open, a session directory that cannot be read — is the whole pass's problem
+            # and still stops it.
+            failed.append(Failure(session_id=source.id, error=str(error)))
+            continue
         extracted.append(source.id)
-    return RefreshResult(extracted=extracted, skipped=skipped)
+    return RefreshResult(extracted=extracted, skipped=skipped, failed=failed)

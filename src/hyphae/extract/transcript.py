@@ -33,9 +33,9 @@ from hyphae.extract.records.bookkeeping import (
 )
 from hyphae.extract.records.conversation import AssistantRecord, UserRecord
 from hyphae.extract.records.messages import ToolUseResult
-from hyphae.extract.records.shapes import model_for
+from hyphae.extract.records.shapes import ArchivedRecord, kind_of, model_for
 from hyphae.extract.records.system import TurnDurationRecord
-from hyphae.extract.records.unknown import UnknownFields
+from hyphae.extract.records.unknown import Unknowns
 from hyphae.model import PrLink, RawRecord, Session
 
 logger = logging.getLogger(__name__)
@@ -55,11 +55,12 @@ class Line:
         return self.record.uuid if isinstance(self.record, Identified) else None
 
 
-def read_lines(path: Path, session_id: str, unknown_fields: UnknownFields) -> list[Line]:
+def read_lines(path: Path, session_id: str, unknowns: Unknowns) -> list[Line]:
     """Every line of a transcript, parsed as JSON and validated against its record model.
 
-    `unknown_fields` is where a field no model declares goes: a crash in a test run, a tally
-    in an extract. It belongs to the extraction run, not the file, so the caller owns it.
+    `unknowns` is where a kind no registry names and a field no model declares go: a crash in a
+    test run, a tally in an extract. It belongs to the extraction run, not the file, so the
+    caller owns it.
 
     Split on "\\n" rather than `splitlines()`: real records contain U+2028 and U+2029
     inside string values, which `splitlines()` treats as line breaks and so cuts records
@@ -88,7 +89,7 @@ def read_lines(path: Path, session_id: str, unknown_fields: UnknownFields) -> li
                 line_no,
             )
             continue
-        lines.append(_validated(record, raw, session_id, line_no, unknown_fields))
+        lines.append(_validated(record, raw, session_id, line_no, unknowns))
     return lines
 
 
@@ -97,7 +98,7 @@ def _validated(
     raw: str,
     session_id: str,
     line_no: int,
-    unknown_fields: UnknownFields,
+    unknowns: Unknowns,
 ) -> Line:
     """One parsed line through its model: the kind, the shape, then the undeclared fields.
 
@@ -105,15 +106,18 @@ def _validated(
     can check what went wrong and neither the model nor pydantic knows where the record came
     from.
     """
-    try:
-        model = model_for(record)
-    except TranscriptSchemaError as error:
-        raise TranscriptSchemaError(f"{error} in session {session_id}, line {line_no}") from error
+    model = model_for(record)
+    if model is None:
+        # A kind neither registry names is a schema change to see, not a session to lose: the
+        # record is archived whole under the model that claims only the envelope, and the tally
+        # stops a test run where a person is looking.
+        unknowns.kinds.note(kind_of(record), session_id, line_no)
+        model = ArchivedRecord
     try:
         parsed = model.model_validate(record)
     except ValidationError as error:
         raise invalid_record(error, model, session_id, line_no) from error
-    unknown_fields.note(parsed, session_id, line_no)
+    unknowns.fields.note(parsed, session_id, line_no)
     return Line(line_no=line_no, record=parsed, raw=raw)
 
 

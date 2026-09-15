@@ -23,6 +23,8 @@ from tests.export.test_duckdb__locking import BRIEF_HOLD, IMPATIENT
 SPINE = "4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b"
 DUPS = "8ee00a94-b01a-4394-b447-b065f74b11af"
 OFFLOAD = "7e37bb35-4dcb-4e16-85be-55ac510c168e"
+# The invented session whose assistant record types two fields wrong, so the parser refuses it.
+BAD = "invented-wrong-field-type"
 
 
 class Corpus:
@@ -90,6 +92,25 @@ class ProbingExtractor:
 
     def extract(self, source: SessionSource) -> SessionTrace:
         self.readable.append(self.db.exists() and opens_elsewhere(self.db, read_only=True))
+        return self.wrapped.extract(source)
+
+
+class FailingFirst:
+    """Wraps an extractor to hand the loop one named session ahead of the others.
+
+    Discovery sorts by session id, which decides nothing about a refresh — but what the loop
+    owes its caller is the sessions *after* one that failed, so the failing session has to be
+    the one it meets first.
+    """
+
+    def __init__(self, wrapped: Extractor, first: str) -> None:
+        self.wrapped = wrapped
+        self.first = first
+
+    def sessions(self, project: Path) -> list[SessionSource]:
+        return sorted(self.wrapped.sessions(project), key=lambda source: source.id != self.first)
+
+    def extract(self, source: SessionSource) -> SessionTrace:
         return self.wrapped.extract(source)
 
 
@@ -241,6 +262,31 @@ def test_a_session_caught_mid_write_heals_on_the_next_refresh(
     corpus.add("spine", SPINE)
     assert refresh(corpus.project, extractor=extractor, exporter=exporter).extracted == [SPINE]
     assert archived() == 42
+
+
+def test_a_session_the_parser_refuses_costs_only_itself(corpus: Corpus, exporter: DuckDbExporter):
+    """One unreadable session is reported by name; every other session of the project lands.
+
+    A project is refreshed in one pass, so a record kind or a field the parser cannot read
+    used to take down sessions that had nothing wrong with them. The export is per session
+    and rolls back on its own, so there is nothing to undo — the loop just keeps going and
+    hands the caller what it could not do.
+    """
+    # If a project holds a session the parser refuses, and it is the first one the loop meets...
+    corpus.add("invented", BAD)
+    corpus.add("spine", SPINE)
+    extractor = FailingFirst(corpus.extractor(), BAD)
+
+    result = refresh(corpus.project, extractor=extractor, exporter=exporter)
+
+    # ...then the sessions after it are extracted as usual...
+    assert result.extracted == [SPINE]
+    assert len(table(exporter, "turns", SPINE)) == 6
+    # ...the refused one is named with the reason the parser gave...
+    assert [failure.session_id for failure in result.failed] == [BAD]
+    assert "AssistantRecord" in result.failed[0].error and "line 2" in result.failed[0].error
+    # ...and nothing of it reached the store, which is the rollback doing its job.
+    assert table(exporter, "raw_records", BAD) == []
 
 
 def test_a_new_subagent_file_re_extracts_its_session(corpus: Corpus, exporter: DuckDbExporter):

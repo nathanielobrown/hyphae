@@ -19,7 +19,6 @@ import pytest
 from pydantic import BaseModel
 
 from hyphae import extract
-from hyphae.extract.errors import TranscriptSchemaError
 from hyphae.extract.records import (
     base,
     blocks,
@@ -38,7 +37,7 @@ from hyphae.extract.records.registry import (
     ResultBlock,
     SystemSubtype,
 )
-from hyphae.extract.records.unknown import UnknownFields
+from hyphae.extract.records.unknown import Unknowns
 from hyphae.extract.transcript import read_lines
 from tests.conftest import FIXTURES, corpus_transcripts
 
@@ -69,6 +68,17 @@ def fixture_records(fixture: str) -> Iterator[dict[str, Any]]:
 
 def zoo_records() -> list[dict[str, Any]]:
     return list(fixture_records(ZOO))
+
+
+def model_of(record: dict[str, Any]) -> type[base.Record]:
+    """The model one fixture record resolves to.
+
+    `model_for` answers `None` for a kind no registry names, which an extract archives and
+    tallies. Here that answer is the fixture corpus outrunning the registry, so it fails.
+    """
+    model = shapes.model_for(record)
+    assert model is not None, f"`{shapes.kind_of(record)}` is in a fixture but in no registry"
+    return model
 
 
 def carries(record: dict[str, Any], model: type[base.Record]) -> bool:
@@ -103,11 +113,10 @@ def test_every_registered_record_type_validates_against_a_recorded_one(
 ) -> None:
     # The headline: the models claim to describe Claude Code's shapes, and only a recording can
     # support that claim. The zoo holds one record of every registered type, so every type
-    # resolves to a model — `model_for` is total — and that model accepts the real thing, field
-    # types and all. A kind read by nothing resolves to `ArchivedRecord`, which claims only the
-    # envelope.
-    model = shapes.model_for(record)
-    parsed = model.model_validate(record)
+    # resolves to a model — no registered kind answers `None` — and that model accepts the real
+    # thing, field types and all. A kind read by nothing resolves to `ArchivedRecord`, which
+    # claims only the envelope.
+    parsed = model_of(record).model_validate(record)
     assert parsed.type == record["type"]
 
 
@@ -160,26 +169,28 @@ def test_no_reason_is_left_for_a_shape_that_no_longer_exists() -> None:
 
 
 @pytest.mark.parametrize(
-    ("kind", "subtype", "says"),
+    ("kind", "subtype", "spelled"),
     [
-        (SystemSubtype.API_ERROR, None, "Unknown record type"),
-        (ArchiveRecordType.ATTACHMENT, RecordType.SYSTEM, "Unknown system subtype"),
+        (SystemSubtype.API_ERROR, None, "api_error"),
+        (ArchiveRecordType.ATTACHMENT, RecordType.SYSTEM, "system/attachment"),
     ],
     ids=["a-subtype-spelled-as-a-type", "a-type-spelled-as-a-subtype"],
 )
-def test_a_kind_borrowed_from_the_other_registry_crashes(
-    kind: str, subtype: str | None, says: str
+def test_a_kind_borrowed_from_the_other_registry_is_unknown(
+    kind: str, subtype: str | None, spelled: str
 ) -> None:
     # The two registries name different levels of the same envelope, and one excuse list holds
     # both — so a name from one, read at the other's level, must not be quietly archived.
     # `api_error` as a top-level type or `attachment` as a `system` subtype would be Claude Code
-    # moving a kind up or down the envelope, which is the schema change the crash exists for.
+    # moving a kind up or down the envelope, which is the schema change this answers `None` for:
+    # the caller archives the record and tallies the kind, or stops if a person is looking.
     # These are kind names rather than recorded records: no session writes either shape, which
     # is the claim.
     record = {"type": subtype or kind} | ({"subtype": kind} if subtype else {})
 
-    with pytest.raises(TranscriptSchemaError, match=says):
-        shapes.model_for(record)
+    assert shapes.model_for(record) is None
+    # And the tally names the level it was spelled at, so the two spellings stay two entries.
+    assert shapes.kind_of(record) == spelled
 
 
 def test_an_archived_kind_keeps_its_envelope_and_carries_the_rest_whole() -> None:
@@ -211,10 +222,10 @@ def test_a_thin_system_subtype_is_archived_rather_than_read_as_a_system_record()
     archived = [r for r in thin if r["subtype"] in shapes.ARCHIVED_UNREAD]
     assert len(archived) == 6, "the zoo no longer holds one record of every thin system subtype"
     for record in archived:
-        assert shapes.model_for(record) is shapes.ArchivedRecord
+        assert model_of(record) is shapes.ArchivedRecord
     for record in thin:
         if record["subtype"] not in shapes.ARCHIVED_UNREAD:
-            assert issubclass(shapes.model_for(record), system.SystemRecord)
+            assert issubclass(model_of(record), system.SystemRecord)
 
 
 def test_exactly_two_models_stop_the_walk_and_each_says_why() -> None:
@@ -431,13 +442,16 @@ def test_no_recorded_record_carries_a_field_the_models_do_not_declare() -> None:
     # The failure message is the list of fields still to write, which is how the declarations were
     # found in the first place. Where the walk stops — a tool's own report, an archived kind, an
     # object nobody has opened — is the boundary of what the models claim at all.
-    unknown = UnknownFields(strict=False)
+    unknowns = Unknowns(strict=False)
     for transcript in corpus_transcripts():
         # Through `read_lines`, which is where validation and the walk now live, so the corpus
         # is exactly the lines the extractor keeps and reads them exactly as it does.
-        read_lines(transcript, transcript.stem, unknown)
+        read_lines(transcript, transcript.stem, unknowns)
 
-    assert unknown.report() == ""
+    assert unknowns.fields.report() == ""
+    # And the kind above the fields: every record of the corpus resolved to a model or to the
+    # archive, so none of the fixtures is being read through a kind nobody registered.
+    assert unknowns.kinds.report() == ""
 
 
 def test_the_content_blocks_a_message_can_hold_are_the_ones_it_lists() -> None:
@@ -463,7 +477,7 @@ def test_the_content_blocks_a_message_can_hold_are_the_ones_it_lists() -> None:
         )
     }
     for record in every_record():
-        model = shapes.model_for(record)
+        model = model_of(record)
         if model not in listed:
             continue
         for item in content_of(record):
@@ -487,7 +501,7 @@ def test_every_recorded_block_parses_as_the_model_its_kind_names() -> None:
     by_part = {model.BLOCK: model for model in blocks.RESULT_MODELS}
     seen: list[ContentBlock | ResultBlock] = []
     for record in every_record():
-        parsed = shapes.model_for(record).model_validate(record)
+        parsed = model_of(record).model_validate(record)
         message = getattr(parsed, "message", None)
         content = getattr(message, "content", None)
         if not isinstance(content, list):
