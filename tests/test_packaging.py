@@ -19,12 +19,27 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "src" / "hyphae"
 
 
-def _files_under(root: Path) -> set[Path]:
+def _installed_files(root: Path) -> set[Path]:
     """Every file below `root`, relative to it, bytecode caches left out."""
     return {
         path.relative_to(root)
         for path in root.rglob("*")
         if path.is_file() and "__pycache__" not in path.parts
+    }
+
+
+def _source_files() -> set[Path]:
+    """Every file under `src/hyphae` hatchling ships: tracked or untracked, never gitignored —
+    so a stray `.DS_Store` or `.pyc` on this machine is not a packaging regression."""
+    listed = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", PACKAGE],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    return {
+        Path(name).relative_to(PACKAGE.relative_to(ROOT)) for name in listed.split("\0") if name
     }
 
 
@@ -60,10 +75,11 @@ def test_the_installed_package_is_whole_and_runs_from_anywhere(tmp_path: Path) -
         check=True,
         timeout=120,
     )
-    # ...then the installed package holds exactly the files the source tree does: a whole-set
-    # comparison, so a dropped `.sql` or `.css` prints its name...
+    # ...then the installed package holds exactly the files git sees in the source tree —
+    # hatchling honours `.gitignore` — a whole-set comparison, so a dropped `.sql` or `.css`
+    # prints its name...
     site_packages = next(venv.glob("lib/python*/site-packages"))
-    assert _files_under(site_packages / "hyphae") == _files_under(PACKAGE)
+    assert _installed_files(site_packages / "hyphae") == _source_files()
     # ...and `hp` is the one console script, bound to the CLI's entry point...
     entry_points = configparser.ConfigParser()
     entry_points.read(next(site_packages.glob("hyphae-*.dist-info")) / "entry_points.txt")
