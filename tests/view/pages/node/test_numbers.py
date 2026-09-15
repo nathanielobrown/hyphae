@@ -395,8 +395,9 @@ def test_a_tool_call_says_what_it_gave_back_and_what_was_asked_beside_it(
         f"/session/{SPINE}/thread/{MAIN}/tool/{SEARCH_TOOL}",
         f"{Kind.TOOL}:{SEARCH_TOOL}",
     )
-    # A long command arrives at the width a header's list is read at, so it is a head.
-    assert searched["siblings"].startswith("⚡ ls -la ")
+    # A long command used to arrive at the width a header's list is read at; the description
+    # this call wrote is short enough that the sibling list prints it whole.
+    assert searched["siblings"] == "⚡ Verify report and all three grilling docs exist"
     ran = popover(
         client,
         f"/session/{SPINE}/thread/{MAIN}/tool/{SEARCH_BASH_TOOL}",

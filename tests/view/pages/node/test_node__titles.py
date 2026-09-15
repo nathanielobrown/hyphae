@@ -447,13 +447,13 @@ def test_the_count_of_a_calls_tools_survives_every_width_the_title_is_cut_to(
     assert fields(page, "data-body", "call")["title"].endswith(" +2(Read)")
 
     # The same call with a first tool call that fills a title on its own — a command long
-    # enough to run past every width. Each of those widths is spent on the command less the
-    # count, so both ends survive: what the call did first, marked where it was stopped, and
-    # how many followed.
+    # enough to run past every width, and no description, so the fallback is what ran. Each of
+    # those widths is spent on the command less the count, so both ends survive: what the call
+    # did first, marked where it was stopped, and how many followed.
     asked = "w" * (bounds.NAV_TREE_WIDTHS.nav_chars * 2)
     described = (
         "UPDATE tool_calls SET name = ?, input = ? WHERE id = ?",
-        ["Bash", json.dumps({"command": asked, "description": "Run the long one"}), tool_id],
+        ["Bash", json.dumps({"command": asked}), tool_id],
     )
     with TestClient(build_app(plant(silent, described))) as planted:
         page = planted.get(url).text

@@ -1,13 +1,4 @@
-"""Each tool the viewer names its own calls by, one case per rule.
-
-A unit table rather than served HTML: every fixture README redacts the strings under a tool
-`input`, so a served row can prove the registry fired but not what it read
-(`plans/viewer-polish/testing_plan.md`). The six names the corpus does record are read off
-pages in `tests/view/test_node__titles.py`; the rest are here and nowhere else.
-
-Each case says where its input came from — a recorded fixture, this project's own store, or
-invented for a tool no recording of ours has ever called.
-"""
+"""Verifies how tool call labels"""
 
 import pytest
 
@@ -56,15 +47,23 @@ FORMATTED = [
     ("Read", {"path": "docs/handoffs.md"}, "📖", "docs/handoffs.md"),
     ("Write", {"path": "data/migrate_project_rename.py"}, "✏️", "data/migrate_project_rename.py"),
     ("Edit", {"path": "tests/enrich/test_prompts.py"}, "📝", "tests/enrich/test_prompts.py"),
-    # A `Bash` call carries both, and the row shows what ran rather than what it was called:
-    # a column of descriptions is a column of an agent's own summaries of itself.
+    # A `Bash` call carries both, and the NavTree row shows what it was called rather than
+    # what ran: the command is a pipeline, and the description is the one line a row can hold.
+    # Session `0a91cb99-c1c7-487f-ab88-cacdc2355bd0`, tool `toolu_01S1p43MADHk3sjefcYnPDyW`.
     (
         "Bash",
-        {"command": "date; ls /Users/nob/repos/mycelia/issues/", "description": "List issues"},
+        {
+            "command": (
+                "cd /Users/nob/repos/mycelia && cat tools/gate.py;"
+                ' echo "=====COMMON====="; cat tools/gate_common.py'
+            ),
+            "description": "Read mycelia gate",
+        },
         "⚡",
-        "date; ls /Users/nob/repos/mycelia/issues/",
+        "Read mycelia gate",
     ),
-    # And only its first line: a heredoc or a `&&` chain is a screenful, and the row has one.
+    # And when no description was written, the first line of the command: a heredoc is a
+    # screenful, and the row has one.
     ("Bash", {"command": "python3 - <<'PY'\nimport json\nprint(1)\nPY"}, "⚡", "python3 - <<'PY'"),
     # `spine`'s two delegations, which is the shape the brackets were chosen for: a tree of
     # `Agent` rows reads as a column of types with a task line beside each.

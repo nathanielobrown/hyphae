@@ -90,9 +90,15 @@ def _named(
         # A path, read against the project the way the shape rule reads one.
         case "Read":
             words = _shaped(given, project, chars) if head("file_path") else ""
-        # What ran, and only its first line: the row is one line and a heredoc is a screenful.
+        # What the caller named it, else the first line of what ran: a description is the one
+        # line a row can hold, and a heredoc is a screenful. No command is no Bash title — the
+        # formatter falls through — matching `_bash` requiring one.
         case "Bash":
-            words = head("command").split("\n", 1)[0]
+            words = (
+                (head("description") or head("command").split("\n", 1)[0])
+                if head("command")
+                else ""
+            )
         # The definition the run was spawned as, in brackets, then the brief it was given.
         case "Agent":
             kind, said = head("subagent_type"), head("description")

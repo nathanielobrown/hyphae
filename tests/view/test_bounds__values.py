@@ -109,9 +109,9 @@ def test_a_long_value_is_cut_before_it_reaches_a_page_or_a_fragment(
         ' AND command_name IS NOT NULL ORDER BY "index"',
         [SPINE],
     )
-    # And one tool call to dress as a command, on a page of its own: what a tool row shows is
-    # read out of the input JSON rather than selected, so the two strings a command row prints
-    # are cut on the way out and nowhere else. It has to be a second call, because the one
+    # And one tool call to dress as a Bash call, on a page of its own: what a tool row shows
+    # is read out of the input JSON rather than selected, so the description that names it
+    # is cut on the way out and nowhere else. It has to be a second call, because the one
     # below keeps an input that is not JSON — the arm that shows the input as stored.
     asked_session, asked_source, asked_call, asked_id = one(
         store,
@@ -149,9 +149,9 @@ def test_a_long_value_is_cut_before_it_reaches_a_page_or_a_fragment(
         ),
         ("UPDATE tool_calls SET input = ?, name = ? WHERE session_id = ?", [long, long, ANCESTOR]),
         (
-            # The two strings a command row prints have to differ: the sub-line under a row's
-            # title is what the call was *for*, and a description the title already says is
-            # dropped rather than printed twice (`view/builders.py:tool_about`).
+            # A Bash row that named itself is that name: the long description is the title, and
+            # the command sits in the pane's detail rather than as a second line on the row
+            # (`view/builders.py:tool_about` drops a description the title already says).
             "UPDATE tool_calls SET name = ?, input = ? WHERE id = ?",
             ["Bash", json.dumps({"description": "for " + long, "command": long}), asked_id],
         ),
@@ -196,9 +196,9 @@ def test_a_long_value_is_cut_before_it_reaches_a_page_or_a_fragment(
     # is how a whole column of silently-truncated values hid behind a marked neighbour here.
     # What the three pages between them print: a plain turn's prompt and a slash turn's command
     # with its arguments, a tool's name, the head of what it was asked read out of an input
-    # that is not JSON and out of one that is, and the command that head describes.
+    # that is not JSON and out of one that is.
     reached = [value for value in printed(pane) + printed(call) + printed(asked) if "x" in value]
-    assert len(reached) == 6
+    assert len(reached) == 5
     # A whole column wide and marked as stopped there — but not a run of `x` alone: a tool the
     # viewer names by its own field leads its title with that tool's glyph
     # (`view/text/tool_names.py:FORMATTERS`), and the glyph is spent out of the width like any

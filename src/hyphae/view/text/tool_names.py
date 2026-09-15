@@ -24,7 +24,7 @@ Fields = Mapping[str, object]
 class Formatted(NamedTuple):
     """A tool call named by its own tool: the glyph that stands for the tool, and the words."""
 
-    mark: str
+    mark: str  # Basically icon
     words: str
 
 
@@ -49,11 +49,9 @@ def _one(mark: str, key: str) -> Formatter:
 
 
 def _bash(fields: Fields) -> Formatted | None:
-    """What ran, not what it was called: `description` is the agent's summary of itself."""
     command = _field(fields, "command")
-    # And the first line of it. A heredoc or a chained pipeline is a screenful, and the row
-    # that has to hold it is one line — so the cut is at the newline rather than at a width.
-    return Formatted("⚡", command.split("\n", 1)[0]) if command else None
+    description = _field(fields, "description")
+    return Formatted("⚡", description or command.split("\n", 1)[0]) if command else None
 
 
 def _agent(fields: Fields) -> Formatted | None:

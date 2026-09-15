@@ -41,10 +41,11 @@ def test_a_tool_row_says_what_the_tool_was_asked(
     (`view/text/tool_names.py:FORMATTERS`): a file tool is its path, and a path inside the session's
     own project reads relative to it —
     the repository is the frame the reader is holding, and an absolute path spends the width of
-    the column saying where the machine keeps it. A command is what ran, with what it was for
-    under it — unless the title says that already, and then nothing reads under it. A tool the
-    registry does not name falls to the shape rule the store applies to any input at all: a
-    `file_path`, else a `description`, else the head of the input as stored.
+    the column saying where the machine keeps it. A `Bash` call that named itself is that name,
+    and nothing reads under it — the description is already the title. A command with no
+    description is what ran. A tool the registry does not name falls to the shape rule the
+    store applies to any input at all: a `file_path`, else a `description`, else the head of
+    the input as stored.
 
     Derived once and read by every surface that names the call — that is the leaf below the
     edge cases here, and it is what the title convention is for.
@@ -91,9 +92,9 @@ def test_a_tool_row_says_what_the_tool_was_asked(
     # The project's own file reads from the project root, and the one outside it in full.
     assert rows[tools[0]]["title"] == "📖 src/hyphae/view/app.py"
     assert rows[tools[1]]["title"] == "📖 /etc/hosts"
-    # The command reads as what ran, with what it was for under it.
-    assert rows[tools[2]]["title"] == "⚡ git status --short"
-    assert rows[tools[2]]["about"] == "Read the tree"
+    # A Bash call that named itself is that name, and nothing reads under it.
+    assert rows[tools[2]]["title"] == "⚡ Read the tree"
+    assert "about" not in rows[tools[2]]
     # And the unnamed tool shows the input as stored, under no glyph: the registry has no
     # rule for it, so the row keeps the tool's name in the column beside the title.
     assert rows[tools[3]]["title"] == '{"schema": "Findings", "strict": true}'
@@ -112,8 +113,8 @@ def test_a_tool_row_says_what_the_tool_was_asked(
             ["Read", f'{{"file_path": "{sibling}"}}', tools[0]],
         ),
         # A `Bash` call that also names a file. The tool's own rule wins over the shape rule
-        # the store would have applied — a `Bash` call is what it ran, whatever else the input
-        # carries — and what it was for reads underneath.
+        # the store would have applied — the description names it, whatever else the input
+        # carries — and nothing reads underneath, because the title already says that.
         (
             "UPDATE tool_calls SET name = ?, input = ? WHERE id = ?",
             [
@@ -149,14 +150,14 @@ def test_a_tool_row_says_what_the_tool_was_asked(
         edges = planted.get(f"/session/{session_id}/thread/{source}/call/{call_id}").text
     beside = {tool_id: fields(edges, "data-child", f"tool:{tool_id}") for tool_id in tools}
     assert beside[tools[0]]["title"] == f"📖 {sibling}"
-    assert beside[tools[1]]["title"] == "⚡ cat notes.md"
-    assert beside[tools[1]]["about"] == "Read the notes"
+    assert beside[tools[1]]["title"] == "⚡ Read the notes"
+    assert "about" not in beside[tools[1]]
     assert beside[tools[2]]["title"] == "⚡ ls"
     assert "about" not in beside[tools[2]]
     # And the row whose title already says what the call was for prints nothing under it: the
     # brief is inside the title an `Agent` row heads with, so a second line would be the same
-    # sentence twice on one row. The `Bash` rows above are the other side of the rule — there
-    # the description says something the command does not, which is why the line exists at all.
+    # sentence twice on one row. The named `Bash` row above is the same rule — its description
+    # is the title. The command-only `ls` is the other side: nothing to print under what ran.
     assert beside[tools[3]]["title"] == "👉 [implementer] Close the audit nits"
     assert "about" not in beside[tools[3]]
     # A session whose project the store never recorded has no frame to read a path against,
@@ -263,9 +264,8 @@ def test_a_call_row_says_what_the_call_said_and_which_tools_it_called(
     # ...and the tools it called are named, in the order it called them and no others: what
     # the re-indexed call asked for last comes last, under the count of them. Each is named by
     # its own tool's rule, glyph and all, so the words here and the words on the tool's own row
-    # are one derivation (`view/text/tool_names.py`) — the `Bash` row says what ran rather than what
-    # the caller said it was for.
-    assert row["tool_titles"] == "⚡ git status, 📖 src/hyphae/view/app.py"
+    # are one derivation (`view/text/tool_names.py`) — the `Bash` row says what it was called.
+    assert row["tool_titles"] == "⚡ Read the tree, 📖 src/hyphae/view/app.py"
     assert row["tool_calls"] == str(held)
 
     # The same column over the recording rather than a plant, because a plant can only show
@@ -281,9 +281,9 @@ def test_a_call_row_says_what_the_call_said_and_which_tools_it_called(
     )
     served = client.get(f"/session/{SPINE}/thread/{MAIN}/turn/{recorded_turn}").text
     named = fields(served, "data-child", f"call:{recorded_call}")["tool_titles"]
-    # The command it ran leads, because that is the order it asked in, and the search reads as
-    # what was searched for — the field the registry names a `ToolSearch` call by.
-    assert named.startswith("⚡ ls -la ")
+    # The description it was given leads, because that is the order it asked in, and the search
+    # reads as what was searched for — the field the registry names a `ToolSearch` call by.
+    assert named.startswith("⚡ Verify report and all three grilling docs exist")
     assert named.endswith(", 🧰 select:PushNotification")
 
     # Both are cut to the column's width and marked where they were cut, like every other
