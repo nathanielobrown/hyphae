@@ -9,13 +9,18 @@ import pytest
 
 from tests.tools.conftest import ROOT
 
-# The prose a user reads. `README.md` is the quickstart a doc-writer owns; it joins this sweep,
-# with the one hit its "Work on hyphae" sentence keeps, once it is rewritten around `hp`.
-DOCS = [*sorted(ROOT.glob("docs/*.md")), ROOT / "CLAUDE.md", ROOT / "CONTEXT.md"]
+# The prose a user reads
+DOCS = [
+    *sorted(ROOT.glob("docs/*.md")),
+    ROOT / "CLAUDE.md",
+    ROOT / "CONTEXT.md",
+    ROOT / "README.md",
+]
 
 # Where `uv run hp` may still appear, and how often: an equality, so a line that creeps in
-# elsewhere is a red rather than an allowlist quietly growing.
-ALLOWED = {"docs/ui-development.md": 1}
+# elsewhere is a red rather than an allowlist quietly growing. README's one hit is the "Work on
+# hyphae" sentence that says why a contributor would type it.
+ALLOWED = {"docs/ui-development.md": 1, "README.md": 1}
 
 
 @pytest.mark.reads_the_repo  # reads the prose out of this checkout
