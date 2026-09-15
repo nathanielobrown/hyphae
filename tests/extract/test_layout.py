@@ -1,9 +1,13 @@
+import os
+import shutil
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from hyphae.extract.layout import SessionFiles, find_project_dirs, find_sessions
 from hyphae.projects import encode_project_path
+from tests.conftest import FIXTURES
 
 
 def make_projects_root(tmp_path: Path, project: Path, session_ids: list[str]) -> Path:
@@ -11,7 +15,8 @@ def make_projects_root(tmp_path: Path, project: Path, session_ids: list[str]) ->
 
     A session is `<root>/<encoded-cwd>/<session-id>.jsonl`, with its subagent runs in a
     sibling directory named for the session. Content doesn't matter here — discovery is
-    about the layout, and the parser tests own the records.
+    about the layout, and the parser tests own the records. `copy_fixture` fills a directory
+    with a real transcript where content does.
     """
     root = tmp_path / "projects"
     project_dir = root / encode_project_path(project)
@@ -19,6 +24,21 @@ def make_projects_root(tmp_path: Path, project: Path, session_ids: list[str]) ->
     for session_id in session_ids:
         (project_dir / f"{session_id}.jsonl").write_text("")
     return root
+
+
+def copy_fixture(project_dir: Path, fixture: str, *, written_at: datetime | None = None) -> Path:
+    """Copy one fixture transcript, and the session directory beside it if it has one, into a
+    project directory. `written_at` sets the transcript's mtime, which discovery reads as when
+    the session was last written; None leaves the copy's own clock. Returns the transcript."""
+    source = next(FIXTURES.rglob(f"{fixture}.jsonl"))
+    project_dir.mkdir(parents=True, exist_ok=True)
+    transcript = project_dir / source.name
+    shutil.copy(source, transcript)
+    if source.with_suffix("").is_dir():
+        shutil.copytree(source.with_suffix(""), transcript.with_suffix(""), dirs_exist_ok=True)
+    if written_at is not None:
+        os.utime(transcript, (written_at.timestamp(), written_at.timestamp()))
+    return transcript
 
 
 def test_find_sessions_returns_every_transcript_for_a_project(tmp_path: Path):
