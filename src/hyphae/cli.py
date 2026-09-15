@@ -42,8 +42,9 @@ from hyphae.export.otlp_delivery import (
     OtlpExporter,
     named_backend,
 )
+from hyphae.extract import picker
 from hyphae.extract.claude_code import ClaudeCodeExtractor
-from hyphae.extract.discover import discover
+from hyphae.extract.discover import ProjectDir, discover
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_sessions
 from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.extract.store import StoreSource, UnknownProjectError
@@ -52,11 +53,10 @@ from hyphae.projects import encode_project_path, resolve_project
 from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve
 
-# The extract's namespace in `user_settings`: the directory names it last picked, or the word
-# for every directory under the root.
+# The extract's namespace in `user_settings`: the directory names it last picked, or
+# `picker.EVERYTHING` for every directory under the root.
 EXTRACT_SETTINGS = "extract"
 PROJECTS_SETTING = "projects"
-EVERYTHING = "all"
 
 
 class Subcommand(NamedTuple):
@@ -145,9 +145,10 @@ def _extract(args: argparse.Namespace) -> None:
 
 
 def _extract_targets(args: argparse.Namespace) -> list[Target]:
-    """What the extract's scope names: typed paths, every directory, or the last pick.
+    """What the extract's scope names: typed paths, every directory, the last pick, or —
+    with none of those — what the picker confirms, which becomes the next last pick.
 
-    A typed path skips discovery and is labelled as typed; the two flags label a directory
+    A typed path skips discovery and is labelled as typed; the other scopes label a directory
     with where its newest session ran. `--last-picked` prints its plan before anything runs.
     """
     if args.project:
@@ -155,23 +156,27 @@ def _extract_targets(args: argparse.Namespace) -> list[Target]:
             Target(str(project), args.projects_root / encode_project_path(project))
             for project in args.project
         ]
-    if not args.all_projects and not args.last_picked:
-        raise SystemExit(
-            "The picker is not built yet: type a project path, or pass "
-            "--all-projects or --last-picked"
-        )
     rows = discover(args.projects_root, now=dt.datetime.now(tz=dt.UTC))
     if args.all_projects:
-        return [Target(row.label, row.directory) for row in rows]
-    remembered = user_settings.read().get(EXTRACT_SETTINGS, {}).get(PROJECTS_SETTING)
+        return _targets(rows)
+    stored = user_settings.read()
+    remembered = stored.get(EXTRACT_SETTINGS, {}).get(PROJECTS_SETTING)
+    by_name = {row.name: row for row in rows}
+    if not args.last_picked:
+        # The picker writes the confirmed set whole, so a name no longer on disk drops out here.
+        picked = picker.pick(rows, remembered if remembered is not None else [])
+        stored.setdefault(EXTRACT_SETTINGS, {})[PROJECTS_SETTING] = picked
+        user_settings.write(stored)
+        if picked == picker.EVERYTHING:
+            return _targets(rows)
+        return _targets([by_name[name] for name in picked])
     if remembered is None:
         raise SystemExit("Nothing remembered yet: run `hp extract` once and pick")
-    if remembered == EVERYTHING:
+    if remembered == picker.EVERYTHING:
         print(f"Extracting every project, as last picked: {len(rows)} directories")
-        return [Target(row.label, row.directory) for row in rows]
+        return _targets(rows)
     # A name no longer on disk is a project Claude Code pruned since the pick: said, skipped,
     # and dropped from memory by the next confirm.
-    by_name = {row.name: row for row in rows}
     found = [name for name in remembered if name in by_name]
     print(f"Extracting {len(found)} of {len(remembered)} remembered project(s):")
     for name in remembered:
@@ -179,7 +184,11 @@ def _extract_targets(args: argparse.Namespace) -> list[Target]:
             print(f"  {name}  {by_name[name].label}")
         else:
             print(f"  {name}  skipped: no longer under {args.projects_root}")
-    return [Target(by_name[name].label, by_name[name].directory) for name in found]
+    return _targets([by_name[name] for name in found])
+
+
+def _targets(rows: list[ProjectDir]) -> list[Target]:
+    return [Target(row.label, row.directory) for row in rows]
 
 
 def _extract_arguments(subcommand: argparse.ArgumentParser) -> None:

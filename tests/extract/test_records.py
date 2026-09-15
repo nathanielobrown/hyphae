@@ -524,8 +524,9 @@ def test_every_recorded_block_parses_as_the_model_its_kind_names() -> None:
     assert sorted(kind.value for kind in seen) == sorted(raw)
 
 
-# Any `record["field"]` read, which is how a dict comes back into a reader.
-DICT_READ = re.compile(r'\["[a-zA-Z_]+"\]')
+# Any `record["field"]` read, which is how a dict comes back into a reader. A `Literal["all"]`
+# annotation has the same shape and reads nothing.
+DICT_READ = re.compile(r'(?<!Literal)\["[a-zA-Z_]+"\]')
 # The one the design keeps: `agent_runs.py` opens the `agent-<id>.meta.json` sidecar, a file
 # Claude Code writes beside a transcript and no record model describes.
 SIDECAR_READ = re.compile(r'\bmeta\["[a-zA-Z_]+"\]')

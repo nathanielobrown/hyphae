@@ -17,6 +17,8 @@ from hyphae import cli, settings, user_settings
 from hyphae.enrich.client import DEFAULT_CONCURRENCY, DEFAULT_MODEL
 from hyphae.export.otlp import DEFAULT_MAX_CHARS
 from hyphae.export.otlp_delivery import DEFAULT_RATE, GENERIC
+from hyphae.extract import picker
+from hyphae.extract.discover import ProjectDir, discover
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT
 from hyphae.projects import encode_project_path
 from hyphae.view.app import PORT
@@ -479,15 +481,72 @@ def test_last_picked_with_nothing_remembered_names_the_bare_command(
         run_extract(tmp_path, capsys, True, "--last-picked")
 
 
-def test_the_bare_command_is_not_built_yet(
+def fake_pick(
+    patch: pytest.MonkeyPatch, answer: list[str] | str | BaseException
+) -> list[tuple[list[ProjectDir], list[str] | str]]:
+    """Stand in for the picker: record what it was handed, and confirm `answer` — or raise
+    it, the way a Ctrl-C or an empty confirm ends the prompt."""
+    calls: list[tuple[list[ProjectDir], list[str] | str]] = []
+
+    def pick(rows: list[ProjectDir], remembered: list[str] | str) -> list[str] | str:
+        calls.append((rows, remembered))
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
+
+    patch.setattr(picker, "pick", pick)
+    return calls
+
+
+def test_the_bare_command_runs_the_picker_and_remembers_what_it_confirmed(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Until the picker lands, a bare `hp extract` refuses rather than guessing a scope."""
-    # A placeholder for the picker leaves, which replace this one.
+    """A bare `hp extract` offers every discovered directory with the last pick checked,
+    extracts what is confirmed, and replaces the memory with that choice."""
+    # If the last pick named the mycelia directory and one since pruned, and the picker
+    # confirms mycelia alone...
     plant(tmp_path, TWO_PROJECTS)
-    with pytest.raises(SystemExit, match="picker"):
+    mycelia_dir = encode_project_path(Path(MYCELIA))
+    user_settings.write({"extract": {"projects": [mycelia_dir, "-gone"]}}, settings_file(tmp_path))
+    with pytest.MonkeyPatch.context() as patch:
+        calls = fake_pick(patch, [mycelia_dir])
+        printed = run_extract(tmp_path, capsys, True)
+    # ...then the picker was handed every discovered row and the remembered names as written...
+    rows = discover(tmp_path / "projects", now=dt.datetime.now(tz=dt.UTC))
+    assert calls == [(rows, [mycelia_dir, "-gone"])]
+    # ...the confirmed directory was extracted and no other...
+    assert printed == [f"{MYCELIA}: 1 session(s) extracted, 0 unchanged"]
+    assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions") == [(SPINE,)]
+    # ...and the memory is the confirmed set, the pruned name gone.
+    assert user_settings.read(settings_file(tmp_path)) == {"extract": {"projects": [mycelia_dir]}}
+
+
+def test_the_bare_command_with_everything_picked_runs_every_directory(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """On a machine with no pick yet, the picker opens with nothing checked; confirming
+    Everything extracts the whole root and remembers the word, not the list."""
+    plant(tmp_path, TWO_PROJECTS)
+    with pytest.MonkeyPatch.context() as patch:
+        calls = fake_pick(patch, "all")
         run_extract(tmp_path, capsys, True)
-    # The refusal comes before the store is opened, so nothing was written anywhere.
+    assert [remembered for _, remembered in calls] == [[]]
+    assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions ORDER BY id") == [
+        (SPINE,),
+        (INVENTED,),
+    ]
+    assert user_settings.read(settings_file(tmp_path)) == {"extract": {"projects": "all"}}
+
+
+def test_a_picker_that_exits_writes_nothing_and_extracts_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A prompt ended without a choice leaves the store and the memory as they were."""
+    plant(tmp_path, TWO_PROJECTS)
+    with pytest.MonkeyPatch.context() as patch:
+        fake_pick(patch, SystemExit("Nothing picked"))
+        with pytest.raises(SystemExit, match="Nothing picked"):
+            run_extract(tmp_path, capsys, True)
     assert not (tmp_path / "traces.duckdb").exists()
     assert not settings_file(tmp_path).exists()
 
