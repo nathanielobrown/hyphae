@@ -15,7 +15,7 @@ from hyphae.extract import picker
 from hyphae.extract.discover import ProjectDir, discover
 from hyphae.projects import encode_project_path
 from tests.conftest import MYCELIA, SPINE, stored_rows
-from tests.extract.test_layout import copy_fixture
+from tests.extract.test_layout import copy_fixture, refused_transcript
 from tests.test_cli import PROJECT
 
 
@@ -83,6 +83,8 @@ def settings_file(tmp_path: Path) -> Path:
 # placed the way Claude Code places a project.
 TWO_PROJECTS = {Path(MYCELIA): [SPINE], Path("/invented/project"): ["invented-no-cache-creation"]}
 INVENTED = "invented-no-cache-creation"
+MYCELIA_DIR = encode_project_path(Path(MYCELIA))
+INVENTED_DIR = encode_project_path(Path("/invented/project"))
 
 
 @pytest.mark.parametrize(
@@ -139,10 +141,11 @@ def test_all_projects_extracts_every_directory_under_the_root(
         tmp_path / "traces.duckdb",
         "SELECT session_id, key, value FROM session_tags ORDER BY session_id",
     ) == [(SPINE, "batch", "b1"), (INVENTED, "batch", "b1")]
-    # ...each directory is summarised under where its sessions ran...
+    # ...each directory is summarised under its name, by name: nothing was read before the
+    # extract, so there is no `cwd` to label it with...
     assert printed == [
-        f"{MYCELIA}: 1 session(s) extracted, 0 unchanged",
-        "/invented/project: 1 session(s) extracted, 0 unchanged",
+        f"{MYCELIA_DIR}: 1 session(s) extracted, 0 unchanged",
+        f"{INVENTED_DIR}: 1 session(s) extracted, 0 unchanged",
     ]
     # ...and no choice was remembered.
     assert not settings_file(tmp_path).exists()
@@ -155,18 +158,38 @@ def test_last_picked_prints_the_remembered_rows_and_skips_a_vanished_one(
     that is no longer on disk as skipped, and runs the rest."""
     # If the last pick named the mycelia directory and one that has since been pruned...
     plant(tmp_path, TWO_PROJECTS)
-    mycelia_dir = encode_project_path(Path(MYCELIA))
-    user_settings.write({"extract": {"projects": [mycelia_dir, "-gone"]}}, settings_file(tmp_path))
+    user_settings.write({"extract": {"projects": [MYCELIA_DIR, "-gone"]}}, settings_file(tmp_path))
     printed = run_extract(tmp_path, capsys, True, "--last-picked")
 
-    # ...then the plan names both up front, one of them skipped, and only mycelia is summarised...
+    # ...then the plan names both up front, one of them skipped, and only mycelia is summarised,
+    # by name — the remembered names are resolved to directories without a walk of the root...
     assert printed == [
         "Extracting 1 of 2 remembered project(s):",
-        f"  {mycelia_dir}  {MYCELIA}",
+        f"  {MYCELIA_DIR}",
         f"  -gone  skipped: no longer under {tmp_path / 'projects'}",
-        f"{MYCELIA}: 1 session(s) extracted, 0 unchanged",
+        f"{MYCELIA_DIR}: 1 session(s) extracted, 0 unchanged",
     ]
     # ...and the store holds the mycelia session and not the other directory's.
+    assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions") == [(SPINE,)]
+
+
+def test_last_picked_reads_no_transcript_of_a_directory_it_was_not_asked_for(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--last-picked` is the cron path: a scratch directory beside the remembered one is
+    never opened, so a transcript the parser would refuse there costs it nothing."""
+    # If a scratch directory the last pick never named holds a transcript refused on its first
+    # record (an invented bend of a real record: `refused_transcript`)...
+    root = plant(tmp_path, TWO_PROJECTS)
+    refused_transcript(root / "-Users-nob-scratch")
+    user_settings.write({"extract": {"projects": [MYCELIA_DIR]}}, settings_file(tmp_path))
+    printed = run_extract(tmp_path, capsys, True, "--last-picked")
+    # ...then the run says nothing of it — no refusal line, no skipped line — and extracts mycelia.
+    assert printed == [
+        "Extracting 1 of 1 remembered project(s):",
+        f"  {MYCELIA_DIR}",
+        f"{MYCELIA_DIR}: 1 session(s) extracted, 0 unchanged",
+    ]
     assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions") == [(SPINE,)]
 
 
@@ -176,7 +199,13 @@ def test_last_picked_with_everything_remembered_runs_every_directory(
     """A remembered "all" is the whole root, whatever directories it holds today."""
     plant(tmp_path, TWO_PROJECTS)
     user_settings.write({"extract": {"projects": "all"}}, settings_file(tmp_path))
-    run_extract(tmp_path, capsys, True, "--last-picked")
+    printed = run_extract(tmp_path, capsys, True, "--last-picked")
+    # The plan line counts the directories the root holds now, then each is summarised by name.
+    assert printed == [
+        "Extracting every project, as last picked: 2 directories",
+        f"{MYCELIA_DIR}: 1 session(s) extracted, 0 unchanged",
+        f"{INVENTED_DIR}: 1 session(s) extracted, 0 unchanged",
+    ]
     assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions ORDER BY id") == [
         (SPINE,),
         (INVENTED,),
@@ -218,19 +247,18 @@ def test_the_bare_command_runs_the_picker_and_remembers_what_it_confirmed(
     # If the last pick named the mycelia directory and one since pruned, and the picker
     # confirms mycelia alone...
     plant(tmp_path, TWO_PROJECTS)
-    mycelia_dir = encode_project_path(Path(MYCELIA))
-    user_settings.write({"extract": {"projects": [mycelia_dir, "-gone"]}}, settings_file(tmp_path))
+    user_settings.write({"extract": {"projects": [MYCELIA_DIR, "-gone"]}}, settings_file(tmp_path))
     with pytest.MonkeyPatch.context() as patch:
-        calls = fake_pick(patch, [mycelia_dir])
+        calls = fake_pick(patch, [MYCELIA_DIR])
         printed = run_extract(tmp_path, capsys, True)
     # ...then the picker was handed every discovered row and the remembered names as written...
     rows = discover(tmp_path / "projects", now=dt.datetime.now(tz=dt.UTC))
-    assert calls == [(rows, [mycelia_dir, "-gone"])]
-    # ...the confirmed directory was extracted and no other...
+    assert calls == [(rows, [MYCELIA_DIR, "-gone"])]
+    # ...the confirmed directory was extracted and no other, labelled with where it ran...
     assert printed == [f"{MYCELIA}: 1 session(s) extracted, 0 unchanged"]
     assert stored_rows(tmp_path / "traces.duckdb", "SELECT id FROM sessions") == [(SPINE,)]
     # ...and the memory is the confirmed set, the pruned name gone.
-    assert user_settings.read(settings_file(tmp_path)) == {"extract": {"projects": [mycelia_dir]}}
+    assert user_settings.read(settings_file(tmp_path)) == {"extract": {"projects": [MYCELIA_DIR]}}
 
 
 def test_the_bare_command_with_everything_picked_runs_every_directory(

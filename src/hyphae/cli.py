@@ -44,8 +44,8 @@ from hyphae.export.otlp_delivery import (
 )
 from hyphae.extract import picker
 from hyphae.extract.claude_code import ClaudeCodeExtractor
-from hyphae.extract.discover import ProjectDir, discover
-from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_sessions
+from hyphae.extract.discover import discover
+from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_project_dirs, find_sessions
 from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.extract.store import StoreSource, UnknownProjectError
 from hyphae.pipeline import Failure, refresh
@@ -148,47 +148,47 @@ def _extract_targets(args: argparse.Namespace) -> list[Target]:
     """What the extract's scope names: typed paths, every directory, the last pick, or —
     with none of those — what the picker confirms, which becomes the next last pick.
 
-    A typed path skips discovery and is labelled as typed; the other scopes label a directory
-    with where its newest session ran. `--last-picked` prints its plan before anything runs.
+    Only the picker walks the root and reads transcripts (`discover`), so only its rows are
+    labelled with where the newest session ran; every other scope labels a directory as typed
+    or by name, and reads nothing before `refresh`. `--last-picked` prints its plan first.
     """
+    root: Path = args.projects_root
     if args.project:
         return [
-            Target(str(project), args.projects_root / encode_project_path(project))
-            for project in args.project
+            Target(str(project), root / encode_project_path(project)) for project in args.project
         ]
-    rows = discover(args.projects_root, now=dt.datetime.now(tz=dt.UTC))
     if args.all_projects:
-        return _targets(rows)
+        return _named(find_project_dirs(root))
     stored = user_settings.read()
     remembered = stored.get(EXTRACT_SETTINGS, {}).get(PROJECTS_SETTING)
-    by_name = {row.name: row for row in rows}
     if not args.last_picked:
+        rows = discover(root, now=dt.datetime.now(tz=dt.UTC))
         # The picker writes the confirmed set whole, so a name no longer on disk drops out here.
         picked = picker.pick(rows, remembered if remembered is not None else [])
         stored.setdefault(EXTRACT_SETTINGS, {})[PROJECTS_SETTING] = picked
         user_settings.write(stored)
         if picked == picker.EVERYTHING:
-            return _targets(rows)
-        return _targets([by_name[name] for name in picked])
+            return [Target(row.label, row.directory) for row in rows]
+        by_name = {row.name: row for row in rows}
+        return [Target(by_name[name].label, by_name[name].directory) for name in picked]
     if remembered is None:
         raise SystemExit("Nothing remembered yet: run `hp extract` once and pick")
     if remembered == picker.EVERYTHING:
-        print(f"Extracting every project, as last picked: {len(rows)} directories")
-        return _targets(rows)
-    # A name no longer on disk is a project Claude Code pruned since the pick: said, skipped,
-    # and dropped from memory by the next confirm.
-    found = [name for name in remembered if name in by_name]
+        directories = find_project_dirs(root)
+        print(f"Extracting every project, as last picked: {len(directories)} directories")
+        return _named(directories)
+    # A remembered name resolves to its directory without a walk: the cron path must not
+    # depend on any directory it was not asked for. A name no longer on disk is a project
+    # Claude Code pruned since the pick: said, skipped, and dropped by the next confirm.
+    found = [name for name in remembered if (root / name).is_dir()]
     print(f"Extracting {len(found)} of {len(remembered)} remembered project(s):")
     for name in remembered:
-        if name in by_name:
-            print(f"  {name}  {by_name[name].label}")
-        else:
-            print(f"  {name}  skipped: no longer under {args.projects_root}")
-    return _targets([by_name[name] for name in found])
+        print(f"  {name}" if name in found else f"  {name}  skipped: no longer under {root}")
+    return _named([root / name for name in found])
 
 
-def _targets(rows: list[ProjectDir]) -> list[Target]:
-    return [Target(row.label, row.directory) for row in rows]
+def _named(directories: list[Path]) -> list[Target]:
+    return [Target(directory.name, directory) for directory in directories]
 
 
 def _extract_arguments(subcommand: argparse.ArgumentParser) -> None:

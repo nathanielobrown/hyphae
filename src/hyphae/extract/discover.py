@@ -2,8 +2,9 @@
 
 One walk of the root: for each directory holding a transcript, where its newest session ran,
 how many sessions it holds, how many were written this week, and which repository it extends
-(`extract/grouping.py`). The picker sorts and folds these rows; `hp extract --all-projects`
-takes them whole.
+(`extract/grouping.py`). The picker sorts and folds these rows; it is the only caller, since
+the walk reads a transcript per directory and the other extract scopes read nothing before
+they refresh.
 """
 
 import logging
