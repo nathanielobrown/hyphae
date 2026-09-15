@@ -77,7 +77,8 @@ def test_the_command_ships_what_a_refresh_ships(
             DeliveryLedger(connection, backend=GENERIC),
         ) as exporter,
     ):
-        refresh(Path(MYCELIA), extractor=StoreSource(connection), exporter=exporter)
+        source = StoreSource(connection)
+        refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=exporter)
     expected = receiver.spans
     receiver.bodies.clear()
     # ...and another copy through the command...

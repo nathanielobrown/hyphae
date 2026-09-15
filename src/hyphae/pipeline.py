@@ -1,13 +1,13 @@
 """The seams: what an extractor and an exporter owe each other, and the loop that drives them.
 
-`refresh()` is the whole pipeline. It asks an extractor what sessions exist and what each
-one currently looks like, asks the exporter what it already holds, and re-extracts only the
-difference. Everything agent-specific lives behind `Extractor`; everything sink-specific
-behind `Exporter`.
+`refresh()` is the whole pipeline. The caller hands it the sessions an extractor discovered,
+each with what it currently looks like; the loop asks the exporter what it already holds and
+re-extracts only the difference. Everything agent-specific lives behind `Extractor`;
+everything sink-specific behind `Exporter`.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import NamedTuple, Protocol
 
 from hyphae.extract.errors import TranscriptSchemaError
@@ -32,13 +32,11 @@ class SessionSource:
 class Extractor[SourceT: SessionSource](Protocol):
     """Turns one agent's recorded sessions into traces. One implementation per agent.
 
-    `SourceT` is the extractor's own `SessionSource` subclass: `sessions()` mints them and
-    `extract()` is the only thing that reads what it added.
+    `SourceT` is the extractor's own `SessionSource` subclass: the extractor mints them from
+    whatever it discovers by — a typed path, a directory, a store — and `extract()` is the
+    only thing that reads what it added. Discovery is the extractor's own interface, not the
+    loop's: `refresh()` takes the sources already minted.
     """
-
-    def sessions(self, project: Path) -> list[SourceT]:
-        """Every session recorded for `project`. Cheap: it stats files, it does not read them."""
-        ...
 
     def extract(self, source: SourceT) -> SessionTrace:
         """Read a session's files and build its trace."""
@@ -84,13 +82,13 @@ class RefreshResult(NamedTuple):
 
 
 def refresh[SourceT: SessionSource](
-    project: Path, *, extractor: Extractor[SourceT], exporter: Exporter
+    sources: Iterable[SourceT], *, extractor: Extractor[SourceT], exporter: Exporter
 ) -> RefreshResult:
-    """Bring the sink up to date with what is on disk for `project`.
+    """Bring the sink up to date with `sources`, the sessions the extractor discovered.
 
     Idempotent by construction: an unchanged session is skipped, and a changed one is sent
     whole — nothing here diffs a session against what the sink already holds. A session in
-    the sink whose files are gone keeps its rows.
+    the sink that is not among `sources` keeps its rows.
 
     A session the parser refuses costs only itself: it lands in `failed` and the pass carries
     on. The export is all or nothing per session, so there is nothing half-written to undo.
@@ -99,7 +97,7 @@ def refresh[SourceT: SessionSource](
     extracted: list[str] = []
     skipped: list[str] = []
     failed: list[Failure] = []
-    for source in extractor.sessions(project):
+    for source in sources:
         if held.get(source.id) == source.fingerprint:
             skipped.append(source.id)
             continue

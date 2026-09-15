@@ -97,7 +97,8 @@ def _extract(args: argparse.Namespace) -> None:
     # Parsed at the flag (`_key_value`); a later pair wins the name an earlier one bound.
     extractor = ClaudeCodeExtractor(projects_root=args.projects_root, tags=dict(args.tag))
     exporter = DuckDbExporter(args.db, wait=CLI_WAIT)
-    result = refresh(args.project, extractor=extractor, exporter=exporter)
+    sources = extractor.sessions(args.project)
+    result = refresh(sources, extractor=extractor, exporter=exporter)
     print(f"{len(result.extracted)} session(s) extracted, {len(result.skipped)} unchanged")
     # A kind no registry names and a field no model declares are both news, not failures: the
     # archive kept the record either way, and the exit code stays 0. Silence means the models
@@ -331,11 +332,11 @@ def _export_otlp(args: argparse.Namespace) -> None:
         # it opens read-only and never takes that lock.
         with open_trace_store(args.db, read_only=args.dry_run, wait=CLI_WAIT) as connection:
             ledger = DeliveryLedger(connection, backend=args.backend)
+            source = StoreSource(connection)
+            sessions = source.sessions(args.project)
             if backend is None:
                 counting = OtlpCensus(ledger, text=text)
-                counted = refresh(
-                    args.project, extractor=StoreSource(connection), exporter=counting
-                )
+                counted = refresh(sessions, extractor=source, exporter=counting)
                 print(_census_line(counting.counts, args.backend, len(counted.skipped)))
                 return
             with OtlpExporter(
@@ -345,7 +346,7 @@ def _export_otlp(args: argparse.Namespace) -> None:
                 text=text,
                 rate=args.rate,
             ) as exporter:
-                result = refresh(args.project, extractor=StoreSource(connection), exporter=exporter)
+                result = refresh(sessions, extractor=source, exporter=exporter)
     except UnknownProjectError as error:
         raise SystemExit(str(error)) from error
     print(f"{len(result.extracted)} session(s) exported, {len(result.skipped)} unchanged")
