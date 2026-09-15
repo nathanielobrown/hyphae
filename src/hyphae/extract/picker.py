@@ -79,17 +79,18 @@ class _Fold(NamedTuple):
         return title
 
 
-def selected(answer: list[object] | None) -> list[str] | Literal["all"]:
+def selected(answer: list[list[str] | Literal["all"]] | None) -> list[str] | Literal["all"]:
     """What a confirm means: every directory name behind the checked rows, or `"all"`.
 
     questionary answers `None` to Ctrl-C; that and an empty confirm end the run with a
-    message, so nothing is written or extracted.
+    message, so nothing is written or extracted. The values are the ones `choices` built,
+    so anything else here is a bug that should crash rather than be dropped.
     """
     if not answer:
         raise SystemExit("Nothing picked: nothing extracted, and the last pick stands")
     if EVERYTHING in answer:
         return EVERYTHING
-    return [name for names in answer if isinstance(names, list) for name in names]
+    return [name for names in answer for name in names]
 
 
 def pick(

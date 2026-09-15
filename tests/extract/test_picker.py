@@ -93,7 +93,7 @@ def test_a_confirm_flattens_the_picked_rows_to_directory_names() -> None:
 
 @pytest.mark.parametrize("answer", [[], None], ids=["nothing checked", "ctrl-c"])
 def test_a_confirm_with_nothing_chosen_exits_with_a_message(
-    answer: list[object] | None,
+    answer: list[list[str] | Literal["all"]] | None,
 ) -> None:
     """Confirming an empty selection, or quitting the prompt, ends the run saying so."""
     with pytest.raises(SystemExit, match="Nothing picked"):

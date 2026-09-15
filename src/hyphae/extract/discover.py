@@ -94,7 +94,9 @@ def recorded_cwd(transcript: Path) -> Path | None:
     costs a few lines. A transcript whose records all lack one — a fork that inherited its
     context by reference — has no answer.
     """
-    # The tally is this read's own: the extract that follows re-reads every record it counts.
+    # The tally is this read's own and is dropped: the read stops at the first sited record,
+    # so it is partial, and an extract re-reads every record of the directories it is given.
+    # An unknown kind in a directory nobody then extracts goes unreported, by that choice.
     unknowns = Unknowns(strict=settings.UNIT_TESTING)
     for line in iter_lines(transcript, transcript.stem, unknowns):
         if isinstance(line.record, SessionContext) and line.record.cwd is not None:
