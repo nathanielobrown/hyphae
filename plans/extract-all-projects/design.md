@@ -176,3 +176,14 @@ Each slice is one commit or a few; `commit` skill for the messages.
 
 - Whether argparse accepts a `nargs="*"` positional inside a mutually exclusive group alongside two flags on Python 3.13, or the check is written by hand. Settled by trying it in slice 1
 - How questionary renders in the terminals in use (Cursor's, Terminal.app) with `use_search_filter=True`. Settled by the manual run in slice 4
+
+## Amendments from the testing plan (2026-09-15)
+
+Settled by the manager after `testing_plan.md` found them unspecified:
+
+- `picker.pick()` splits into `choices()` and a pure `selected(answer) -> list[str] | Literal["all"]` that flattens group members and maps `EVERYTHING` to `"all"`; `pick` only runs the prompt and calls `selected`. questionary returns `None` on Ctrl-C: `selected(None)` and an empty answer both raise `SystemExit` with a message, and nothing is written
+- `--last-picked` with nothing remembered raises `SystemExit` telling the person to run bare `hp extract` first
+- Typed paths skip `discover()`, so their summary line is labelled with the path as typed
+- `find_project_dirs()` raises `FileNotFoundError` on a missing root, as `find_sessions` does
+- The settings path defaults to `Path.home() / store_path.STORE_DIR / SETTINGS_NAME`; it is not derived from `HP_DB`, which the suite pins
+- Slice 1 also moves `cli._export_otlp` and the `tests/export/` callers onto `refresh(sources, ...)`
