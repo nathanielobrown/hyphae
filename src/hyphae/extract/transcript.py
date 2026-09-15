@@ -14,6 +14,7 @@ session that proved it (`docs/schema.md`).
 
 import json
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -71,8 +72,12 @@ def read_lines(path: Path, session_id: str, unknowns: Unknowns) -> list[Line]:
     refresh will pick it up whole. Anywhere earlier, unparseable JSON is real damage and
     stops the run.
     """
+    return list(iter_lines(path, session_id, unknowns))
+
+
+def iter_lines(path: Path, session_id: str, unknowns: Unknowns) -> Iterator[Line]:
+    """`read_lines`, one validated line at a time, for a reader that stops before the end."""
     raws = path.read_text().split("\n")
-    lines = []
     for line_no, raw in enumerate(raws, start=1):
         if not raw.strip():
             continue
@@ -89,8 +94,7 @@ def read_lines(path: Path, session_id: str, unknowns: Unknowns) -> list[Line]:
                 line_no,
             )
             continue
-        lines.append(_validated(record, raw, session_id, line_no, unknowns))
-    return lines
+        yield _validated(record, raw, session_id, line_no, unknowns)
 
 
 def _validated(
