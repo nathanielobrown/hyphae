@@ -2,6 +2,6 @@
 
 Rationale for `settings.json` entries that have no code home (JSON takes no comments; each hook's why lives in its script's header under `hooks/`).
 
-- `permissions.deny` — `Read(./.env)` and `Read(./data/**)`: the first holds the Chromatic upload token, the second raw extracted sessions, which carry whatever the analyzed agent read. Neither belongs in a session's context, and a denied read is cheaper than a leaked one
+- `permissions.deny` — the `gh` subcommands that delete, archive, or touch secrets and auth, and the built-in tools a Python analysis repo has no use for. No `Read` rule: one on `.env` and `data/` drew a permission prompt on most sessions, so keeping raw session data out of context rests on `.gitignore` and the privacy rule in `CLAUDE.md`
 - `skillOverrides` — trims built-in skills that don't apply to a Python analysis repo. `name-only` keeps the skill invocable but drops its body from context; `off` removes it
 - `agents/telemetry.md` declares an `mcpServers` entry that this repo does not configure. Point it at your backend's MCP server in your home directory's `.claude.json` (or a local `.mcp.json`) before dispatching that agent — see the agent's own header
