@@ -84,6 +84,7 @@ ENTRIES = (
     Entry("docs/viewer-titles.md", Doc("docs/viewer-titles.md")),
     Entry("docs/ui-development.md", Doc("docs/ui-development.md")),
     Entry("docs/otlp-export.md", Doc("docs/otlp-export.md")),
+    Entry("docs/layering.md", Doc("docs/layering.md")),
     Entry("docs/documentation.md", Doc("docs/documentation.md")),
     Entry("docs/writing_style_guide.md", Doc("docs/writing_style_guide.md")),
     Entry("docs/mermaid-guide.md", Doc("docs/mermaid-guide.md")),

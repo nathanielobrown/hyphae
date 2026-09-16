@@ -73,6 +73,10 @@ dev = [
   # Reads `.github/workflows/*.yml` back as data (`tests/tools/test_workflows.py`), where a
   # secret and a fork guard have to stay where they are. Tests only: nothing shipped parses YAML.
   "pyyaml>=6.0",
+  # Holds the package graph to the layers under `[tool.importlinter]` below — `mise run
+  # lint-imports`. Brings grimp, which `tools/gen_imports.py` draws `docs/layering.md`'s graph
+  # with, so the diagram and the gate read the same imports.
+  "import-linter>=2.15",
 ]
 
 [tool.uv]
@@ -227,6 +231,28 @@ markers = [
   "live: opts in to a real remote call (Anthropic API, an OTLP backend) — billed, so it needs an env var as well",
   # Dropped from the mutation run below, where the tree is a partial copy of rewritten source.
   "reads_the_repo: reads the tree it runs from — its own source, its task lines, its checkout",
+]
+
+[tool.importlinter]
+root_package = "hyphae"
+
+[[tool.importlinter.contracts]]
+name = "Layers"
+type = "layers"
+containers = ["hyphae"]
+# Every module under `hyphae` must sit on one of these lines, so a new one picks a layer here
+# rather than adding a rule beside this contract (`docs/layering.md`).
+exhaustive = true
+layers = [
+  "cli",
+  "view",
+  "analyze | enrich",
+  # Above `export` only for the `TABLES` import, which phase 2 of the store-layering plan removes.
+  "extract",
+  "export",
+  "pipeline",
+  "user_settings",
+  "model | projects | pricing | settings | store_path",
 ]
 
 [tool.mutmut]

@@ -107,11 +107,12 @@ What each page shows and cites: `docs/viewer.md`; the code: one package per page
 
 ## Repo tooling
 
-The generators and the gate wrapper: `tools/`; how to write a generator and where a generated fact belongs: `docs/documentation.md`; which tasks a gate wraps and which stay loud: `mise.toml`; the browser tier: `docs/ui-development.md`.
+The generators and the gate wrapper: `tools/`; how to write a generator and where a generated fact belongs: `docs/documentation.md`; which tasks a gate wraps and which stay loud: `mise.toml`; the layers contract: `docs/layering.md`; the browser tier: `docs/ui-development.md`.
 
 - **Cog** — the splice `mise run cogs` performs: it runs the command a document names and pastes the output back into it
 - **Cog block** — one splice in one document: the two markers and the generated text between them
 - **Gate** — one task wrapped in `tools/gate.py`: a line when it passes, everything the tool said when it fails
+- **Layers contract** — `[tool.importlinter]` in `pyproject.toml`: the children of `hyphae` top to bottom, each allowed to import only what sits below it; `mise run lint-imports` holds the code to it and `docs/layering.md` draws the result
 - **Browser tier** — the Playwright specs under `tests/e2e/` that drive the gallery in a real Chromium; every other test the suite runs is the Python tier
 - **Pre-commit hook** — `tools/pre-commit`, installed by `mise run setup`: the staged Python and Markdown held to the gates before a commit lands
 

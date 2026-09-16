@@ -240,6 +240,20 @@ def test_every_gate_in_check_routes_through_the_wrapper() -> None:
         )
 
 
+def test_the_import_gate_runs_while_iterating_and_in_ci() -> None:
+    """`lint-imports` is a member of both `check-fast` and `check`.
+
+    The two aggregates share almost nothing: `check-fast` is the loop while iterating, `check`
+    is what CI runs (`.github/workflows/check.yml`). A gate in only the first never runs in CI,
+    and one in only the second is a red a reader meets after the work is done.
+    """
+    declared = tasks()
+    for aggregate in ("check-fast", "check"):
+        assert "lint-imports" in declared[aggregate]["depends"], (
+            f"`lint-imports` is not a member of `{aggregate}`"
+        )
+
+
 def test_a_fixing_task_is_gated_wherever_its_verdict_twin_is() -> None:
     """A task that fixes what its `-check` twin reports on is gated alongside it.
 

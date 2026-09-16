@@ -4,7 +4,8 @@ Every leaf over a generator asserts a property of generated text against the liv
 generated from, so the one thing that tier shares is the parser that turns a table back into
 cells. No test compares a generator's output to a golden string: a golden would pin today's
 wording and say nothing about whether the numbers in it are still the code's. Beside it, the
-one reader of `mise.toml`, which two files ask different questions of.
+one reader of `mise.toml`, which two files ask different questions of, and the one reader of
+the layers contract, which two files hold the code and the diagram to.
 """
 
 import re
@@ -33,6 +34,13 @@ def cells(table: str) -> list[tuple[str, ...]]:
 def numbers(text: str) -> list[int]:
     """Every integer written in `text`, thousands separators undone."""
     return [int(match.replace(",", "")) for match in re.findall(r"\d[\d,]*", text)]
+
+
+def contract_layers() -> list[str]:
+    """The `layers` list the layers contract in `pyproject.toml` declares, top to bottom."""
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    (contract,) = config["tool"]["importlinter"]["contracts"]
+    return contract["layers"]
 
 
 def mise_config() -> dict:

@@ -22,7 +22,7 @@ We make claims about other people's behavior from data we didn't design, so each
 Use `mise` to run project tasks. `uv` owns the Python environment.
 
 - After a fresh clone, run `mise run setup`: it syncs the environment and installs the pre-commit hook. After a dependency change, `mise run sync` is enough
-- While iterating, run `mise run check-fast` for formatting, linting, and type checks. It formats prose too, and reports a link or path that doesn't resolve
+- While iterating, run `mise run check-fast` for formatting, linting, type checks, and the layers contract (`docs/layering.md`). It formats prose too, and reports a link or path that doesn't resolve
 - Before you finish a task or open a PR, run `mise run check`. It also runs the tests, the hook linter, and the freshness check on every generated block; GitHub runs it on every push and PR (`.github/workflows/check.yml`), beside a second workflow for the browser tier (`.github/workflows/e2e.yml`)
 - Run any individual task listed in `mise.toml` with `mise run <task>`. Ruff formats and lints Python, which is what a viewer page is made of (`docs/ui-development.md`); Pyrefly checks types; aigarden holds the docs to `aigarden.toml` and splices their generated blocks (`docs/documentation.md`)
 - Run `mise run diagram-check <file>` to validate Mermaid and `mise run mutate` to score the suite against mutants (`.claude/rules/testing.md`)
@@ -58,6 +58,7 @@ docs/
   viewer-titles.md        One title names a node on every surface that prints it, and one mark says what kind of node it is
   ui-development.md       Edit a viewer component or stylesheet and see it in the browser without touching the browser
   otlp-export.md          `hp export-otlp` sends sessions from the trace store to an OTLP/HTTP backend as spans
+  layering.md             Which package under `src/hyphae` may import which, held by a gate and drawn from the imports themselves
   documentation.md        Use this guide to decide where project documentation belongs and how to keep it current
   writing_style_guide.md  How to write effectively; based on William Zinsser's *On Writing Well*
   mermaid-guide.md        Use this guide to write Mermaid diagrams that stay small, render on GitHub, and share one visual language

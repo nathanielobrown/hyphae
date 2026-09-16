@@ -113,6 +113,12 @@ description = "Type-check with pyrefly"
 # exclude heuristics off, so naming paths here would only be a second place to keep in step.
 run = "tools/gate.py uv run pyrefly check"
 
+[tasks.lint-imports]
+description = "Check the package's import layers with import-linter"
+# Which package may import which: `docs/layering.md`. The contract has no fixing twin — a red
+# run names an edge that points up, and moving the code is the fix.
+run = "tools/gate.py uv run lint-imports"
+
 [tasks.lint-docs]
 description = "Lint the docs with aigarden — links, size budgets, prose style — applying fixes"
 # The prose formatter as well as the linter: `--fix` rejoins a paragraph someone hard-wrapped,
@@ -268,13 +274,14 @@ no_proxy='*' uv run mutmut run --max-children 1 "$@"
 
 [tasks.check-fast]
 description = "Format and lint the code and the docs, and type-check — the loop to run while iterating"
-depends = ["format", "lint", "lint-docs", "typecheck"]
+depends = ["format", "lint", "lint-imports", "lint-docs", "typecheck"]
 
 [tasks.check]
 description = "Every gate. Run before opening a PR."
 depends = [
   "format-check",
   "lint-check",
+  "lint-imports",
   "lint-docs-check",
   "cogs-check",
   "typecheck",

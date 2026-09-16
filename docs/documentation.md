@@ -36,7 +36,7 @@ Telemetry schemas need stronger evidence because the harness owns them and may c
 
 ## Generate a table from the code that owns it
 
-A table a reader needs spelled out — the viewer's routes, the fields a record carries — comes from a generator in `tools/` and is spliced into the document by `mise run cogs`. The document holds the markers and the generator holds the text:
+A table a reader needs spelled out — the viewer's routes, the fields a record carries — comes from a generator in `tools/` and is spliced into the document by `mise run cogs`. So does a picture the code already determines, such as [the package graph](layering.md#the-graph). The document holds the markers and the generator holds the text:
 
 ```markdown
 <!-- aigarden:cog sh "uv run python -m tools.gen_routes" -->
@@ -45,7 +45,7 @@ A table a reader needs spelled out — the viewer's routes, the fields a record 
 <!-- aigarden:end -->
 ```
 
-The command runs from the repository root, and everything between the markers is replaced by what it prints. Run `mise run cogs` after changing a generator or the code it reads; `mise run check` runs the same command and fails when what the document holds is not what it prints, so a generated table cannot be stale and green at once. Never edit between the markers by hand — the next write erases it, and until then the check is red.
+The command runs from the repository root, and everything between the markers is replaced by what it prints. Run `mise run cogs` after changing a generator or the code it reads; `mise run check` runs the same command and fails when what the document holds is not what it prints, so a generated block cannot be stale and green at once. Never edit between the markers by hand — the next write erases it, and until then the check is red.
 
 A generator exposes `generate()`, which returns the block's body with no trailing newline, and a `main()` that prints it. Everything the block needs to say goes in the generator, including any heading or fence.
 
