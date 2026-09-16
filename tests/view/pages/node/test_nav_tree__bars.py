@@ -13,7 +13,7 @@ from typing import NamedTuple
 import duckdb
 from fastapi.testclient import TestClient
 
-from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
+from hyphae.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.view.app import build_app
 from hyphae.view.nodes import (
     BAR_STEPS,

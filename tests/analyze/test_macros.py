@@ -12,7 +12,7 @@ import duckdb
 import pytest
 
 from hyphae.analyze import macros
-from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
+from hyphae.pricing import MODELS, SYNTHETIC_MODEL
 from tests.conftest import (
     FIXTURE_TAG_KEY,
     FIXTURE_TAG_VALUE,

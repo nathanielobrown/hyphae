@@ -42,7 +42,7 @@ def popover(
                     # Where the node left the window, over the window itself. The scale is named
                     # rather than assumed: a session that asked for a larger one still reports
                     # its base model, so a window we hold no number for is said out loud instead
-                    # of scaling the counts to a guess (`extract/pricing.py`).
+                    # of scaling the counts to a guess (`pricing.py`).
                     _line(
                         term="context used",
                         body=htpy.dd[

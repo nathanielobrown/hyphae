@@ -1,7 +1,7 @@
 """Where a node's dollars went, by category, for the popover behind a NavTree row.
 
 A row's badge prints one number, and one number cannot say whether a phase spent its money
-reading a cache or writing one. The split is the four charges `extract/pricing.py` already
+reading a cache or writing one. The split is the four charges `pricing.py` already
 computes, summed across the models the node used.
 
 Every line here is the node's own thread, whatever kind of node it is. What the agent runs
@@ -17,7 +17,7 @@ tokens by model instead, and each group is priced once.
 from collections.abc import Sequence
 from typing import NamedTuple
 
-from hyphae.extract.pricing import CostSplit, TokenUsage, split_cost
+from hyphae.pricing import CostSplit, TokenUsage, split_cost
 from hyphae.view.nodes import COST_PLACES, meter
 from hyphae.view.pages.node import models
 from hyphae.view.text.labels import label

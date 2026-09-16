@@ -13,7 +13,7 @@ them, and under a bare `duckdb` shell it does not.
 
 import duckdb
 
-from hyphae.extract.pricing import MODELS
+from hyphae.pricing import MODELS
 
 # The line a failure is grouped by: its first, whitespace collapsed, with every absolute path
 # standing as `<path>`. Two queries group on it and a group key that drifted between them
@@ -105,7 +105,7 @@ CASE WHEN starts_with(tool_asked(input, 'file_path', chars + length(project_dir)
      ELSE tool_asked(input, 'file_path', chars) END
 """
 
-# The window each model answers in, written out of the model table `extract/pricing.py` keeps.
+# The window each model answers in, written out of the model table `pricing.py` keeps.
 # Generated rather than bound as a parameter so a query names a model and gets a number, with
 # the constant still defined in one place — and so `SETUP` hands a reader the whole rule rather
 # than a macro they have to supply the numbers for. A model the table lacks — and the

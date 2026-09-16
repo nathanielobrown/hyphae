@@ -116,7 +116,7 @@ class ApiCall:
     # interleaving is lost; `raw_records` keeps it.
     text: str
     thinking: str
-    # USD, from our own price table (`extract/pricing.py`) — not from the transcript, which
+    # USD, from our own price table (`pricing.py`) — not from the transcript, which
     # records no cost. None when the table does not price `model`, which is a gap in our
     # list to fill, not a schema change.
     cost_usd: float | None

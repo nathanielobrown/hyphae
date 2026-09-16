@@ -144,7 +144,7 @@ class Context(NamedTuple):
     # How much of that fill the node itself put there. None where the question does not
     # arise — a session, which has nothing before it to have added to.
     added: int | None
-    # The window that call's model answers in (`extract/pricing.py:MODELS`).
+    # The window that call's model answers in (`pricing.py:MODELS`).
     window: int
     # The context the session opened on: what its first main-thread call sent before a word had
     # been said — the system prompt, the project's instructions, the tools' definitions. Only a
@@ -657,7 +657,7 @@ def _bar_step(tokens: int, window: int) -> int:
     """Which step of the bar a token count lands on, held at the top where it runs past one.
 
     A request can ask for a larger window than the model's own, and the reply names the model
-    either way (`extract/pricing.py:MODELS`) — so a fill above the window is drawn
+    either way (`pricing.py:MODELS`) — so a fill above the window is drawn
     full rather than given a scale the table cannot see.
     """
     return min(round(tokens / window * BAR_STEPS), BAR_STEPS)

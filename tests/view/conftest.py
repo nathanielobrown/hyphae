@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 from markupsafe import escape
 
 from hyphae.analyze import macros
-from hyphae.extract.pricing import MODELS
+from hyphae.pricing import MODELS
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.components import layout

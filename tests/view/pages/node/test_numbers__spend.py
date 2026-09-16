@@ -217,7 +217,7 @@ def test_a_cache_write_with_no_ttl_on_it_is_charged_at_the_short_rate(
     The columns say "no split reported" with NULLs rather than zeroes, so a group summing them
     would charge that write at nothing (`tests/fixtures/invented/README.md`). The popover
     prices a node one model-group at a time, and the group has to fall back to the whole write
-    at the 5-minute rate — the same fallback `extract/pricing.py` applies to a single call.
+    at the 5-minute rate — the same fallback `pricing.py` applies to a single call.
     """
     where = f"AND id = '{NO_TTL_SPLIT_CALL}'"
     creation, five, hour = one(

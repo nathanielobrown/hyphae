@@ -83,7 +83,7 @@ WITH RECURSIVE calls AS (
 ), spent AS (
     -- The node's tokens by model, which is what a phase has to be priced from: a phase can mix
     -- models, so one summed row times one price would charge a Haiku call at Opus rates. The
-    -- cache write follows `extract/pricing.py` call for call — a call that reported no TTL
+    -- cache write follows `pricing.py` call for call — a call that reported no TTL
     -- split puts its whole write on the 5-minute rate — so the four charges the caller derives
     -- come to the stored total below.
     SELECT

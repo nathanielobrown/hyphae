@@ -1,7 +1,7 @@
 """What an enrichment pass would cost, before it spends anything.
 
 Arithmetic only: character counts the planner already holds, a chars-per-token ratio, and the
-rates in `hyphae.extract.pricing.MODELS`. Nothing here reaches the network, so `--dry-run`
+rates in `hyphae.pricing.MODELS`. Nothing here reaches the network, so `--dry-run`
 works offline and answers in the time it takes to render the prompts.
 
 Every request pays for its own instructions and its own transport scaffold, which under the
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from hyphae.enrich.items import Level
 from hyphae.enrich.levels import instructions
-from hyphae.extract.pricing import MODELS, PER_MILLION
+from hyphae.pricing import MODELS, PER_MILLION
 
 # The low end of the corpus's measured 3.3-4 range, so the token count reads high. Prompts are
 # dense with paths, ids and code fragments, which tokenize worse than prose.

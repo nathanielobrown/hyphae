@@ -15,7 +15,7 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.extract.pricing import MODELS
+from hyphae.pricing import MODELS
 from hyphae.view import bounds, nodes
 from hyphae.view.app import build_app
 from hyphae.view.text.format import ELLIPSIS

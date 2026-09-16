@@ -21,7 +21,7 @@ from pathlib import Path
 import duckdb
 from fastapi.testclient import TestClient
 
-from hyphae.extract.pricing import MODELS, CostSplit, TokenUsage, split_cost
+from hyphae.pricing import MODELS, CostSplit, TokenUsage, split_cost
 from hyphae.view.app import build_app
 from hyphae.view.nodes import NUMBERS_URL, Kind
 from hyphae.view.text.format import ABSENT
@@ -522,12 +522,12 @@ def test_a_model_we_hold_no_window_for_says_so_rather_than_scaling_to_a_guess(
     """An unknown window is stated, and the token counts print beside it anyway.
 
     A `[1m]` session names its base model in `message.model`, so a window larger than the
-    table's is invisible to it (`extract/pricing.py`). The tokens are still the store's, and a
+    table's is invisible to it (`pricing.py`). The tokens are still the store's, and a
     popover that withheld them for want of a scale would drop the honest numbers it has.
     """
     planted = plant(
         # Cost goes with the model: `compute_cost` answers None for a model the table lacks,
-        # so the exporter would have stored no cost for these calls either (`extract/pricing.py`).
+        # so the exporter would have stored no cost for these calls either (`pricing.py`).
         (
             "UPDATE api_calls SET model = 'claude-mythos-9', cost_usd = NULL WHERE session_id = ?",
             [SPINE],

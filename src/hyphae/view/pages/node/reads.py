@@ -11,7 +11,7 @@ same wherever it is read, and only what a row is *shown as* is this page's own.
 
 from typing import NamedTuple
 
-from hyphae.extract.pricing import TokenUsage
+from hyphae.pricing import TokenUsage
 from hyphae.view.builders import tool_about, tool_titles
 from hyphae.view.nodes import Kind, Node
 from hyphae.view.pages.node import models

@@ -23,7 +23,7 @@ from hyphae.enrich.enricher import (
 from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.store import EnrichmentStore
 from hyphae.enrich.taxonomy import TAXONOMY_VERSION
-from hyphae.extract.pricing import SYNTHETIC_MODEL
+from hyphae.pricing import SYNTHETIC_MODEL
 from tests.conftest import MYCELIA
 from tests.enrich.conftest import (
     CURRENT,

@@ -17,7 +17,6 @@ from pathlib import PurePath
 from typing import NamedTuple
 
 from hyphae.extract.errors import TranscriptSchemaError
-from hyphae.extract.pricing import SYNTHETIC_MODEL, TokenUsage, compute_cost
 from hyphae.extract.records.blocks import (
     AdvisorToolResultBlock,
     Block,
@@ -41,6 +40,7 @@ from hyphae.extract.records.registry import (
 from hyphae.extract.records.system import CompactBoundaryRecord
 from hyphae.extract.transcript import Line, required, required_timestamp, timestamp_of
 from hyphae.model import MAIN_SOURCE, ApiCall, Compaction, ToolCall, Turn
+from hyphae.pricing import SYNTHETIC_MODEL, TokenUsage, compute_cost
 
 # A leading tag, with or without attributes: `<teammate-message teammate_id="...">` names
 # who sent it, so the name ends at whitespace as well as at the closing bracket.

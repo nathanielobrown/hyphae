@@ -1,7 +1,7 @@
 """What a dry run quotes: arithmetic over rendered prompts and the one price table.
 
 No estimate here asks anything what it charges. The rates come from
-`hyphae.extract.pricing.MODELS`, a dated constant a reader can check against Anthropic's
+`hyphae.pricing.MODELS`, a dated constant a reader can check against Anthropic's
 price page, and everything else is multiplication over character counts the planner already
 holds — so a dry run costs nothing and works offline.
 """
@@ -18,7 +18,7 @@ from hyphae.enrich.cost import (
 )
 from hyphae.enrich.items import Level
 from hyphae.enrich.levels import instructions
-from hyphae.extract.pricing import MODELS, PER_MILLION
+from hyphae.pricing import MODELS, PER_MILLION
 
 MODEL = "claude-haiku-4-5-20251001"
 # The other model `--model` is likely to name. Worth quoting alongside the default because its
