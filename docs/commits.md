@@ -8,7 +8,7 @@ Commit as often as you need while working. Before review, shape the branch into 
 
 A pre-commit hook holds the staged Python and Markdown to the gates, so a commit can fail before it lands (`tools/pre-commit`, installed by `mise run setup`). Fix what it reports rather than passing `--no-verify`.
 
-Never commit extracted session data or a backend ingest key. `.gitignore` covers `data/` and `.env`; ignore any related files you add.
+Never commit extracted session data or a backend ingest key. `.gitignore` covers `data/`; ignore any related files you add. A key belongs in the environment, not in a file (`docs/otlp-export.md`).
 
 ## Say what changed in the subject
 

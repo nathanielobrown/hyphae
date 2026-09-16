@@ -97,7 +97,7 @@ Enrichment describes every agent run, main turn, and session, then stores each a
 
 ## Treat transcripts as private
 
-A transcript contains everything the agent read, including file contents and credentials. Raw extracts belong in `data/`, and telemetry keys belong in `.env`; both paths are gitignored. Never commit either. Test fixtures must be redacted excerpts trimmed to the records each test needs.
+A transcript contains everything the agent read, including file contents and credentials. Raw extracts belong in gitignored `data/`; never commit one. Backend keys live in the environment, never in a file. Test fixtures must be redacted excerpts trimmed to the records each test needs.
 
 ## AI Guidance Locations
 
