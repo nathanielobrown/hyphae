@@ -16,6 +16,7 @@ from hyphae import cli
 from hyphae.export.duckdb import StoreLocked, open_trace_store
 from hyphae.export.otlp import Census, TextPolicy, census
 from hyphae.export.otlp_delivery import (
+    BACKENDS,
     ENDPOINT_ENV,
     GENERIC,
     HEADERS_ENV,
@@ -46,6 +47,30 @@ def configured(monkeypatch: pytest.MonkeyPatch, receiver: Receiver) -> None:
     """The environment a run reads: this test's receiver, and a planted key beside it."""
     monkeypatch.setenv(ENDPOINT_ENV, receiver.url)
     monkeypatch.setenv(HEADERS_ENV, f"x-key={KEY_SENTINEL}")
+
+
+# What the planted `.env` files hold for a key: distinct from `KEY_SENTINEL`, so a header
+# carrying the sentinel came from the environment and not from a file.
+FILE_KEY = "planted-in-a-file-the-command-never-reads"
+
+
+@pytest.fixture
+def planted_files(monkeypatch: pytest.MonkeyPatch, receiver: Receiver, tmp_path: Path) -> None:
+    """A `.env` in the home dotdir and one in the directory the command runs from, each
+    naming the receiver and a honeycomb key: the two places a file could plausibly stand
+    in for the environment. A run that refuses with both planted read neither."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    elsewhere = tmp_path / "elsewhere"
+    for planted in (tmp_path / ".hyphae" / ".env", elsewhere / ".env"):
+        planted.parent.mkdir()
+        planted.write_text(f"{ENDPOINT_ENV}={receiver.url}\nHONEYCOMB_API_KEY={FILE_KEY}\n")
+    monkeypatch.chdir(elsewhere)
+
+
+def refusal(variable: str) -> str:
+    """The whole line a run prints for a variable it lacks: it names the environment and
+    nothing else, so an operator is never sent to a file the command would not read."""
+    return rf"^{variable} is unset or empty\. Set it in the environment$"
 
 
 def ledger(path: Path) -> list[tuple[object, ...]]:
@@ -95,20 +120,11 @@ def test_the_service_name_flag_reaches_the_backend(
 
 
 def test_missing_configuration_refuses_before_anything_is_read(
-    store_path: Path, receiver: Receiver, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    store_path: Path, receiver: Receiver, planted_files: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A run with no endpoint in the environment refuses at command start, naming the
     variable to set — a `.env` file, wherever it sits, configures nothing."""
-    # If the environment does not say where to ship, and a `.env` in the home dotdir and one
-    # in the directory the command runs from both name the receiver — the two places a file
-    # could plausibly stand in for the environment, which the command must never read...
-    monkeypatch.setenv("HOME", str(tmp_path))
-    elsewhere = tmp_path / "elsewhere"
-    for planted in (tmp_path / ".hyphae" / ".env", elsewhere / ".env"):
-        planted.parent.mkdir()
-        planted.write_text(f"{ENDPOINT_ENV}={receiver.url}\n")
-    monkeypatch.chdir(elsewhere)
-    refusal = f"{ENDPOINT_ENV}.*environment"
+    # If the environment does not say where to ship, though the planted `.env` files do...
     # ...and every store the command opens is recorded, so "before the store is opened" is an
     # assertion rather than a code reading: a refusal after the open would still leave the
     # ledger table absent, so that check alone cannot tell the two orderings apart.
@@ -122,14 +138,15 @@ def test_missing_configuration_refuses_before_anything_is_read(
     monkeypatch.setattr(cli, "open_trace_store", recording)
     for absent in ("", "   "):
         monkeypatch.setenv(ENDPOINT_ENV, absent)
-        with pytest.raises(SystemExit, match=refusal):
+        with pytest.raises(SystemExit, match=refusal(ENDPOINT_ENV)):
             cli.main("export-otlp", MYCELIA, "--db", str(store_path))
     monkeypatch.delenv(ENDPOINT_ENV)
-    with pytest.raises(SystemExit, match=refusal):
+    with pytest.raises(SystemExit, match=refusal(ENDPOINT_ENV)):
         cli.main("export-otlp", MYCELIA, "--db", str(store_path))
-    # ...then it refuses before it opens the store: no request went out — the planted files
-    # never became an endpoint — the store was never opened at all, and it came away without
-    # even the ledger table a first export creates.
+    # ...then it refuses before it opens the store, in the one sentence that names only the
+    # environment: no request went out — the planted files never became an endpoint — the
+    # store was never opened at all, and it came away without even the ledger table a first
+    # export creates.
     assert receiver.bodies == []
     assert opened == []
     with open_trace_store(store_path, read_only=True, wait=NO_WAIT) as connection:
@@ -184,6 +201,8 @@ def unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
     """No endpoint and no key in the environment — nowhere for a run to ship."""
     monkeypatch.delenv(ENDPOINT_ENV, raising=False)
     monkeypatch.delenv(HEADERS_ENV, raising=False)
+    for spec in BACKENDS.values():
+        monkeypatch.delenv(spec.key_env, raising=False)
 
 
 def would_ship(path: Path, *only: str) -> Census:
@@ -365,17 +384,31 @@ def test_the_delivery_flags_reach_the_exporter(
     assert counted == {"text": TextPolicy(include=True, max_chars=20)}
 
 
-def test_a_named_backend_refuses_without_its_key(
-    store_path: Path, receiver: Receiver, unconfigured: None
+def test_a_named_backend_takes_its_key_from_the_environment_alone(
+    store_path: Path,
+    receiver: Receiver,
+    unconfigured: None,
+    planted_files: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A run naming a backend whose key is unset stops at the command, naming the variable
-    to set."""
-    # If a backend is named but the environment does not hold its key...
-    with pytest.raises(SystemExit, match=r"HONEYCOMB_API_KEY.*environment"):
+    """A run naming a backend refuses when the environment lacks its key, naming the
+    variable to set, and ships once the environment holds it — a `.env` supplies nothing."""
+    # If a backend is named but the environment does not hold its key — though the planted
+    # `.env` files, in the home dotdir and the working directory, both do...
+    with pytest.raises(SystemExit, match=refusal("HONEYCOMB_API_KEY")):
         cli.main("export-otlp", MYCELIA, "--db", str(store_path), "--backend", "honeycomb")
-    # ...then nothing was read and nothing was sent...
+    # ...then the run stops at the command with the one sentence that names only the
+    # environment, and nothing was read and nothing was sent...
     assert receiver.bodies == []
     # ...and a backend the registry does not hold is refused by the parser itself, so no run
-    # ever reaches an endpoint we never verified.
+    # ever reaches an endpoint we never verified...
     with pytest.raises(SystemExit):
         cli.main("export-otlp", MYCELIA, "--db", str(store_path), "--backend", "jaeger")
+    # ...while the same command with the key in the environment ships — `OTLP_ENDPOINT`
+    # standing in for the collector override that points a named backend at this receiver —
+    # and the header carries the environment's key, not the one the files hold.
+    monkeypatch.setenv("HONEYCOMB_API_KEY", KEY_SENTINEL)
+    monkeypatch.setenv(ENDPOINT_ENV, receiver.url)
+    cli.main("export-otlp", MYCELIA, "--db", str(store_path), "--backend", "honeycomb")
+    assert receiver.spans
+    assert receiver.sent_headers[0]["x-honeycomb-team"] == KEY_SENTINEL
