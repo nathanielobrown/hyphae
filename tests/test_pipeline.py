@@ -14,8 +14,9 @@ from hyphae import cli
 from hyphae.export.duckdb import DuckDbExporter, StoreLocked
 from hyphae.extract import claude_code
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
+from hyphae.extract.errors import SessionLayoutError
 from hyphae.model import SessionTrace
-from hyphae.pipeline import Exporter, RefreshResult, refresh
+from hyphae.pipeline import Exporter, ExtractionError, Failure, RefreshResult, refresh
 from hyphae.projects import encode_project_path
 from tests.conftest import FIXTURES, NO_WAIT, locked, opens_elsewhere, stored_rows
 from tests.export.test_duckdb__locking import BRIEF_HOLD, IMPATIENT
@@ -71,6 +72,26 @@ class CountingExtractor:
 
     def extract(self, source: ClaudeCodeSource) -> SessionTrace:
         self.extracted.append(source.id)
+        return self.wrapped.extract(source)
+
+
+class RefusingExtractor:
+    """Wraps an extractor to refuse one session with the bare class `refresh` catches.
+
+    Invented on purpose: no recorded session raises the base itself, only a subclass. This is
+    the seam that holds the catch to that class rather than to a subclass.
+    """
+
+    def __init__(self, wrapped: ClaudeCodeExtractor, refused: str) -> None:
+        self.wrapped = wrapped
+        self.refused = refused
+
+    def sessions(self, project: Path) -> list[ClaudeCodeSource]:
+        return self.wrapped.sessions(project)
+
+    def extract(self, source: ClaudeCodeSource) -> SessionTrace:
+        if source.id == self.refused:
+            raise ExtractionError("planted")
         return self.wrapped.extract(source)
 
 
@@ -291,6 +312,51 @@ def test_a_session_the_parser_refuses_costs_only_itself(corpus: Corpus, exporter
     assert "AssistantRecord" in result.failed[0].error and "line 2" in result.failed[0].error
     # ...and nothing of it reached the store, which is the rollback doing its job.
     assert table(exporter, "raw_records", BAD) == []
+
+
+def test_an_extractor_refusing_a_session_with_the_base_class_costs_only_that_session(
+    corpus: Corpus, exporter: DuckDbExporter
+):
+    """The loop catches `pipeline.ExtractionError` itself, not one extractor's subclass of it.
+
+    An extractor for another agent will raise its own subclass; what the loop owes it is
+    the same treatment a schema error gets. The raise here is planted, since no recorded
+    session raises the bare base.
+    """
+    # If the extractor refuses the first session the loop meets, with the base class alone...
+    corpus.add("invented", BAD)
+    corpus.add("spine", SPINE)
+    extractor = RefusingExtractor(corpus.extractor(), refused=BAD)
+    sources = sorted(extractor.sessions(corpus.project), key=lambda source: source.id != BAD)
+
+    result = refresh(sources, extractor=extractor, exporter=exporter)
+
+    # ...then it is named with the reason, and the sessions after it land as usual.
+    assert result.failed == [Failure(session_id=BAD, error="planted")]
+    assert result.extracted == [SPINE]
+    assert len(table(exporter, "turns", SPINE)) == 6
+
+
+def test_a_session_directory_the_extractor_cannot_read_ends_the_pass(
+    corpus: Corpus, exporter: DuckDbExporter
+):
+    """A layout error is not the class the loop catches: it ends the whole pass, unrecorded.
+
+    A schema error is one session's problem; a file we cannot place is a Claude Code change
+    to look at (`extract/errors.py`), and skipping past it would lose whatever it holds.
+    """
+    # If a session's directory holds a file the extractor cannot place — the invented one
+    # `tests/extract/test_claude_code__archive.py` plants...
+    corpus.add("spine", SPINE)
+    (corpus.session_dir / SPINE / "subagents" / "notes.txt").write_text("")
+    extractor = corpus.extractor()
+
+    # ...then the pass stops on it rather than recording it as a failure...
+    with pytest.raises(SessionLayoutError, match="unknown file"):
+        refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
+
+    # ...and nothing of the session reached the store.
+    assert table(exporter, "raw_records", SPINE) == []
 
 
 def test_a_refresh_over_no_sources_reads_the_sink_and_writes_nothing(

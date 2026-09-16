@@ -13,8 +13,9 @@ import pytest
 
 from hyphae import settings
 from hyphae.extract.claude_code import ClaudeCodeExtractor
-from hyphae.extract.errors import ExtractionError, SessionLayoutError, TranscriptSchemaError
+from hyphae.extract.errors import SessionLayoutError, TranscriptSchemaError
 from hyphae.model import MAIN_SOURCE, OffloadFile, SessionTrace
+from hyphae.pipeline import ExtractionError
 from tests.conftest import FIXTURES, PlantedFactory, SourceFactory
 from tests.extract.test_claude_code import SPINE
 from tests.extract.test_claude_code__agents import (
@@ -257,6 +258,7 @@ def test_a_session_directory_we_cannot_read_crashes_as_a_layout_error(
         ClaudeCodeExtractor().extract(source)
 
     # Nothing here read a record, so it is not a schema error: the two send a reader to
-    # different places. They share a base, for a caller that does not care which it got.
+    # different places. Nor is it the class `pipeline.refresh` catches and moves past — a
+    # layout error ends the whole pass.
     assert not isinstance(raised.value, TranscriptSchemaError)
-    assert isinstance(raised.value, ExtractionError)
+    assert not isinstance(raised.value, ExtractionError)

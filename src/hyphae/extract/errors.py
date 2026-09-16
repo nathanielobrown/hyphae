@@ -2,26 +2,25 @@
 
 Claude Code owns both the transcript schema and the layout on disk and changes either without
 notice, so anything unrecognised stops rather than guesses (`.claude/rules/python.md`). What it
-stops differs: a schema error costs one session, which `pipeline.refresh` records and `hp extract`
-names before it exits nonzero (`docs/store.md`), while a layout error ends the whole pass. Two
-classes rather than one because the response differs too: a schema error sends a reader to
-`docs/schema.md` and a record model, a layout error to the session directory itself.
+stops differs: a schema error is a `pipeline.ExtractionError`, so `pipeline.refresh` records it
+and `hp extract` names it before exiting nonzero (`docs/store.md`), while a layout error is not
+and ends the whole pass. Two classes rather than one because the response differs too: a
+schema error sends a reader to `docs/schema.md` and a record model, a layout error to the session
+directory itself.
 
 No error here carries record content: transcripts are private, and these messages reach logs.
 """
 
 from pydantic import BaseModel, ValidationError
 
-
-class ExtractionError(Exception):
-    """A recorded session held something this extractor will not guess at."""
+from hyphae.pipeline import ExtractionError
 
 
 class TranscriptSchemaError(ExtractionError):
     """A transcript held a shape this parser does not know."""
 
 
-class SessionLayoutError(ExtractionError):
+class SessionLayoutError(Exception):
     """A session's directory holds a file we cannot place, or is missing one we expected."""
 
 

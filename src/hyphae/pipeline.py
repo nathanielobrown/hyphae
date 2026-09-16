@@ -10,8 +10,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import NamedTuple, Protocol
 
-from hyphae.extract.errors import TranscriptSchemaError
 from hyphae.model import SessionTrace
+
+
+class ExtractionError(Exception):
+    """An extractor refusing one session: the one class `refresh` catches.
+
+    The loop records the session as failed and moves on. Anything else an extractor raises
+    is the whole pass's problem and stops it.
+    """
 
 
 @dataclass(frozen=True)
@@ -90,7 +97,7 @@ def refresh[SourceT: SessionSource](
     whole — nothing here diffs a session against what the sink already holds. A session in
     the sink that is not among `sources` keeps its rows.
 
-    A session the parser refuses costs only itself: it lands in `failed` and the pass carries
+    A session the extractor refuses costs only itself: it lands in `failed` and the pass carries
     on. The export is all or nothing per session, so there is nothing half-written to undo.
     """
     held = exporter.fingerprints()
@@ -103,10 +110,10 @@ def refresh[SourceT: SessionSource](
             continue
         try:
             exporter.export(extractor.extract(source), source.fingerprint)
-        except TranscriptSchemaError as error:
-            # Only a shape the parser does not know. Anything else — the sink refusing to
-            # open, a session directory that cannot be read — is the whole pass's problem
-            # and still stops it.
+        except ExtractionError as error:
+            # Only what the extractor refused for this session. Anything else — the sink
+            # refusing to open, a session directory that cannot be read — is the whole pass's
+            # problem and still stops it.
             failed.append(Failure(session_id=source.id, error=str(error)))
             continue
         extracted.append(source.id)
