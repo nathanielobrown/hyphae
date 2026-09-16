@@ -43,11 +43,7 @@ from tests.export.test_duckdb__locking import IMPATIENT
 
 @pytest.fixture
 def configured(monkeypatch: pytest.MonkeyPatch, receiver: Receiver) -> None:
-    """The environment a run reads: this test's receiver, and a planted key beside it.
-
-    A developer's real `.env` must not decide any leaf here.
-    """
-    monkeypatch.setattr(cli, "load_dotenv", lambda: None)
+    """The environment a run reads: this test's receiver, and a planted key beside it."""
     monkeypatch.setenv(ENDPOINT_ENV, receiver.url)
     monkeypatch.setenv(HEADERS_ENV, f"x-key={KEY_SENTINEL}")
 
@@ -99,11 +95,20 @@ def test_the_service_name_flag_reaches_the_backend(
 
 
 def test_missing_configuration_refuses_before_anything_is_read(
-    store_path: Path, receiver: Receiver, monkeypatch: pytest.MonkeyPatch
+    store_path: Path, receiver: Receiver, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A run with no endpoint configured refuses at command start, naming the variable."""
-    # If nothing says where to ship — neither the environment nor a `.env`...
-    monkeypatch.setattr(cli, "load_dotenv", lambda: None)
+    """A run with no endpoint in the environment refuses at command start, naming the
+    variable to set — a `.env` file, wherever it sits, configures nothing."""
+    # If the environment does not say where to ship, and a `.env` in the home dotdir and one
+    # in the directory the command runs from both name the receiver — the two places a file
+    # could plausibly stand in for the environment, which the command must never read...
+    monkeypatch.setenv("HOME", str(tmp_path))
+    elsewhere = tmp_path / "elsewhere"
+    for planted in (tmp_path / ".hyphae" / ".env", elsewhere / ".env"):
+        planted.parent.mkdir()
+        planted.write_text(f"{ENDPOINT_ENV}={receiver.url}\n")
+    monkeypatch.chdir(elsewhere)
+    refusal = f"{ENDPOINT_ENV}.*environment"
     # ...and every store the command opens is recorded, so "before the store is opened" is an
     # assertion rather than a code reading: a refusal after the open would still leave the
     # ledger table absent, so that check alone cannot tell the two orderings apart.
@@ -117,13 +122,14 @@ def test_missing_configuration_refuses_before_anything_is_read(
     monkeypatch.setattr(cli, "open_trace_store", recording)
     for absent in ("", "   "):
         monkeypatch.setenv(ENDPOINT_ENV, absent)
-        with pytest.raises(SystemExit, match=ENDPOINT_ENV):
+        with pytest.raises(SystemExit, match=refusal):
             cli.main("export-otlp", MYCELIA, "--db", str(store_path))
     monkeypatch.delenv(ENDPOINT_ENV)
-    with pytest.raises(SystemExit, match=ENDPOINT_ENV):
+    with pytest.raises(SystemExit, match=refusal):
         cli.main("export-otlp", MYCELIA, "--db", str(store_path))
-    # ...then it refuses before it opens the store: no request went out, the store was never
-    # opened at all, and it came away without even the ledger table a first export creates.
+    # ...then it refuses before it opens the store: no request went out — the planted files
+    # never became an endpoint — the store was never opened at all, and it came away without
+    # even the ledger table a first export creates.
     assert receiver.bodies == []
     assert opened == []
     with open_trace_store(store_path, read_only=True, wait=NO_WAIT) as connection:
@@ -175,8 +181,7 @@ def test_a_locked_store_stops_the_run(
 
 @pytest.fixture
 def unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No endpoint, no key, and no `.env` — nowhere for a run to ship."""
-    monkeypatch.setattr(cli, "load_dotenv", lambda: None)
+    """No endpoint and no key in the environment — nowhere for a run to ship."""
     monkeypatch.delenv(ENDPOINT_ENV, raising=False)
     monkeypatch.delenv(HEADERS_ENV, raising=False)
 
@@ -363,9 +368,10 @@ def test_the_delivery_flags_reach_the_exporter(
 def test_a_named_backend_refuses_without_its_key(
     store_path: Path, receiver: Receiver, unconfigured: None
 ) -> None:
-    """A run naming a backend whose key is unset stops at the command, naming the variable."""
-    # If a backend is named but nothing holds its key...
-    with pytest.raises(SystemExit, match="HONEYCOMB_API_KEY"):
+    """A run naming a backend whose key is unset stops at the command, naming the variable
+    to set."""
+    # If a backend is named but the environment does not hold its key...
+    with pytest.raises(SystemExit, match=r"HONEYCOMB_API_KEY.*environment"):
         cli.main("export-otlp", MYCELIA, "--db", str(store_path), "--backend", "honeycomb")
     # ...then nothing was read and nothing was sent...
     assert receiver.bodies == []

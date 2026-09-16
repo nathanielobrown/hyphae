@@ -181,9 +181,10 @@ def test_the_uploader_takes_its_token_out_of_the_env_file_and_leaves_the_rest_at
 ) -> None:
     """With the variable unset the token comes from `.env` — and travels there on its own.
 
-    `.env` is the Python CLI's file: the OTLP ingest keys sit in it beside the token. This is
-    the one script that hands its environment to a third party's CLI, so a key that crosses into
-    it goes somewhere it was never meant to go, and no failure ever says so.
+    The checkout's `.env` is the uploader's file, and anything may sit in it beside the token
+    (`hp` reads its own keys from the environment alone). This is the one script that hands its
+    environment to a third party's CLI, so a key that crosses into it goes somewhere it was
+    never meant to go, and no failure ever says so.
     """
     # If `.env` holds the token and an ingest key beside it, and the environment names neither...
     script = planted(tmp_path, f"{TOKEN}=a-token-from-the-file\nHONEYCOMB_API_KEY=stays-at-home\n")
