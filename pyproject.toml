@@ -35,6 +35,9 @@ dependencies = [
   # the evidence behind them, which `tools/gen_schema.py` renders as `docs/schema.md`'s tables.
   # Describing only: the extractor still reads records as dicts.
   "pydantic>=2.13.4",
+  # The checkbox a bare `hp extract` opens over every recorded project (`extract/picker.py`):
+  # a search filter over ~250 rows, and maintained, which the alternatives were not.
+  "questionary>=2.1.1",
 ]
 
 [project.scripts]

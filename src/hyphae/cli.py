@@ -12,6 +12,7 @@ from typing import Any, NamedTuple
 
 from dotenv import load_dotenv
 
+from hyphae import user_settings
 from hyphae.analyze.manifest import catalog
 from hyphae.analyze.queries import REQUIRED, QueryError
 from hyphae.analyze.runner import Result, run
@@ -41,14 +42,21 @@ from hyphae.export.otlp_delivery import (
     OtlpExporter,
     named_backend,
 )
+from hyphae.extract import picker
 from hyphae.extract.claude_code import ClaudeCodeExtractor
-from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_sessions
+from hyphae.extract.discover import discover
+from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_project_dirs, find_sessions
 from hyphae.extract.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.extract.store import StoreSource, UnknownProjectError
-from hyphae.pipeline import refresh
-from hyphae.projects import resolve_project
+from hyphae.pipeline import Failure, refresh
+from hyphae.projects import encode_project_path, resolve_project
 from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve
+
+# The extract's namespace in `user_settings`: the directory names it last picked, or
+# `picker.EVERYTHING` for every directory under the root.
+EXTRACT_SETTINGS = "extract"
+PROJECTS_SETTING = "projects"
 
 
 class Subcommand(NamedTuple):
@@ -87,18 +95,39 @@ def build_client(model: str, *, concurrency: int) -> BatchClient:
 
 def _sessions(args: argparse.Namespace) -> None:
     """List a project's transcripts on disk, with the subagents each session spawned."""
-    for session in find_sessions(args.project, projects_root=args.projects_root):
+    for session in find_sessions(args.projects_root / encode_project_path(args.project)):
         subagents = len(session.subagent_transcripts())
         print(f"{session.id}\t{subagents} subagent(s)\t{session.transcript}")
 
 
+def _sessions_arguments(subcommand: argparse.ArgumentParser) -> None:
+    subcommand.add_argument("project", type=Path, help="Path to the analyzed repository")
+    _add_projects_root_argument(subcommand)
+
+
+class Target(NamedTuple):
+    """One project directory an extract will refresh, and the label its summary line carries."""
+
+    label: str
+    directory: Path
+
+
 def _extract(args: argparse.Namespace) -> None:
-    """Parse a project's transcripts into the trace store, skipping what has not changed."""
+    """Parse each chosen project's transcripts into the trace store, skipping the unchanged."""
+    targets = _extract_targets(args)
     # Parsed at the flag (`_key_value`); a later pair wins the name an earlier one bound.
     extractor = ClaudeCodeExtractor(projects_root=args.projects_root, tags=dict(args.tag))
     exporter = DuckDbExporter(args.db, wait=CLI_WAIT)
-    result = refresh(args.project, extractor=extractor, exporter=exporter)
-    print(f"{len(result.extracted)} session(s) extracted, {len(result.skipped)} unchanged")
+    # One line per directory; the refusals wait for the end, so a bad session in the first
+    # directory does not hide the summary of the rest.
+    failed: list[Failure] = []
+    for label, directory in targets:
+        result = refresh(extractor.sessions_in(directory), extractor=extractor, exporter=exporter)
+        summary = f"{len(result.extracted)} session(s) extracted, {len(result.skipped)} unchanged"
+        if result.failed:
+            summary += f", {len(result.failed)} refused"
+        print(f"{label}: {summary}")
+        failed += result.failed
     # A kind no registry names and a field no model declares are both news, not failures: the
     # archive kept the record either way, and the exit code stays 0. Silence means the models
     # still describe what Claude Code writes.
@@ -109,14 +138,76 @@ def _extract(args: argparse.Namespace) -> None:
     if fields:
         print(f"Fields no model declares:\n{fields}")
     # A session the parser refused is the one thing here that is a failure: the rest of the
-    # project is in the store, and the run says so rather than reporting a clean pass.
-    if result.failed:
-        refused = "\n".join(f"{failure.session_id}: {failure.error}" for failure in result.failed)
-        raise SystemExit(f"{len(result.failed)} session(s) could not be read:\n{refused}")
+    # corpus is in the store, and the run says so rather than reporting a clean pass.
+    if failed:
+        refused = "\n".join(f"{failure.session_id}: {failure.error}" for failure in failed)
+        raise SystemExit(f"{len(failed)} session(s) could not be read:\n{refused}")
+
+
+def _extract_targets(args: argparse.Namespace) -> list[Target]:
+    """What the extract's scope names: typed paths, every directory, the last pick, or —
+    with none of those — what the picker confirms, which becomes the next last pick.
+
+    Only the picker walks the root and reads transcripts (`discover`), so only its rows are
+    labelled with where the newest session ran; every other scope labels a directory as typed
+    or by name, and reads nothing before `refresh`. `--last-picked` prints its plan first.
+    """
+    root: Path = args.projects_root
+    if args.project:
+        return [
+            Target(str(project), root / encode_project_path(project)) for project in args.project
+        ]
+    if args.all_projects:
+        return _named(find_project_dirs(root))
+    stored = user_settings.read()
+    remembered = stored.get(EXTRACT_SETTINGS, {}).get(PROJECTS_SETTING)
+    if not args.last_picked:
+        rows = discover(root, now=dt.datetime.now(tz=dt.UTC))
+        # The picker writes the confirmed set whole, so a name no longer on disk drops out here.
+        picked = picker.pick(rows, remembered if remembered is not None else [])
+        stored.setdefault(EXTRACT_SETTINGS, {})[PROJECTS_SETTING] = picked
+        user_settings.write(stored)
+        if picked == picker.EVERYTHING:
+            return [Target(row.label, row.directory) for row in rows]
+        by_name = {row.name: row for row in rows}
+        return [Target(by_name[name].label, by_name[name].directory) for name in picked]
+    if remembered is None:
+        raise SystemExit("Nothing remembered yet: run `hp extract` once and pick")
+    if remembered == picker.EVERYTHING:
+        directories = find_project_dirs(root)
+        print(f"Extracting every project, as last picked: {len(directories)} directories")
+        return _named(directories)
+    # A remembered name resolves to its directory without a walk: the cron path must not
+    # depend on any directory it was not asked for. A name no longer on disk is a project
+    # Claude Code pruned since the pick: said, skipped, and dropped by the next confirm.
+    found = [name for name in remembered if (root / name).is_dir()]
+    print(f"Extracting {len(found)} of {len(remembered)} remembered project(s):")
+    for name in remembered:
+        print(f"  {name}" if name in found else f"  {name}  skipped: no longer under {root}")
+    return _named([root / name for name in found])
+
+
+def _named(directories: list[Path]) -> list[Target]:
+    return [Target(directory.name, directory) for directory in directories]
 
 
 def _extract_arguments(subcommand: argparse.ArgumentParser) -> None:
-    _add_discovery_arguments(subcommand)
+    # One scope per run: the positional, or either flag, and argparse refuses a mix.
+    scope = subcommand.add_mutually_exclusive_group()
+    scope.add_argument(
+        "project", type=Path, nargs="*", help="Path to an analyzed repository, one or more"
+    )
+    scope.add_argument(
+        "--all-projects",
+        action="store_true",
+        help="Every project Claude Code has recorded, scratch checkouts included",
+    )
+    scope.add_argument(
+        "--last-picked",
+        action="store_true",
+        help="The projects picked on the last bare `hp extract`",
+    )
+    _add_projects_root_argument(subcommand)
     _add_db_argument(subcommand, "Where to write the trace store")
     subcommand.add_argument(
         "--tag",
@@ -331,11 +422,11 @@ def _export_otlp(args: argparse.Namespace) -> None:
         # it opens read-only and never takes that lock.
         with open_trace_store(args.db, read_only=args.dry_run, wait=CLI_WAIT) as connection:
             ledger = DeliveryLedger(connection, backend=args.backend)
+            source = StoreSource(connection)
+            sessions = source.sessions(args.project)
             if backend is None:
                 counting = OtlpCensus(ledger, text=text)
-                counted = refresh(
-                    args.project, extractor=StoreSource(connection), exporter=counting
-                )
+                counted = refresh(sessions, extractor=source, exporter=counting)
                 print(_census_line(counting.counts, args.backend, len(counted.skipped)))
                 return
             with OtlpExporter(
@@ -345,7 +436,7 @@ def _export_otlp(args: argparse.Namespace) -> None:
                 text=text,
                 rate=args.rate,
             ) as exporter:
-                result = refresh(args.project, extractor=StoreSource(connection), exporter=exporter)
+                result = refresh(sessions, extractor=source, exporter=exporter)
     except UnknownProjectError as error:
         raise SystemExit(str(error)) from error
     print(f"{len(result.extracted)} session(s) exported, {len(result.skipped)} unchanged")
@@ -428,9 +519,8 @@ def _report_plan(planned: Sequence[PlannedItem], model: str) -> None:
     )
 
 
-def _add_discovery_arguments(subcommand: argparse.ArgumentParser) -> None:
-    """What a subcommand that reads transcripts off disk takes: where to look, and for what."""
-    subcommand.add_argument("project", type=Path, help="Path to the analyzed repository")
+def _add_projects_root_argument(subcommand: argparse.ArgumentParser) -> None:
+    """Where a subcommand that reads transcripts off disk looks for them."""
     subcommand.add_argument(
         "--projects-root",
         type=Path,
@@ -471,11 +561,11 @@ def _key_value(text: str) -> tuple[str, str]:
 SUBCOMMANDS: dict[str, Subcommand] = {
     "sessions": Subcommand(
         help="List the sessions recorded for a project",
-        arguments=_add_discovery_arguments,
+        arguments=_sessions_arguments,
         run=_sessions,
     ),
     "extract": Subcommand(
-        help="Extract a project's sessions into DuckDB",
+        help="Extract projects' sessions into DuckDB",
         arguments=_extract_arguments,
         run=_extract,
     ),

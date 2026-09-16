@@ -64,10 +64,18 @@ uv run hp sessions ~/repos/mycelia
 Extract transcripts into [the trace store](docs/store.md), which is one file at `~/.hyphae/traces.duckdb` shared by every checkout:
 
 ```bash
-uv run hp extract ~/repos/mycelia
+uv run hp extract
 ```
 
-`--help` prints the path it resolved to. Pass `--db` to write elsewhere, or set `HP_DB` to move every command's default. Later runs replace all rows for each changed session and skip unchanged sessions.
+The bare command opens a picker over every project Claude Code has recorded: one row per repository, its worktrees folded in, sorted by recent activity and pre-checked with last time's choice. Confirming writes the choice to `settings.json` beside the store, the settings file [the store guide](docs/store.md) describes, and `hp extract --last-picked` reruns that choice without the prompt. `hp extract --all-projects` takes every recorded project, scratch checkouts included. Typed paths still work, and take several:
+
+```bash
+uv run hp extract ~/repos/mycelia ~/repos/hyphae
+```
+
+Only the picker writes the memory. A path typed for one run, or `--all-projects`, leaves the last pick as it was, so a one-off extract cannot retarget the `--last-picked` a cron job runs.
+
+`--help` prints the store path it resolved to. Pass `--db` to write elsewhere, or set `HP_DB` to move every command's default. Later runs replace all rows for each changed session and skip unchanged sessions.
 
 Run a saved query:
 

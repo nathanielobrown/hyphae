@@ -8,6 +8,8 @@ Every `hp` command that takes `--db` reads or writes `~/.hyphae/traces.duckdb`. 
 
 Two things move it: `HP_DB` names another store for every command in that environment, and `--db` names one for a single command.
 
+`~/.hyphae` holds one other file: `settings.json`, the settings file — what `hp` remembers for a person between runs, one JSON object namespaced by command (`src/hyphae/user_settings.py`). Today it holds what the last bare `hp extract` picked, and only the picker writes it. A preference is the person's rather than the archive's, so it sits beside the store and not in it, and neither `HP_DB` nor `--db` moves it.
+
 A store an earlier build left in a checkout stays where it is. Nothing copies or moves `data/traces.duckdb`, and `--db data/traces.duckdb` opens it as before. Point `HP_DB` at it, or extract into the new store and let the sessions still on disk land there — [comparing session IDs](#compare-session-ids-before-deleting-an-old-store) is what says whether the old file holds anything the new one has never seen.
 
 ## The store holds traces and derived data
@@ -62,7 +64,7 @@ DuckDB admits one writer and offers no lock timeout of its own, so every open th
 
 `hp extract` holds the file only while it writes. It prepares the store and lets go, reads its fingerprints read-only, and takes the write lock for one transaction per session — so the parse between sessions costs no lock at all, and [the viewer](viewer.md) answers pages throughout a long extract. Those per-session writes skip the view rebuild the opener does, which costs about 60 ms against 5 ms for the write itself on a store grown from the fixture corpus to 9.5 GB (measured 2026-08-30); the store the extract prepared already holds them.
 
-A session the parser refuses costs only itself. Each session is one transaction, so the refused one rolls back and every other session of the project still lands; `hp extract` then names what it could not read, with the reason the parser gave, and exits nonzero. A record kind no registry names is not one of these — it is archived verbatim and reported under the summary ([schema](schema.md)).
+A session the parser refuses costs only itself. Each session is one transaction, so the refused one rolls back and every other session of the run still lands; `hp extract` prints each project directory's summary, then names what it could not read, with the reason the parser gave, and exits nonzero. A record kind no registry names is not one of these — it is archived verbatim and reported under the summary ([schema](schema.md)).
 
 `hp enrich` and `hp export-otlp` are the other way round: each holds one connection for its whole run. They queue for the store like anything else, and while one runs nothing else reaches the file at all — DuckDB's lock shuts out readers as well as writers, so [the viewer](viewer.md) answers 503 until the pass ends. Price a long pass accordingly.
 

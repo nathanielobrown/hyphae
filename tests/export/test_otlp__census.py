@@ -98,7 +98,8 @@ def counted(exportable_db: Path, tmp_path: Path) -> Iterator[duckdb.DuckDBPyConn
 def census_pass(connection: duckdb.DuckDBPyConnection) -> tuple[OtlpCensus, RefreshResult]:
     """One dry run over the store's sessions, driven the way the command drives it."""
     counting = OtlpCensus(DeliveryLedger(connection, backend=GENERIC), text=METADATA_ONLY)
-    return counting, refresh(Path(MYCELIA), extractor=StoreSource(connection), exporter=counting)
+    source = StoreSource(connection)
+    return counting, refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=counting)
 
 
 def test_the_census_counts_what_the_mapper_would_ship(

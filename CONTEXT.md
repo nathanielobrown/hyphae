@@ -12,6 +12,8 @@ What one session recorded. Entities: `src/hyphae/model.py`; relationships: `docs
 
 - **Session** — one recorded Claude Code session: the main transcript plus everything its subagents wrote
 - **Project** — the absolute, symlink-free working directory a session ran in
+- **Project directory** — one directory under `~/.claude/projects`, named by Claude Code's lossy encoding of the working directory its sessions ran in; the unit an extract refreshes, and the name the settings file remembers (`docs/session-layout.md`)
+- **Base project** — the repository a recorded working directory extends: the path above a `worktrees/<name>` segment, then what git says where the path is still on disk; the picker folds project directories that share one (`src/hyphae/extract/grouping.py`)
 - **Thread** — one stream of records within a session: `main` or an agent run's id; the store column is `source`
 - **Transcript** — the JSONL file Claude Code wrote for one thread
 - **Turn** — one prompt and all the work it drove, until the next prompt
@@ -32,6 +34,8 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `doc
 - **Exporter** — writes the model to a sink; the store and OTLP are sinks
 - **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache
 - **Fingerprint** — changes when any of a session's files do; the only thing deciding re-extraction
+- **Picker** — the multi-select a bare `hp extract` opens: one row per base project, sorted by recent activity, pre-checked with the last pick; the only thing that writes the settings file (`src/hyphae/extract/picker.py`)
+- **Settings file** — `settings.json` beside the store in `~/.hyphae`: what `hp` remembers for a person between runs, one JSON object namespaced by command; a preference rather than archive, so `--db` never moves it (`docs/store.md`)
 - **Tag** — a `KEY=VALUE` pair the caller stamps on an extract, saying what the run was for; a property of the extraction, so a re-extract replaces the set (`docs/store.md`)
 - **Price table** — what each model charges per million tokens and the window it answers in; one table, `src/hyphae/extract/pricing.py:MODELS`, read by the extract, the viewer, the analyze macros and the `hp enrich` quote
 - **Corpus** — the rows minus every replayed copy: the basis for any cross-session count

@@ -23,7 +23,6 @@ from typing import NamedTuple
 
 from hyphae.extract.errors import SessionLayoutError
 from hyphae.model import OffloadFile
-from hyphae.projects import encode_project_path
 
 # Where Claude Code keeps transcripts. The tree is shared across accounts —
 # ~/.claude-black/projects is a symlink to this one — so a transcript's path says
@@ -94,21 +93,33 @@ class SessionFiles:
         return [self.transcript, *walked]
 
 
-def find_sessions(
-    project: Path, *, projects_root: Path = DEFAULT_PROJECTS_ROOT
-) -> list[SessionFiles]:
-    """Every session recorded for `project`, sorted by session id.
+def find_project_dirs(projects_root: Path) -> list[Path]:
+    """Every directory under the root holding at least one top-level transcript, by name.
 
-    Raises `FileNotFoundError` when the project has no directory under `projects_root`
-    — that means it was never opened in Claude Code, which is a typo in the path far
-    more often than it is a real empty corpus, and an empty list would hide it.
+    A directory with nothing but a session's own subdirectory is a project Claude Code has
+    pruned, not one to extract. Raises `FileNotFoundError` on a missing root: Claude Code
+    never ran here, which is not an empty corpus.
     """
-    project_dir = projects_root / encode_project_path(project)
+    if not projects_root.is_dir():
+        raise FileNotFoundError(f"No Claude Code projects root at {projects_root}")
+    return sorted(
+        directory
+        for directory in projects_root.iterdir()
+        if directory.is_dir() and any(directory.glob(f"*{TRANSCRIPT_SUFFIX}"))
+    )
+
+
+def find_sessions(project_dir: Path) -> list[SessionFiles]:
+    """Every session recorded in one project directory, sorted by session id.
+
+    The caller names the directory: `projects_root / encode_project_path(project)` for a
+    typed path (`hyphae/projects.py`), or one `find_project_dirs()` returned. Raises
+    `FileNotFoundError` when it is not a directory — a project never opened in Claude
+    Code, which is a typo in the path far more often than it is a real empty corpus, and
+    an empty list would hide it.
+    """
     if not project_dir.is_dir():
-        raise FileNotFoundError(
-            f"No Claude Code sessions for {project} — expected "
-            f"{encode_project_path(project)!r} under {projects_root}"
-        )
+        raise FileNotFoundError(f"No Claude Code sessions: {project_dir} is not a directory")
     # Non-recursive on purpose: the per-session subdirectories hold subagent runs and
     # tool results, which belong to a session rather than being one.
     return [

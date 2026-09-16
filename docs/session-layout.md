@@ -8,7 +8,7 @@ Where a Claude Code session's files sit on disk, and how the extractor joins the
 - `~/.claude/projects/<encoded-cwd>/<session-id>/` stores the session directory described below; `hyphae.extract.layout` walks this tree
 - Claude Code's OpenTelemetry export provides a thinner live schema and is enabled per machine, not per repository
 
-Claude Code forms `<encoded-cwd>` by replacing each `/` in the working directory with `-`: `~/repos/mycelia` becomes `-Users-nob-repos-mycelia`. This tree is shared across Claude accounts because `~/.claude-black/projects` is a symlink to `~/.claude/projects`. A transcript path therefore does not identify the account that wrote it.
+Claude Code forms `<encoded-cwd>` by replacing each `/` in the working directory with `-`: `~/repos/mycelia` becomes `-Users-nob-repos-mycelia`. The encoding is lossy — a `-` in a path reads the same as a `/` — so hyphae names a project directory by that directory name and reads where its sessions ran from a record's `cwd` ([schema](schema.md)). This tree is shared across Claude accounts because `~/.claude-black/projects` is a symlink to `~/.claude/projects`. A transcript path therefore does not identify the account that wrote it.
 
 ## A session directory holds transcripts, metadata, and offloaded output
 

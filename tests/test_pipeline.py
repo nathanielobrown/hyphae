@@ -13,9 +13,9 @@ import pytest
 from hyphae import cli
 from hyphae.export.duckdb import DuckDbExporter, StoreLocked
 from hyphae.extract import claude_code
-from hyphae.extract.claude_code import ClaudeCodeExtractor
+from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.model import SessionTrace
-from hyphae.pipeline import Extractor, SessionSource, refresh
+from hyphae.pipeline import Exporter, RefreshResult, refresh
 from hyphae.projects import encode_project_path
 from tests.conftest import FIXTURES, NO_WAIT, locked, opens_elsewhere, stored_rows
 from tests.export.test_duckdb__locking import BRIEF_HOLD, IMPATIENT
@@ -62,14 +62,14 @@ class Corpus:
 class CountingExtractor:
     """Wraps an extractor to record which sessions it was asked to parse."""
 
-    def __init__(self, wrapped: Extractor) -> None:
+    def __init__(self, wrapped: ClaudeCodeExtractor) -> None:
         self.wrapped = wrapped
         self.extracted: list[str] = []
 
-    def sessions(self, project: Path) -> list[SessionSource]:
+    def sessions(self, project: Path) -> list[ClaudeCodeSource]:
         return self.wrapped.sessions(project)
 
-    def extract(self, source: SessionSource) -> SessionTrace:
+    def extract(self, source: ClaudeCodeSource) -> SessionTrace:
         self.extracted.append(source.id)
         return self.wrapped.extract(source)
 
@@ -82,36 +82,33 @@ class ProbingExtractor:
     (`tests/conftest.opens_elsewhere`).
     """
 
-    def __init__(self, wrapped: Extractor, db: Path) -> None:
+    def __init__(self, wrapped: ClaudeCodeExtractor, db: Path) -> None:
         self.wrapped = wrapped
         self.db = db
         self.readable: list[bool] = []
 
-    def sessions(self, project: Path) -> list[SessionSource]:
+    def sessions(self, project: Path) -> list[ClaudeCodeSource]:
         return self.wrapped.sessions(project)
 
-    def extract(self, source: SessionSource) -> SessionTrace:
+    def extract(self, source: ClaudeCodeSource) -> SessionTrace:
         self.readable.append(self.db.exists() and opens_elsewhere(self.db, read_only=True))
         return self.wrapped.extract(source)
 
 
-class FailingFirst:
-    """Wraps an extractor to hand the loop one named session ahead of the others.
+class CountingExporter:
+    """Wraps an exporter to record which of its two methods the loop called, in order."""
 
-    Discovery sorts by session id, which decides nothing about a refresh — but what the loop
-    owes its caller is the sessions *after* one that failed, so the failing session has to be
-    the one it meets first.
-    """
-
-    def __init__(self, wrapped: Extractor, first: str) -> None:
+    def __init__(self, wrapped: Exporter) -> None:
         self.wrapped = wrapped
-        self.first = first
+        self.calls: list[str] = []
 
-    def sessions(self, project: Path) -> list[SessionSource]:
-        return sorted(self.wrapped.sessions(project), key=lambda source: source.id != self.first)
+    def fingerprints(self) -> dict[str, str]:
+        self.calls.append("fingerprints")
+        return self.wrapped.fingerprints()
 
-    def extract(self, source: SessionSource) -> SessionTrace:
-        return self.wrapped.extract(source)
+    def export(self, trace: SessionTrace, fingerprint: str) -> None:
+        self.calls.append("export")
+        self.wrapped.export(trace, fingerprint)
 
 
 @pytest.fixture
@@ -140,7 +137,7 @@ def test_a_refresh_ingests_every_session_it_finds(corpus: Corpus, exporter: Duck
     corpus.add("dup_uuid", DUPS)
     extractor = corpus.extractor()
 
-    result = refresh(corpus.project, extractor=extractor, exporter=exporter)
+    result = refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then both are extracted, and each table holds what `extract()` produced for them.
     assert sorted(result.extracted) == sorted([DUPS, SPINE])
@@ -168,7 +165,8 @@ def test_a_tag_reaches_every_session_a_refresh_extracted_and_no_other(
     # If two sessions are extracted under one pair...
     corpus.add("spine", SPINE)
     corpus.add("dup_uuid", DUPS)
-    refresh(corpus.project, extractor=corpus.extractor(batch_id="b1"), exporter=exporter)
+    first = corpus.extractor(batch_id="b1")
+    refresh(first.sessions(corpus.project), extractor=first, exporter=exporter)
 
     # ...then every session that refresh wrote carries it...
     assert stored_rows(exporter.path, "SELECT session_id, key, value FROM session_tags") == sorted(
@@ -177,7 +175,8 @@ def test_a_tag_reaches_every_session_a_refresh_extracted_and_no_other(
 
     # ...and a second refresh under a different pair re-tags only what it re-extracted, which
     # over untouched files is nothing at all.
-    result = refresh(corpus.project, extractor=corpus.extractor(batch_id="b2"), exporter=exporter)
+    second = corpus.extractor(batch_id="b2")
+    result = refresh(second.sessions(corpus.project), extractor=second, exporter=exporter)
     assert result.extracted == []
     assert stored_rows(exporter.path, "SELECT DISTINCT value FROM session_tags") == [("b1",)]
 
@@ -190,11 +189,11 @@ def test_an_unchanged_corpus_is_not_re_extracted(corpus: Corpus, exporter: DuckD
     """
     corpus.add("spine", SPINE)
     extractor = CountingExtractor(corpus.extractor())
-    refresh(corpus.project, extractor=extractor, exporter=exporter)
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
     stamped = stored_rows(exporter.path, "SELECT extracted_at FROM extract_state")
 
     # If nothing on disk changed...
-    result = refresh(corpus.project, extractor=extractor, exporter=exporter)
+    result = refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then the session is skipped, `extract()` ran only on the first pass, and even the
     # row saying when it ran is untouched.
@@ -215,17 +214,17 @@ def test_a_grown_session_is_replaced_rather_than_appended(
     # If a session was extracted while it was still short...
     corpus.add("spine", SPINE, lines=23)
     extractor = corpus.extractor()
-    refresh(corpus.project, extractor=extractor, exporter=exporter)
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
     # Three turns of its own, plus the two its subagent's transcript holds.
     assert len(table(exporter, "turns", SPINE)) == 5
 
     # ...and then it resumed, growing by thirteen more records...
     corpus.add("spine", SPINE)
-    refresh(corpus.project, extractor=extractor, exporter=exporter)
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then the store matches one built from scratch over the grown file, table for table.
     fresh = DuckDbExporter(tmp_path / "fresh.duckdb", wait=NO_WAIT)
-    refresh(corpus.project, extractor=extractor, exporter=fresh)
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=fresh)
     for name in ("sessions", "turns", "api_calls", "raw_records"):
         assert table(exporter, name, SPINE) == table(fresh, name, SPINE)
     assert len(table(exporter, "turns", SPINE)) == 6
@@ -245,7 +244,7 @@ def test_a_session_caught_mid_write_heals_on_the_next_refresh(
     whole = (FIXTURES / "spine" / f"{SPINE}.jsonl").read_text().split("\n")
     transcript.write_text(transcript.read_text() + whole[22][:60])
     extractor = corpus.extractor()
-    refresh(corpus.project, extractor=extractor, exporter=exporter)
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then the records before it are stored and the half one is not...
     def archived() -> int:
@@ -260,7 +259,9 @@ def test_a_session_caught_mid_write_heals_on_the_next_refresh(
 
     # ...and once Claude Code has finished the line, the next refresh takes the session whole.
     corpus.add("spine", SPINE)
-    assert refresh(corpus.project, extractor=extractor, exporter=exporter).extracted == [SPINE]
+    assert refresh(
+        extractor.sessions(corpus.project), extractor=extractor, exporter=exporter
+    ).extracted == [SPINE]
     assert archived() == 42
 
 
@@ -272,12 +273,15 @@ def test_a_session_the_parser_refuses_costs_only_itself(corpus: Corpus, exporter
     and rolls back on its own, so there is nothing to undo — the loop just keeps going and
     hands the caller what it could not do.
     """
-    # If a project holds a session the parser refuses, and it is the first one the loop meets...
+    # If a project holds a session the parser refuses, and it is the first one the loop meets —
+    # discovery sorts by id, which decides nothing about a refresh, but what the loop owes its
+    # caller is the sessions *after* one that failed...
     corpus.add("invented", BAD)
     corpus.add("spine", SPINE)
-    extractor = FailingFirst(corpus.extractor(), BAD)
+    extractor = corpus.extractor()
+    sources = sorted(extractor.sessions(corpus.project), key=lambda source: source.id != BAD)
 
-    result = refresh(corpus.project, extractor=extractor, exporter=exporter)
+    result = refresh(sources, extractor=extractor, exporter=exporter)
 
     # ...then the sessions after it are extracted as usual...
     assert result.extracted == [SPINE]
@@ -289,6 +293,18 @@ def test_a_session_the_parser_refuses_costs_only_itself(corpus: Corpus, exporter
     assert table(exporter, "raw_records", BAD) == []
 
 
+def test_a_refresh_over_no_sources_reads_the_sink_and_writes_nothing(
+    corpus: Corpus, exporter: DuckDbExporter
+):
+    """Handed nothing to refresh, the loop asks the sink what it holds and stops there."""
+    counting = CountingExporter(exporter)
+
+    result = refresh([], extractor=corpus.extractor(), exporter=counting)
+
+    assert result == RefreshResult(extracted=[], skipped=[], failed=[])
+    assert counting.calls == ["fingerprints"]
+
+
 def test_a_new_subagent_file_re_extracts_its_session(corpus: Corpus, exporter: DuckDbExporter):
     """A session whose subagent wrote a transcript is stale, though its own file never changed.
 
@@ -298,7 +314,7 @@ def test_a_new_subagent_file_re_extracts_its_session(corpus: Corpus, exporter: D
     """
     transcript = corpus.add("spine", SPINE)
     extractor = CountingExtractor(corpus.extractor())
-    refresh(corpus.project, extractor=extractor, exporter=exporter)
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
     before = exporter.fingerprints()
     unchanged = (transcript.stat().st_size, transcript.stat().st_mtime_ns)
 
@@ -312,7 +328,7 @@ def test_a_new_subagent_file_re_extracts_its_session(corpus: Corpus, exporter: D
         subagents / "agent-af6473ae437c9608d.meta.json",
         subagents / "agent-a1d0bc50fe316ed8e.meta.json",
     )
-    result = refresh(corpus.project, extractor=extractor, exporter=exporter)
+    result = refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then the session is re-extracted under a new fingerprint...
     assert (transcript.stat().st_size, transcript.stat().st_mtime_ns) == unchanged
@@ -325,12 +341,12 @@ def test_a_changed_offload_file_re_extracts_its_session(corpus: Corpus, exporter
     """Rewriting an offloaded tool result re-extracts the session and re-archives the file."""
     corpus.add("offload", OFFLOAD)
     extractor = CountingExtractor(corpus.extractor())
-    refresh(corpus.project, extractor=extractor, exporter=exporter)
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
     offloaded = corpus.session_dir / OFFLOAD / "tool-results" / "bosvr1kjx.txt"
 
     # If the file holding a tool's output changes while the transcript stands still...
     offloaded.write_text("[redacted] — a shorter output than before")
-    result = refresh(corpus.project, extractor=extractor, exporter=exporter)
+    result = refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then the session is parsed again, and the store holds the file as it now reads.
     assert result.extracted == [OFFLOAD]
@@ -346,12 +362,12 @@ def test_a_bumped_extractor_version_re_extracts_everything(
     corpus.add("spine", SPINE)
     corpus.add("dup_uuid", DUPS)
     extractor = CountingExtractor(corpus.extractor())
-    refresh(corpus.project, extractor=extractor, exporter=exporter)
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
     before = exporter.fingerprints()
 
     # If the extractor's version changes with the files untouched...
     monkeypatch.setattr(claude_code, "EXTRACTOR_VERSION", "99")
-    result = refresh(corpus.project, extractor=extractor, exporter=exporter)
+    result = refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then every session is parsed again and every fingerprint moves.
     assert sorted(result.extracted) == sorted([DUPS, SPINE])
@@ -369,12 +385,12 @@ def test_a_pruned_session_keeps_its_rows(corpus: Corpus, exporter: DuckDbExporte
     corpus.add("spine", SPINE)
     transcript = corpus.add("dup_uuid", DUPS)
     extractor = corpus.extractor()
-    refresh(corpus.project, extractor=extractor, exporter=exporter)
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
     before = table(exporter, "raw_records", DUPS)
 
     # If one session's transcript is pruned from disk...
     transcript.unlink()
-    result = refresh(corpus.project, extractor=extractor, exporter=exporter)
+    result = refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then discovery no longer sees it, and its rows survive untouched.
     assert [source.id for source in extractor.sessions(corpus.project)] == [SPINE]
@@ -398,7 +414,7 @@ def test_an_extract_leaves_the_store_readable_between_sessions(
     corpus.add("dup_uuid", DUPS)
     extractor = ProbingExtractor(corpus.extractor(), exporter.path)
 
-    result = refresh(corpus.project, extractor=extractor, exporter=exporter)
+    result = refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then the answer is yes both times, and both sessions still land.
     assert sorted(result.extracted) == sorted([DUPS, SPINE])
@@ -410,7 +426,8 @@ def test_the_cli_extract_command_writes_the_same_store(corpus: Corpus, tmp_path:
     corpus.add("spine", SPINE)
     through_api = tmp_path / "api.duckdb"
     exporter = DuckDbExporter(through_api, wait=NO_WAIT)
-    refresh(corpus.project, extractor=corpus.extractor(), exporter=exporter)
+    extractor = corpus.extractor()
+    refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
     expected = table(exporter, "turns", SPINE)
 
     # If the CLI runs over the same corpus...
@@ -501,3 +518,13 @@ def test_a_session_source_carries_every_file_it_owns(corpus: Corpus):
     # An offloaded tool result is part of the session, so it reaches the fingerprint and,
     # from slice 2 on, the parser.
     assert offloaded in source.files.files()
+
+
+def test_a_typed_project_path_discovers_the_same_sources_as_its_directory(corpus: Corpus):
+    """`sessions(project)` is `sessions_in()` over the directory the path encodes to."""
+    corpus.add("spine", SPINE)
+    extractor = corpus.extractor()
+
+    # The two lists agree whole, fingerprints included.
+    assert extractor.sessions(corpus.project) == extractor.sessions_in(corpus.session_dir)
+    assert [source.id for source in extractor.sessions_in(corpus.session_dir)] == [SPINE]

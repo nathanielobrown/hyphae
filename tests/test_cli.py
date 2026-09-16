@@ -13,14 +13,14 @@ from typing import Any
 
 import pytest
 
-from hyphae import cli, settings
+from hyphae import cli
 from hyphae.enrich.client import DEFAULT_CONCURRENCY, DEFAULT_MODEL
 from hyphae.export.otlp import DEFAULT_MAX_CHARS
 from hyphae.export.otlp_delivery import DEFAULT_RATE, GENERIC
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT
 from hyphae.projects import encode_project_path
 from hyphae.view.app import PORT
-from tests.conftest import FIXTURES, PINNED_DB, SPINE, stored_rows
+from tests.conftest import PINNED_DB
 from tests.extract.test_layout import make_projects_root
 
 PROJECT = Path("repos/mycelia")
@@ -68,7 +68,14 @@ SURFACES: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
     ),
     "extract": (
         (str(PROJECT),),
-        {"project": PROJECT, "projects_root": DEFAULT_PROJECTS_ROOT, "db": PINNED_DB, "tag": []},
+        {
+            "project": [PROJECT],
+            "all_projects": False,
+            "last_picked": False,
+            "projects_root": DEFAULT_PROJECTS_ROOT,
+            "db": PINNED_DB,
+            "tag": [],
+        },
     ),
     "enrich": (
         (),
@@ -296,135 +303,3 @@ def test_the_viewer_opens_a_browser_unless_the_run_says_not_to(
         (PINNED_DB, PORT, False, False),
         (PINNED_DB, PORT, True, True),
     ]
-
-
-def extracted(
-    tmp_path: Path,
-    fixtures: list[str],
-    capsys: pytest.CaptureFixture[str],
-    strict: bool,
-    *tags: str,
-) -> list[str]:
-    """Run `hp extract` over one project of fixture transcripts, and hand back what it printed.
-
-    `strict` is what a test run has and an extract does not: the extractor reads it once, at
-    construction, so setting it here is setting it for the run. Each of `tags` is one
-    `--tag KEY=VALUE` argument, spelled the way a caller types it.
-    """
-    project = Path("/Users/nob/repos/mycelia")
-    root = make_projects_root(tmp_path, project, fixtures)
-    for fixture in fixtures:
-        source = next(FIXTURES.rglob(f"{fixture}.jsonl"))
-        (root / encode_project_path(project) / f"{fixture}.jsonl").write_text(source.read_text())
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(settings, "UNIT_TESTING", strict)
-        cli.main(
-            "extract",
-            str(project),
-            "--projects-root",
-            str(root),
-            "--db",
-            str(tmp_path / "traces.duckdb"),
-            *[argument for tag in tags for argument in ("--tag", tag)],
-        )
-    return capsys.readouterr().out.splitlines()
-
-
-def test_the_tags_typed_at_the_flag_reach_the_store(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """`hp extract --tag` stamps its pairs on every session that extract wrote.
-
-    The one leaf that runs the whole path — argparse, the extractor, the exporter — so a flag
-    parsed into a namespace nothing reads fails here rather than passing every unit above.
-    The pairs are invented, and honestly so: a tag is the caller's word about a run, and no
-    transcript records one.
-    """
-    # If an extract is given two tags, one of whose values carries its own `=`...
-    extracted(tmp_path, [SPINE], capsys, True, "batch_id=b1", "note=a=b")
-
-    # ...then the store holds a row per pair, under the session that extract wrote.
-    assert stored_rows(
-        tmp_path / "traces.duckdb", "SELECT session_id, key, value FROM session_tags ORDER BY key"
-    ) == [(SPINE, "batch_id", "b1"), (SPINE, "note", "a=b")]
-
-
-def test_an_extract_prints_the_fields_no_model_declares_under_its_summary(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """An extract tallies an undeclared field and keeps going; the suite is what crashes.
-
-    A field Claude Code added yesterday is news, and the archive kept the record either way.
-    The tally is how a person finds out, so it has to reach the terminal — one line per path,
-    with where it was first seen — and it has to say nothing about what the field held.
-    """
-    # If an extract meets a record carrying a field no model declares, in an extract's own
-    # lax mode...
-    printed = extracted(tmp_path, ["invented-unknown-field"], capsys, strict=False)
-
-    # ...then the session is extracted, and the tally follows the summary rather than
-    # replacing it.
-    assert printed[0] == "1 session(s) extracted, 0 unchanged"
-    assert printed[1] == "Fields no model declares:"
-    assert printed[2].startswith("assistant.shimmerBudget: first in session")
-    # And the value the field held is transcript content, which never leaves the store.
-    assert "SUPER-SECRET-PAYLOAD-9f2a" not in "\n".join(printed)
-    # The run returned rather than exiting: `cli.main` raising `SystemExit` here would fail this
-    # leaf, which is where the design's rejection of an exit-code flag is written down.
-
-
-def test_an_extract_prints_the_record_kinds_no_registry_names(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """An extract archives a record kind nobody has read, reports it, and still succeeds.
-
-    The other half of the tally: a kind Claude Code added yesterday is news too, and the
-    record went into the archive whole, so there is nothing for an operator to do but read
-    the line. Its own header, because a kind and a field are two different pieces of work.
-    """
-    # If an extract meets a record whose type no registry names, in an extract's own lax mode...
-    printed = extracted(tmp_path, ["invented-unknown-type"], capsys, strict=False)
-
-    # ...then the session lands and the kind is reported under the summary...
-    assert printed[0] == "1 session(s) extracted, 0 unchanged"
-    assert printed[1] == "Record kinds no registry names:"
-    assert printed[2].startswith("telepathy: first in session")
-    # ...saying nothing about what the record held.
-    assert "SUPER-SECRET-PAYLOAD-9f2a" not in "\n".join(printed)
-
-
-def test_an_extract_names_the_sessions_it_could_not_read_and_fails(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A session the parser refuses leaves the others extracted, and the command exits nonzero.
-
-    The two halves an operator needs: the work that succeeded is in the store, and the run
-    does not report success when part of the corpus never arrived. The reason comes with the
-    session id, because the next step is a record model.
-    """
-    # If one session of a project cannot be parsed...
-    with pytest.raises(SystemExit) as refused:
-        extracted(tmp_path, [SPINE, "invented-wrong-field-type"], capsys, strict=False)
-
-    # ...then the summary counts what did land...
-    printed = capsys.readouterr().out.splitlines()
-    assert printed[0] == "1 session(s) extracted, 0 unchanged"
-    # ...and the failure names the session and what the parser said about it, on the way out.
-    message = str(refused.value)
-    assert "invented-wrong-field-type" in message and "AssistantRecord" in message
-    assert "SUPER-SECRET-PAYLOAD-9f2a" not in message
-
-
-def test_an_extract_that_finds_nothing_undeclared_prints_only_its_summary(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """The negative control: silence is what "the models still describe it" looks like.
-
-    Without this leaf a tally header printed unconditionally would pass the leaf above.
-    """
-    # If every field of every record is declared — a recorded fixture, under strict mode, so
-    # the run would have crashed rather than tallied...
-    printed = extracted(tmp_path, ["invented-no-cache-creation"], capsys, strict=True)
-
-    # ...then the summary is the whole output.
-    assert printed == ["1 session(s) extracted, 0 unchanged"]

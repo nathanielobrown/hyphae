@@ -1,0 +1,187 @@
+"""What `discover()` says about each project directory under a root: where its sessions ran,
+how many there are, how many are recent, and which repository it extends."""
+
+import json
+import logging
+import os
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+
+from hyphae import settings
+from hyphae.extract.discover import ProjectDir, discover
+from hyphae.projects import encode_project_path
+from tests.conftest import FIXTURES, MYCELIA, SPINE
+from tests.extract.test_layout import BENT_FIELD, REFUSED_SESSION, copy_fixture, refused_transcript
+
+# A pinned clock, so "within seven days" is a fact about the fixture's mtime and not the run's.
+NOW = datetime(2026, 9, 15, 12, tzinfo=UTC)
+MYCELIA_DIR = encode_project_path(Path(MYCELIA))
+# `invented-truncated-tail` ran under `/repo`: invented content, but the one clean transcript
+# with a `cwd` unlike every recorded fixture's.
+OTHER = "invented-truncated-tail"
+OTHER_CWD = Path("/repo")
+
+
+def days_ago(days: int) -> datetime:
+    return NOW - timedelta(days=days)
+
+
+def test_cwd_comes_from_the_first_record_carrying_one_in_the_newest_transcript(
+    tmp_path: Path,
+) -> None:
+    """A directory is labelled by where its most recently written session ran, read past the
+    bookkeeping records that open a transcript with no `cwd`."""
+    # If a directory holds `spine/` — whose first five records carry no `cwd` — beside a
+    # transcript recorded under `/repo`, and the invented one was written last...
+    root = tmp_path / "projects"
+    copy_fixture(root / MYCELIA_DIR, SPINE, written_at=days_ago(2))
+    copy_fixture(root / MYCELIA_DIR, OTHER, written_at=days_ago(1))
+    # ...then the directory reads as `/repo`, and that is its label...
+    [row] = discover(root, now=NOW)
+    assert (row.cwd, row.label) == (OTHER_CWD, str(OTHER_CWD))
+    # ...and with `spine` written last, as the mycelia checkout.
+    spine = copy_fixture(root / MYCELIA_DIR, SPINE, written_at=days_ago(0))
+    assert [row.cwd for row in discover(root, now=NOW)] == [Path(MYCELIA)]
+    # `spine/` records mycelia from line 6 and the `wk-triage` worktree over lines 25–32, so
+    # a copy cut after line 32 ends on the worktree: the first sited record still decides.
+    lines = spine.read_text().split("\n")
+    assert json.loads(lines[31])["cwd"] == f"{MYCELIA}/.claude/worktrees/wk-triage"
+    spine.write_text("\n".join(lines[:32]) + "\n")
+    os.utime(spine, (days_ago(0).timestamp(), days_ago(0).timestamp()))
+    assert [row.cwd for row in discover(root, now=NOW)] == [Path(MYCELIA)]
+
+
+def test_a_directory_whose_newest_transcript_has_no_cwd_is_labelled_by_name(
+    tmp_path: Path,
+) -> None:
+    """A fork that inherited its context carries no `cwd`; its directory keeps its name."""
+    # If the only transcript is `fork_byref/`'s main one, three records and no `cwd`...
+    root = tmp_path / "projects"
+    fork = "07a769d7-828c-4edb-b3ce-af51e2712aa3"
+    copy_fixture(root / MYCELIA_DIR, fork, written_at=days_ago(1))
+    # ...then the row has no working directory and no base, and is labelled by name.
+    [row] = discover(root, now=NOW)
+    assert row == ProjectDir(
+        name=MYCELIA_DIR,
+        directory=root / MYCELIA_DIR,
+        cwd=None,
+        base=None,
+        sessions=1,
+        recent=1,
+    )
+    assert row.label == MYCELIA_DIR
+
+
+def test_sessions_counts_top_level_transcripts_only(tmp_path: Path) -> None:
+    """A session's subagent transcripts are part of it, not sessions of their own."""
+    # If `spine/` is copied with its `subagents/` directory of two agent transcripts...
+    root = tmp_path / "projects"
+    transcript = copy_fixture(root / MYCELIA_DIR, SPINE, written_at=days_ago(1))
+    assert len(list((transcript.with_suffix("") / "subagents").glob("*.jsonl"))) == 2
+    # ...then the directory holds one session.
+    [row] = discover(root, now=NOW)
+    assert (row.sessions, row.recent) == (1, 1)
+
+
+def test_recent_counts_transcripts_written_within_seven_days(tmp_path: Path) -> None:
+    """A session written more than a week ago counts as a session, but not as recent; one
+    written exactly a week ago still is."""
+    # If four copies of one transcript were written a day ago, an hour inside the week, on the
+    # week to the second, and an hour past it (invented mtimes)...
+    root = tmp_path / "projects"
+    ages = {"day": timedelta(days=1), "inside": timedelta(days=6, hours=23)}
+    ages |= {"boundary": timedelta(days=7), "outside": timedelta(days=7, hours=1)}
+    for name, age in ages.items():
+        copy_fixture(root / MYCELIA_DIR, OTHER, written_at=NOW - age).rename(
+            root / MYCELIA_DIR / f"copy-{name}.jsonl"
+        )
+    # ...then all four are sessions and three are recent: the boundary is inclusive.
+    [row] = discover(root, now=NOW)
+    assert (row.sessions, row.recent) == (4, 3)
+
+
+def test_base_is_the_repository_the_cwd_extends(tmp_path: Path) -> None:
+    """A directory recorded in a worktree groups under the repository the worktree was cut from."""
+    # If the newest transcript's first sited record is the one `spine/` borrowed from a run in
+    # `.claude/worktrees/wk-triage` — an invented transcript of that one real record...
+    root = tmp_path / "projects"
+    worktree = f"{MYCELIA}/.claude/worktrees/wk-triage"
+    spine = next(FIXTURES.rglob(f"{SPINE}.jsonl")).read_text().split("\n")
+    borrowed = next(raw for raw in spine if json.loads(raw).get("cwd") == worktree)
+    directory = root / encode_project_path(Path(worktree))
+    directory.mkdir(parents=True)
+    (directory / "invented-worktree-session.jsonl").write_text(borrowed + "\n")
+    # ...then the row's base is the repository above the worktree.
+    [row] = discover(root, now=NOW)
+    assert (row.cwd, row.base) == (Path(worktree), Path(MYCELIA))
+
+
+def test_rows_sort_by_recent_then_sessions_then_name(tmp_path: Path) -> None:
+    """The busiest directories come first: most recent sessions, then most sessions, then name."""
+    # If four directories are laid out so that each key alone would misorder them: `d` has the
+    # most sessions but none recent, `c` and `b` tie on both counts, and `a` has one of each...
+    root = tmp_path / "projects"
+    layout = {"-d": [10, 10, 10], "-c": [1, 10], "-b": [1, 10], "-a": [1]}
+    for name, ages in layout.items():
+        for index, days in enumerate(ages):
+            copy_fixture(root / name, OTHER, written_at=days_ago(days)).rename(
+                root / name / f"copy-{index}.jsonl"
+            )
+    # ...then `c` and `b` lead on recency, `b` before `c` by name, then `a`, then `d`.
+    assert [row.name for row in discover(root, now=NOW)] == ["-b", "-c", "-a", "-d"]
+
+
+def test_a_refused_newest_transcript_yields_a_row_labelled_by_name_and_says_so(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A directory whose newest transcript the parser refuses is still a row — labelled by its
+    name, since no `cwd` was read — and the walk says which directory and why, rather than
+    stopping at one drifted transcript among hundreds of scratch directories."""
+    # If a scratch directory's only transcript is refused on its first record (an invented
+    # bend of a real record: `refused_transcript`), beside the mycelia directory's `spine/`...
+    root = tmp_path / "projects"
+    scratch = "-Users-nob-scratch"
+    refused_transcript(root / scratch, written_at=days_ago(1))
+    copy_fixture(root / MYCELIA_DIR, SPINE, written_at=days_ago(2))
+    with caplog.at_level(logging.WARNING):
+        mycelia, scratch_row = discover(root, now=NOW)
+    # ...then the scratch row has no working directory and still counts its session...
+    assert scratch_row == ProjectDir(
+        name=scratch,
+        directory=root / scratch,
+        cwd=None,
+        base=None,
+        sessions=1,
+        recent=1,
+    )
+    # ...the mycelia row is read as ever...
+    assert (mycelia.name, mycelia.cwd) == (MYCELIA_DIR, Path(MYCELIA))
+    # ...and one warning names the directory and the parser's reason, without record content.
+    assert caplog.messages == [
+        f"{scratch}: labelled by name, its newest transcript is refused: CustomTitleRecord in "
+        f"session {REFUSED_SESSION}, line 1 — {BENT_FIELD}: Input should be a valid string"
+    ]
+
+
+@pytest.mark.parametrize("strict", [True, False], ids=["test run", "extract"])
+def test_an_unknown_record_kind_stops_the_read_only_where_a_test_would(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch, strict: bool
+) -> None:
+    """Reading a transcript for its `cwd` holds the record models to the same tier the extract
+    does: a kind no registry names is a refusal under a test run and a tally in an extract."""
+    # If the newest transcript is `invented-unknown-type` — a `mode` record, then a kind no
+    # registry names, and no `cwd` anywhere — under each mode...
+    root = tmp_path / "projects"
+    copy_fixture(root / MYCELIA_DIR, "invented-unknown-type", written_at=days_ago(1))
+    monkeypatch.setattr(settings, "UNIT_TESTING", strict)
+    with caplog.at_level(logging.WARNING):
+        [row] = discover(root, now=NOW)
+    # ...then the row has no `cwd` either way, and only the strict read says why.
+    assert row.cwd is None
+    refusal = (
+        f"{MYCELIA_DIR}: labelled by name, its newest transcript is refused: "
+        "Unknown record kind `telepathy` in session invented-unknown-type, line 2"
+    )
+    assert caplog.messages == ([refusal] if strict else [])
