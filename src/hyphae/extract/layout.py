@@ -45,6 +45,9 @@ JOURNAL_NAME = "journal.jsonl"
 # The session's title, written beside the transcript that also holds it as a `custom-title`
 # record. Nothing reads the sidecar: `extract/transcript.py` takes the title from the records.
 TITLE_SIDECAR = "custom-title.json"
+# Auto-mode classifier diagnostic, not transcript records or offloaded tool output.
+# Recorded in CC 2.1.259; tests/fixtures/classifier_error/ keeps a trimmed excerpt.
+CLASSIFIER_ERROR_FILE = "auto-mode-classifier-error.txt"
 
 # The `source` a workflow journal records under, after its `wf_<id>/` directory.
 JOURNAL_SOURCE = "journal"
@@ -170,7 +173,7 @@ def classify(session: SessionFiles) -> ClassifiedFiles:
         # A workflow's definition and the script that ran it, beside the runs they drove.
         if parts[:1] == (WORKFLOWS_DIR,):
             continue
-        if parts == (TITLE_SIDECAR,):
+        if parts in ((TITLE_SIDECAR,), (CLASSIFIER_ERROR_FILE,)):
             continue
         place = _companion(parts, session.id)
         if place.agent_id is None:

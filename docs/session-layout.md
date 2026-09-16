@@ -29,6 +29,8 @@ A subagent id is often hexadecimal, but sessions can assign names such as `agent
 
 *Evidence:* `tests/fixtures/spine/`, CC 2.1.221, contains a subagent; `tests/fixtures/workflow/`, CC 2.1.207, contains a fan-out and journal; `tests/fixtures/offload/`, CC 2.1.220, contains a persisted result.
 
+Later recordings also contain `auto-mode-classifier-error.txt` at the session-directory root: a classifier diagnostic, not a transcript or offloaded tool result. The extractor recognizes this exact path but does not read it. `tests/fixtures/classifier_error/` holds a trimmed excerpt and its recording provenance.
+
 ## Subagent metadata records why the agent ran
 
 Each observed subagent transcript has a neighboring `meta.json`, and each meta has a transcript: 2,764 pairs on the recording machine, with no unpaired files (scanned 2026-08-07). Because no recording establishes how half a pair should behave, the extractor crashes if it finds one.

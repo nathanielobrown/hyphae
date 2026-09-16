@@ -219,11 +219,26 @@ def test_the_title_sidecar_is_not_a_transcript(planted_source: PlantedFactory):
     assert set(lines_by_source(trace)) == {MAIN_SOURCE}
 
 
+def test_a_classifier_error_does_not_change_the_trace(planted_source: PlantedFactory) -> None:
+    """A classifier diagnostic beside the transcript is neither records nor tool output."""
+    # The same recorded transcript extracts identically with and without the diagnostic.
+    extractor = ClaudeCodeExtractor()
+    expected = extractor.extract(planted_source("spine", SPINE, {}))
+    diagnostic = FIXTURES / "classifier_error" / "auto-mode-classifier-error.txt"
+    source = planted_source("spine", SPINE, {diagnostic.name: diagnostic.read_text()})
+
+    assert extractor.extract(source) == expected
+
+
 @pytest.mark.parametrize(
     ("planted", "message"),
     [
         # A file whose place in the session directory we cannot name at all...
         ({"subagents/notes.txt": ""}, "unknown file"),
+        # Invented paths: recognizing one root diagnostic must not admit other text files
+        # or the same basename in an unrecognized location.
+        ({"notes.txt": ""}, "unknown file"),
+        ({"subagents/auto-mode-classifier-error.txt": ""}, "unknown file"),
         # ...and one we can place, arriving without the other half of its pair.
         ({"subagents/agent-orphan.meta.json": "{}"}, "a transcript or a meta, not both"),
     ],
