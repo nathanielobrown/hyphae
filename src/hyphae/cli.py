@@ -10,8 +10,6 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from dotenv import load_dotenv
-
 from hyphae import user_settings
 from hyphae.analyze.manifest import catalog
 from hyphae.analyze.queries import REQUIRED, QueryError
@@ -408,7 +406,6 @@ def _enrich_arguments(subcommand: argparse.ArgumentParser) -> None:
 
 def _export_otlp(args: argparse.Namespace) -> None:
     """Ship every session of a project that this backend has not already confirmed."""
-    load_dotenv()
     text = TextPolicy(include=args.include_text, max_chars=args.max_chars)
     # Resolved before the store is opened: a run with nowhere to ship refuses now rather than
     # after reading a corpus. A dry run resolves nothing, because counting what a send would

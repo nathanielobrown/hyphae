@@ -15,6 +15,7 @@ included as routers — an included router arrives as one opaque object that no 
 `app.routes` can see through.
 """
 
+import importlib.util
 import os
 import socket
 import webbrowser
@@ -168,6 +169,15 @@ def serve(db_path: Path, port: int, *, open_browser: bool, dev: bool) -> None:
     `dev` adds the reload loop (`view/dev.py`) and restarts the server on a Python edit; it has
     no default because the two viewers are different things and the caller knows which it wants.
     """
+    # Checked here, in the parent, and not by importing `view.dev` in `build_app`: under
+    # `reload=True` that import runs in the worker, whose death the supervisor treats as
+    # "wait for the next save" — a traceback and a process that never exits, from a tool
+    # install that has no dev group to import.
+    if dev and importlib.util.find_spec("watchfiles") is None:
+        raise SystemExit(
+            "hp view --dev needs the dev group, which an installed hp does not carry: run "
+            "`uv run hp view --dev` from a checkout after `mise run sync`"
+        )
     claim(port, "Pass --port to use another.")
     url = f"http://{HOST}:{port}/"
     print(f"hp view: {db_path} at {url}")  # noqa: T201 — the URL the person needs

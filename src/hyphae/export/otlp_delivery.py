@@ -150,9 +150,7 @@ def named_backend(name: str, environ: Mapping[str, str]) -> Backend:
     spec = BACKENDS[name]
     key = environ.get(spec.key_env, "").strip()
     if not key:
-        raise ConfigurationError(
-            f"{spec.key_env} is unset or empty. Put it in .env or the environment"
-        )
+        raise ConfigurationError(f"{spec.key_env} is unset or empty. Set it in the environment")
     return Backend(
         name=name,
         endpoint=environ.get(ENDPOINT_ENV, "").strip() or spec.endpoint,
@@ -168,9 +166,7 @@ def generic_backend(environ: Mapping[str, str]) -> Backend:
     """
     endpoint = environ.get(ENDPOINT_ENV, "").strip()
     if not endpoint:
-        raise ConfigurationError(
-            f"{ENDPOINT_ENV} is unset or empty. Put it in .env or the environment"
-        )
+        raise ConfigurationError(f"{ENDPOINT_ENV} is unset or empty. Set it in the environment")
     return Backend(name=GENERIC, endpoint=endpoint, headers=_headers(environ.get(HEADERS_ENV, "")))
 
 

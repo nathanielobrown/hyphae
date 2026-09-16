@@ -36,7 +36,7 @@ Named backends and their key variables live in `BACKENDS` in `src/hyphae/export/
 hp export-otlp /path/to/repo --backend honeycomb
 ```
 
-Keys come from `.env` or the environment. The command validates the endpoint and required key before opening the store, and it never prints keys. `OTLP_ENDPOINT` overrides the endpoint of a named backend, which lets you put a collector in front of it.
+Keys come from the environment alone: `HONEYCOMB_API_KEY` or `LOGFIRE_API_KEY` for a named backend, `OTLP_ENDPOINT` and `OTLP_HEADERS` for a generic one. No file is read, so an installed `hp` and a checkout's behave the same wherever they run. The command validates the endpoint and required key before opening the store, refuses naming the variable to set, and never prints keys. `OTLP_ENDPOINT` overrides the endpoint of a named backend, which lets you put a collector in front of it.
 
 The backend name also identifies its delivery ledger. Sending the same sessions to two named backends creates separate delivery records. All generic endpoints share the `generic` identity, so changing `OTLP_ENDPOINT` alone does not make a session eligible to send again.
 

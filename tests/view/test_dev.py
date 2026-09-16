@@ -17,6 +17,7 @@ that shape against what the invented ones assume.
 """
 
 import asyncio
+import importlib.util
 import inspect
 import signal
 import socket
@@ -29,13 +30,14 @@ from typing import Any, NamedTuple
 
 import httpx
 import pytest
+import uvicorn
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from watchfiles import Change, awatch
 
 import hyphae.view
-from hyphae.view.app import CSP, HOST, STATIC, build_app, claim
+from hyphae.view.app import CSP, HOST, STATIC, build_app, claim, serve
 from hyphae.view.dev import RELOAD_URL, RENDERED, Event, Rendered, event_for, reload_router
 from tests.view.scenarios import SCENARIOS, SERVED_ROUTES
 
@@ -297,6 +299,47 @@ def test_dev_mode_without_the_watcher_installed_refuses_to_start(
         build_app(corpus_db, dev=True)
     # The shipped viewer is untouched by the absence.
     assert build_app(corpus_db) is not None
+
+
+def test_dev_mode_in_an_installed_hp_refuses_before_serving(
+    corpus_db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`hp view --dev` from a tool install, which carries no dev group, exits with a line
+    naming the group and the checkout remedy — rather than a worker traceback and a reload
+    supervisor waiting forever for a save.
+
+    The check has to run in the parent: `build_app`'s own `ImportError` (the leaf above)
+    fires in the reload worker, whose death the supervisor reads as "wait for the next edit".
+    """
+    # If `watchfiles` is not to be had — asked the way `serve` asks, rather than hidden from
+    # an import, since the parent never imports it...
+    real = importlib.util.find_spec
+
+    def absent(name: str, package: str | None = None) -> Any:
+        return None if name == "watchfiles" else real(name, package)
+
+    monkeypatch.setattr(importlib.util, "find_spec", absent)
+
+    # ...and reaching uvicorn at all is recorded as a raise...
+    class Reached(Exception):
+        pass
+
+    def reached(*_: Any, **__: Any) -> None:
+        raise Reached
+
+    monkeypatch.setattr(uvicorn, "run", reached)
+    # ...and the port is one something else already holds, so a refusal about the port would
+    # mean the guard came after the bind...
+    with socket.socket() as held:
+        held.bind((HOST, 0))
+        port = held.getsockname()[1]
+        # ...then a dev viewer stops on the one line, naming the remedy, before it claims the
+        # port or launches anything...
+        with pytest.raises(SystemExit, match=r"dev group.*uv run hp view --dev"):
+            serve(corpus_db, port, open_browser=False, dev=True)
+    # ...and the shipped viewer never consults the guard: it reaches uvicorn as before.
+    with pytest.raises(Reached):
+        serve(corpus_db, _free_port(), open_browser=False, dev=False)
 
 
 # Runs a real uvicorn in a child and interrupts it: seconds of wall clock, and the only place

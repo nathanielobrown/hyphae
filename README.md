@@ -1,104 +1,82 @@
 # hyphae 🍄
 
-hyphae turns AI coding-agent sessions into queryable telemetry and evidence-backed findings. Use it to see where agents spend time, tokens, and money, which guidance they ignore, and which tools trip them up.
-
-The goal is to enable continuous improvement of repository setup and/or coding agent configuration to improve coding agent performance.
-
-The first extractor supports **Claude Code**.
-
-## Status
-
-The project is early, but the Claude Code pipeline runs end to end. It extracts transcripts into a local DuckDB trace store and adds model-written descriptions of each run, turn, and session. A local viewer serves the store in a browser, and an exporter sends it to any OTLP backend. Reports from completed analysis runs live under `reports/`; [the report guide](reports/README.md) explains how to read them and write the next one.
-
-hyphae does not yet import Claude Code's native OpenTelemetry spans. All current metrics come from transcripts.
-
-## How data moves
+hyphae turns AI coding-agent sessions into queryable telemetry and evidence-backed findings: where an agent spent time, tokens and money, which guidance it ignored, and which tools tripped it up. Use those findings to improve a repository's setup and the agent's configuration. Claude Code is the first agent it reads.
 
 ```mermaid
 flowchart LR
-    transcripts[/"Claude Code transcripts"/] --> extract["extract"]
-    extract --> store[("traces.duckdb")]
-    store --> enrich["enrich"]
-    enrich -->|"one call per item"| claude_cli["claude -p"]
-    enrich -->|"descriptions"| store
-    store --> analyze["query and read"]
-    analyze --> reports[/"reports/"/]
-    store --> view["view"]
-    view --> browser[/"browser"/]
-    store --> export_otlp["export-otlp"]
-    export_otlp --> backend[("OTLP backend")]
+    transcripts[/"Claude Code transcripts"/] --> extract["hp extract"]
+    extract --> store[("~/.hyphae/traces.duckdb")]
+    store --> view["hp view"] --> browser[/"browser"/]
+    store --> query["hp query"] --> reports[/"reports/"/]
+    store --> enrich["hp enrich"] -->|"descriptions"| store
+    store --> export_otlp["hp export-otlp"] --> backend[("OTLP backend")]
 ```
 
-Read the guide for each stage: [the store](docs/store.md), [enrichment](docs/enrichment.md), [analysis](docs/analysis.md), [the viewer](docs/viewer.md), and [OTLP export](docs/otlp-export.md). Working on the viewer's own pages has [a guide of its own](docs/ui-development.md).
+Each stage has a guide: [the store](docs/store.md), [the viewer](docs/viewer.md), [analysis](docs/analysis.md), [enrichment](docs/enrichment.md), and [OTLP export](docs/otlp-export.md). Completed passes live under `reports/`; [the report guide](reports/README.md) covers how to read one and write the next.
 
-## Set up the project
+## Quickstart
+
+### Install `hp`
+
+hyphae needs [uv](https://docs.astral.sh/uv/) and Python 3.13 or newer. uv fetches Python if you don't have it:
 
 ```bash
-mise run setup    # install the environment from uv.lock and the pre-commit hook
+uv tool install git+https://github.com/nathanielobrown/hyphae
+hp --help
+```
+
+### Find a project's sessions
+
+Claude Code writes each session as JSON Lines under `~/.claude/projects/`, one file for the main transcript and one per subagent. `hp sessions` lists what hyphae finds for a project, subagents included:
+
+```bash
+hp sessions ~/repos/mycelia
+```
+
+[The session layout guide](docs/session-layout.md) covers where those files sit and how they join up. [The schema guide](docs/schema.md) explains what each field means and which recording proved it. Check them instead of memory: Claude Code changes its transcript shapes without notice.
+
+### Extract them
+
+```bash
+hp extract                    # pick from every project Claude Code has recorded
+hp extract ~/repos/mycelia    # or name one or more
+```
+
+This writes [the trace store](docs/store.md), one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout. Run it again after more sessions; it replaces the rows for each changed session and skips the rest.
+
+The bare command opens a picker over every recorded project, worktrees folded in and last time's choice pre-checked. Confirming writes the choice to `settings.json` beside the store, and `hp extract --last-picked` reruns it without the prompt; `hp extract --all-projects` takes every recorded project, scratch checkouts included. Only the picker writes that memory, so a typed path or `--all-projects` never retargets the `--last-picked` a cron job runs.
+
+### Read the store
+
+```bash
+hp view                                             # every session, turn, run and call as a page
+hp query --list                                     # the saved queries and the parameters each needs
+hp query session_counts --project ~/repos/mycelia   # one of them, with its citation line
+```
+
+`hp view` opens the store in your browser ([the viewer guide](docs/viewer.md)). `hp query` runs a query from the library in `src/hyphae/analyze/queries/` and prints the citation every finding must carry. Follow [the analysis guide](docs/analysis.md) to turn queries into a report.
+
+### Describe and export
+
+`hp enrich` has a model write a description, category and outcome for every run, turn and session. It runs the `claude` CLI, so log in there first. Start with `--dry-run` to see what a pass would send and cost ([the enrichment guide](docs/enrichment.md)).
+
+`hp export-otlp` ships the store to an OTLP backend as spans. The key comes from the named backend's environment variable ([the OTLP export guide](docs/otlp-export.md)).
+
+## Work on hyphae
+
+```bash
+git clone git@github.com:nathanielobrown/hyphae.git
+cd hyphae
+mise run setup    # the environment from uv.lock, and the pre-commit hook
 mise run check    # format, lint, type-check, lint the docs, and test
 ```
 
-Every project task lives in `mise.toml`. Use `mise run check-fast` while you work.
-
-## Find Claude Code sessions
-
-Claude Code writes one JSON Lines transcript for each session:
-
-```
-~/.claude/projects/<encoded-cwd>/<session-id>.jsonl
-~/.claude/projects/<encoded-cwd>/<session-id>/subagents/agent-<id>.jsonl
-```
-
-`<encoded-cwd>` is the session's working directory with each `/` replaced by `-`, so `~/repos/mycelia` becomes `-Users-nob-repos-mycelia`. Claude Code records subagent work in separate files; ignoring them undercounts the session. It also records worktree sessions under each worktree's path, and every command that takes a project path includes those sessions.
-
-List the sessions hyphae finds for a project:
-
-```bash
-uv run hp sessions ~/repos/mycelia
-```
-
-[The schema guide](docs/schema.md) records each field's meaning and the session that established it. Check it instead of relying on memory because Claude Code can change transcript shapes without notice.
-
-## Extract and query a project
-
-Extract transcripts into [the trace store](docs/store.md), which is one file at `~/.hyphae/traces.duckdb` shared by every checkout:
-
-```bash
-uv run hp extract
-```
-
-The bare command opens a picker over every project Claude Code has recorded: one row per repository, its worktrees folded in, sorted by recent activity and pre-checked with last time's choice. Confirming writes the choice to `settings.json` beside the store, the settings file [the store guide](docs/store.md) describes, and `hp extract --last-picked` reruns that choice without the prompt. `hp extract --all-projects` takes every recorded project, scratch checkouts included. Typed paths still work, and take several:
-
-```bash
-uv run hp extract ~/repos/mycelia ~/repos/hyphae
-```
-
-Only the picker writes the memory. A path typed for one run, or `--all-projects`, leaves the last pick as it was, so a one-off extract cannot retarget the `--last-picked` a cron job runs.
-
-`--help` prints the store path it resolved to. Pass `--db` to write elsewhere, or set `HP_DB` to move every command's default. Later runs replace all rows for each changed session and skip unchanged sessions.
-
-Run a saved query:
-
-```bash
-uv run hp query session_counts --project ~/repos/mycelia
-```
-
-`hp query --list` names every query in the library with its scope and the parameters it needs bound; the SQL lives in `src/hyphae/analyze/queries/`. The command prints the citation line that every finding must carry; [the analysis guide](docs/analysis.md) explains the contract. For questions the saved queries do not answer, query DuckDB directly through the `session_rollups` and `corpus_rollups` views, which omit records copied by a fork or resume. The store can outlive its source transcripts, so read [the store guide](docs/store.md) before deleting it.
-
-## Describe what happened
-
-Preview what an enrichment pass would send and what it would cost:
-
-```bash
-uv run hp enrich --project ~/repos/mycelia --dry-run    # what it would send, and what that costs
-```
-
-Enrichment describes every agent run, main turn, and session, then stores each answer beside its source rows. It skips unchanged items. Read [the enrichment guide](docs/enrichment.md) before enriching a real corpus.
+Every task lives in `mise.toml`; run `mise run check-fast` while you work. Inside a checkout, `uv run hp` runs the checkout's code rather than the installed tool, and `uv tool install -e .` makes the global `hp` track the checkout.
 
 ## Treat transcripts as private
 
-A transcript contains everything the agent read, including file contents and credentials. Raw extracts belong in `data/`, and telemetry keys belong in `.env`; both paths are gitignored. Never commit either. Test fixtures must be redacted excerpts trimmed to the records each test needs.
+A transcript contains everything the agent read, including source and credentials. Keep raw extracts in gitignored `data/`, and backend keys in the environment, never in a file. Test fixtures are redacted excerpts trimmed to the records a test needs.
 
-## AI Guidance Locations
+## Where the AI guidance lives
 
-Read `CLAUDE.md` first. Project guides live in `docs/`; agent rules and subagents live in `.claude/`.
+Read `CLAUDE.md` first. Project guides live in `docs/`; agent rules, skills and subagents live in `.claude/`.
