@@ -2,8 +2,8 @@
 """Run one gate command and say only whether it passed.
 
 Every task in `check` and `check-fast` routes through here (`mise.toml` says which, and why).
-mise drops its own per-task headers and footers through `task.output = "quiet"`; this wrapper
-owns the rest. It runs the command with both streams captured, and
+mise drops its own per-task headers and footers through `task.output` and `task.quiet`; this
+wrapper owns the rest. It runs the command with both streams captured, and
 
   - on success prints one line, `✅ <name>  <elapsed>`, swallowing whatever the tool says when
     nothing is wrong — "245 files already formatted", pytest's dots, pyrefly's INFO lines;

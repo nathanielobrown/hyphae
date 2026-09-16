@@ -1,3 +1,8 @@
+# `task.quiet` below needs the mise that added it (changelog: `task-scoped quiet setting`,
+# jdx/mise#12980). An older mise doesn't know the key and refuses to parse `[settings]` at all,
+# so this fails loud with an upgrade hint instead.
+min_version = "2026.9.4"
+
 # Task conventions
 #
 # mise's own flags must come BEFORE the task name — `mise run --force check`, not
@@ -39,10 +44,11 @@ node = "24.17.0"
 python.uv_venv_auto = true
 # Drop mise's own `[task] $ cmd` headers and `Finished in` footers. What a task has to say is
 # then the task's own, which for a gate is the one line `tools/gate.py` prints. Set here and
-# not per invocation so `mise run check` reads the same for everyone, CI included. Dotted, not
-# the flat `task_output`: that spelling is deprecated, and a mise new enough to say so says it
-# once per task — the warning would land on the green path this setting exists to keep clear.
-task.output = "quiet"
+# not per invocation so `mise run check` reads the same for everyone, CI included. `output =
+# "quiet"` used to be this in one setting; it's deprecated, so `interleave` plus `task.quiet`
+# split it into the two mise now asks for.
+task.output = "interleave"
+task.quiet = true
 # aigarden is ours, so a release we just cut is the one we want — no soak period to wait out.
 minimum_release_age_excludes = ["github:nathanielobrown/aigarden"]
 
