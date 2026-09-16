@@ -30,7 +30,7 @@ Ruff formats a component like any other Python, so there is no second formatter 
 uv run hp view --dev
 ```
 
-`--dev` mounts the reload stream, puts its client on every page, and runs the server under uvicorn's reloader. It changes nothing else: a shipped page is a dev page minus one script tag. The watcher's dependency lives in the dev group, so an installed viewer never carries it and `--dev` in a checkout without it fails at startup rather than serving a loop that never fires. Run `mise run sync` if it does.
+`--dev` mounts the reload stream, puts its client on every page, and runs the server under uvicorn's reloader. It changes nothing else: a shipped page is a dev page minus one script tag. The watcher's dependency lives in the dev group, so an installed `hp` never carries it: `--dev` without it refuses at startup, naming the checkout remedy, rather than serving a loop that never fires. Run `mise run sync` if a checkout's does.
 
 ## Add a route and the gallery gains the page
 
