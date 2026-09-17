@@ -8,7 +8,7 @@ This is the top document. Each phase has its own design linked below, written to
 
 - **Enabling refactors first.** Each phase leaves the tree in the shape the next phase needs, and each stays green on its own. Cheap moves that cut edges come before heavy ones.
 - **One refactor per PR.** A PR moves one seam or renames one thing. Moves and renames never share a PR with behaviour changes.
-- **No rendered byte changes** until phase 4, and there only where a phase document says so. The Python tier's page-bound tests and the browser tier are the oracle.
+- **No rendered byte changes** except where a phase document says so. The Python tier's page-bound tests and the browser tier are the oracle.
 - **Enforce before moving.** Import Linter goes in at phase 0, over today's layering, so later phases cannot regress what an earlier one bought.
 - **Models are a continuum.** A repository returns the variant a caller needs, with variants deriving from one another by inheritance rather than copied fields. `Session` is the entity, `SessionRollup` adds counts, and a listing may need less. Rendering may consume a shaped result rather than the whole trace, because the whole trace costs what the numbers below show.
 
@@ -77,7 +77,7 @@ Three edges in today's graph exist only for the price table, and one is a cycle.
 | 0 | [Enforcement](phase-0-enforcement.md) | 0.1 cycle, 0.2 price table, 0.3 linter and graph | 0.1 and 0.2 are siblings off `main`; 0.3 stacks on both | The layering is a gate and a generated diagram; three cross-package edges gone |
 | 1 | [Models](phase-1-models.md) | 1.1 `models/` package, 1.2 enrichment vocabulary, 1.3 dataclass or pydantic | 1.1 on phase 0; 1.2 on 1.1; 1.3 on 1.2, optional | The viewer stops importing `enrich`; the types have one home |
 | 2 | [The store package](phase-2-store-package.md) | 2.1 writer and schema, 2.2 reader, 2.3a items and stamp types, 2.3b enrichment tables, 2.4 delivery ledger | Each on the previous | Only `store`, `view` and `analyze` import `duckdb`; `extract` and `export` no longer touch each other |
-| 3 | [The SQL library](phase-3-sql-library.md) | 3.1 library and macros, 3.2 the viewer's fetch helpers, 3.3 the `Store` handle | Each on the previous | Only `store` imports `duckdb`; the viewer stops importing `analyze`; the graph reaches its final shape |
+| 3 | [The SQL library](phase-3-sql-library.md) | 3.1 library and macros, 3.2a the viewer's own widths and params, 3.2b the fetch helpers, 3.3 the `Store` handle | Each on the previous | Only `store` imports `duckdb`; the viewer stops importing `analyze`; the graph reaches its final shape |
 | 4 | [Repositories](phase-4-repositories.md) | One PR per repository, listed there | Siblings off `main` after phase 3; no stack | The viewer's `read.py` files call typed methods; the query enums shrink to nothing |
 | 5 | [Close-out](phase-5-closeout.md) | 5.1 delete the leftovers and finish the docs | On the last phase-4 PR to land | The glossary, the layout tree and `docs/store.md` say what the code does |
 
