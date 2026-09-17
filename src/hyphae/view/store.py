@@ -19,24 +19,17 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from types import MappingProxyType
 from typing import Any, NamedTuple
 
 import duckdb
 
-from hyphae.analyze import manifest
 from hyphae.projects import project_predicate
 from hyphae.store import library, macros
 from hyphae.store.library import ParamValue
 from hyphae.store.schema import SchemaVersionError
 from hyphae.store.trace_store import PAGE_WAIT, open_trace_store
-from hyphae.view import bounds
 
 Row = dict[str, Any]
-
-# A read that binds nothing a reader typed, which is most of them: a surface prints at its own
-# widths, and only the node page's `?detail=` reaches into a query from the URL.
-NO_SIZES: Mapping[str, ParamValue] = MappingProxyType({})
 
 # The column both turn timelines are ordered by: unique and ascending within one thread, and
 # NULL on the row standing for the calls that answer no turn, which rides no page of them.
@@ -145,58 +138,6 @@ class Value(StrEnum):
 
 # Any of the three, for the fetch helper they share.
 Library = Page | Fragment | Value
-
-
-def bound(
-    page: Library,
-    widths: bounds.Widths,
-    sizes: Mapping[str, ParamValue] = NO_SIZES,
-    /,
-    **keys: ParamValue,
-) -> dict[str, ParamValue]:
-    """What one read binds: its keys, the surface's widths, and the sizes a reader asked for.
-
-    The first three are positional so a key can be named anything a statement binds: a read
-    keyed by a column called `sizes` is a store shape away, and it would land here as an
-    argument rather than as a key.
-
-    Every parameter `page` declares is filled from one of the three or this raises, naming the
-    page, the parameter and the surface; a parameter filled twice raises too — a key or a size
-    that names a width is an override, which is a second surface, so declare one
-    (`view/bounds.py`), and a key that names a size is two answers to what the URL asked.
-    DuckDB refuses a read short of a parameter as well, but only once a connection is open and
-    a statement handed over, and its message names neither the surface nor which half should
-    have carried it.
-
-    The mapping comes back in the order it was spelled — keys, then widths, then sizes — which
-    is the order the citation under the page quotes them in (`view/citation.py`).
-    """
-    surface = type(widths).__name__
-    declared = manifest.describe(page).params
-    fields = widths._asdict()
-    # Ahead of the merge, which is where the shadowing would happen: `sizes` is written second
-    # into the mapping, so the reader's number would take the read's silently.
-    if twice := sorted(keys.keys() & sizes.keys()):
-        raise ValueError(
-            f"{page} is passed {', '.join(twice)} twice: a size is what a reader asked the page "
-            f"for, so a read that keys one of its own is answering the URL over the reader"
-        )
-    given = {**keys, **sizes}
-    if claimed := sorted(given.keys() & fields.keys()):
-        raise ValueError(
-            f"{page} takes {', '.join(claimed)} from the {surface} surface: a read that prints "
-            f"at another width names another surface rather than binding one of its own"
-        )
-    if excess := sorted(given.keys() - declared.keys()):
-        raise ValueError(
-            f"{page} binds no {', '.join(excess)}: the read passes a key its statement never names"
-        )
-    if missing := [name for name in declared if name not in given and name not in fields]:
-        raise ValueError(
-            f"{page} binds {', '.join(missing)}, which no key carries and the {surface} surface "
-            f"does not declare: pass it as a key, or give the surface the width in view/bounds.py"
-        )
-    return {**keys, **{name: fields[name] for name in fields if name in declared}, **sizes}
 
 
 class SchemaMoved(Exception):
@@ -416,29 +357,8 @@ SHOWN = """SELECT * EXCLUDE (pr_urls) REPLACE (
 
 # How many rows past the page the list reads: enough to know whether there is another page,
 # never enough to show one. `sorted_sessions` is the only place it is spent, and the citation
-# under the page quotes the size the reader asked for instead (`view/pages/sessions/routes.py`).
+# under the page quotes the size the reader asked for instead (`view/pages/sessions/read.py`).
 PAGER_PROBE = 1
-
-
-def list_bound(page: int, size: int, filters: Mapping[str, ParamValue]) -> dict[str, ParamValue]:
-    """What one page of the session list binds: its window, its row cut, and its filters.
-
-    Read twice — by the query below, and by the citation the page prints under it
-    (`view/pages/sessions/routes.py`) — because a citation that drifted from its query is a
-    false citation. The one difference is the query's `PAGER_PROBE`, added where it is spent.
-    """
-    return {
-        "limit": size,
-        "offset": (page - 1) * size,
-        # Read off the surface a field at a time rather than through `bound`: the statement
-        # these three go to is composed here, so the manifest has no parameter list to fill
-        # from — `SHOWN` binds them, the library query below binds `item_chars` again, and the
-        # window and the filters are the composition's own.
-        "head_chars": bounds.LIST_WIDTHS.head_chars,
-        "item_chars": bounds.LIST_WIDTHS.item_chars,
-        "head_items": bounds.LIST_WIDTHS.head_items,
-        **filters,
-    }
 
 
 class Listing(NamedTuple):
@@ -452,9 +372,10 @@ def sorted_sessions(
     connection: duckdb.DuckDBPyConnection,
     sort: str,
     direction: str,
-    page: int,
     size: int,
     filters: Mapping[str, ParamValue],
+    bindings: Mapping[str, ParamValue],
+    *,
     described: bool,
 ) -> Listing:
     """One page of the session list, ordered by one of `SORTS` — the design's composition.
@@ -467,9 +388,13 @@ def sorted_sessions(
     boundaries stable between requests. The rows carrying no value sort last either way:
     "the store does not know" is not the largest reading of a column, or the smallest.
 
-    `described` says whether the store holds the enrichment tables to join — a caller asks
-    `view/enrichment.py`, which is where that catalog check lives. It is an argument rather
-    than a check here because it is a fact about the store, not about the request.
+    `bindings` is everything the composition binds — the window, the row cut, the filters'
+    values, and the joined query's widths — composed by the read that also cites it
+    (`view/pages/sessions/read.py`), so the two cannot drift. `size` is the page the reader
+    asked for; the one row read past it is this function's own. `described` says whether the
+    store holds the enrichment tables to join — a caller asks `view/enrichment.py`, which is
+    where that catalog check lives. It is an argument rather than a check here because it is
+    a fact about the store, not about the request.
     """
     # A sort or filter key *is* part of a SQL fragment, so membership is the whole guard —
     # and it is checked here as well as at the route, because this builds the SQL.
@@ -485,17 +410,10 @@ def sorted_sessions(
     # whichever way a URL was typed.
     applied = [FILTERS[key].predicate for key in FILTERS if key in filters]
     where = f" WHERE {' AND '.join(applied)}" if applied else ""
-    binds = list_bound(page, size, filters)
     # The one place the query and the citation under it differ, and deliberately: reading a row
     # past the page is cheaper than a second query and all a pager needs to know there is
     # another one, while a footer quoting that limit would offer a row the page never showed.
-    binds["limit"] = size + PAGER_PROBE
-    # The joined query cuts its own strings, and takes the same head a row's other strings do —
-    # one surface prints the row. The page cites this half on its own out of the same call
-    # (`view/pages/sessions/routes.py`), and the two cannot drift: both read one profile
-    # through one manifest.
-    if described:
-        binds |= bound(Page.DESCRIBED_SESSIONS, bounds.LIST_WIDTHS)
+    binds = {**bindings, "limit": size + PAGER_PROBE}
     rows = fetch(
         connection,
         f"{SHOWN} (SELECT * FROM ({_core(Page.SESSIONS)}){joined}{where}"

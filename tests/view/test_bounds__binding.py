@@ -1,13 +1,13 @@
 """What one read binds: the keys it is about, the surface's widths, and the reader's sizes.
 
-`store.bound` is the seam every page reads through, so these leaves are about the mapping it
+`bounds.bound` is the seam every page reads through, so these leaves are about the mapping it
 hands back rather than about rows: the same keys and values the routes used to spell by hand,
 in the same order, because that mapping is what the citation under the page quotes
 (`view/citation.py`). Nothing here opens a connection — a read short of a parameter is refused
 before the store is touched, which is the whole reason the function exists.
 
 The shipped query files are the world here: the parameters a page declares are read off its
-own statement (`analyze/manifest.py:describe`). One leaf plants a `.sql` of its own, and says
+own statement (`store/library.py:parameters`). One leaf plants a `.sql` of its own, and says
 so.
 """
 
@@ -15,10 +15,59 @@ from pathlib import Path
 
 import pytest
 
+from hyphae.analyze import manifest
 from hyphae.store import library
 from hyphae.view import bounds
-from hyphae.view.store import Page, bound
+from hyphae.view.bounds import bound
+from hyphae.view.store import Fragment, Library, Page, Value
 from tests.conftest import MAIN, SLASH_TURN, SPINE
+
+MEMBERS = (*Page, *Fragment, *Value)
+PROFILES = {name: value for name, value in vars(bounds).items() if isinstance(value, bounds.Widths)}
+
+
+def surface(member: Library) -> bounds.Widths:
+    """The profile filling the most of what `member` declares; any one where it declares none."""
+    declared = set(library.parameters(library.statement(member)))
+    return max(PROFILES.values(), key=lambda profile: len(declared & set(profile._asdict())))
+
+
+@pytest.mark.parametrize("member", MEMBERS, ids=[member.value for member in MEMBERS])
+def test_every_member_binds_exactly_the_parameters_its_statement_declares(member: Library) -> None:
+    """One read per catalog member, filled from its surface and placeholder keys: nothing
+    short, nothing over, every name the file declares.
+
+    The declared list is read off the statement (`store/library.py:parameters`) and off
+    nothing else — not the manifest's production defaults, which are `hp query`'s and belong
+    to no page. Whatever the surface does not carry goes in as a key; the value is a
+    placeholder because `bound` checks names and hands a value through as it came.
+    """
+    declared = library.parameters(library.statement(member))
+    widths = surface(member)
+    keys = {name: 1 for name in declared if name not in widths._asdict()}
+    filled = bound(member, widths, **keys)
+    assert sorted(filled) == sorted(declared)
+
+
+@pytest.mark.parametrize(
+    ("member", "keys"),
+    [
+        (Page.TIMELINE, {"session_id": SPINE}),
+        (Page.RUN_TIMELINE, {"session_id": SPINE, "source": MAIN}),
+    ],
+    ids=[Page.TIMELINE.value, Page.RUN_TIMELINE.value],
+)
+def test_a_timeline_read_at_the_log_runs_at_the_width_hp_query_defaults_to(
+    member: Page, keys: dict[str, str]
+) -> None:
+    """The two library queries a page shares with `hp query`, bound at the children log.
+
+    They are the only bound statements with a production default (`analyze/manifest.py`):
+    `bound` never reads it, filling `log_chars` off the surface instead, and the log's width
+    is the same constant the default cites — so the log and a bare `hp query` print one row.
+    """
+    filled = bound(member, bounds.LOG_WIDTHS, **keys)
+    assert filled["log_chars"] == manifest.describe(member).params["log_chars"].default
 
 
 def test_a_filled_read_binds_what_the_route_used_to_spell_by_hand() -> None:

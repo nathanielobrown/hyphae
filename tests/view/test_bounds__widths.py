@@ -82,7 +82,7 @@ def called(func: ast.expr) -> str:
 def runs_reads() -> list[tuple[str, str]]:
     """Every `bound(Page.RUNS, …)` the viewer makes, by module, with the surface it names.
 
-    The seam takes its page and its surface positionally (`view/store.py:bound`), so the call
+    The seam takes its page and its surface positionally (`view/bounds.py:bound`), so the call
     says which is which without being run. A read that named its surface some other way trips
     the assertion rather than dropping out of the sweep.
     """

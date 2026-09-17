@@ -5,14 +5,17 @@ The whole document from one open of the store, closed before anything renders
 `ListParams` and reads a typed page back, naming no query, binding or store column.
 """
 
+from collections.abc import Mapping
 from pathlib import Path
 
+from hyphae.store.library import ParamValue
 from hyphae.view import bounds
+from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
 from hyphae.view.enrichment import enriched
 from hyphae.view.models import Count
 from hyphae.view.pages.sessions.models import Described, ListParams, SessionRow, SessionsPage
-from hyphae.view.store import Page, Row, bound, list_bound, open_store, page_rows, sorted_sessions
+from hyphae.view.store import Page, Row, open_store, page_rows, sorted_sessions
 
 
 def sessions(db: Path, params: ListParams) -> SessionsPage:
@@ -21,13 +24,19 @@ def sessions(db: Path, params: ListParams) -> SessionsPage:
         # Whether the store holds the enrichment tables at all, which decides both what the
         # list joins and what it cites: a page cites what it ran.
         describes = enriched(connection)
+        # What the list binds, composed once and read twice — by the query, and by the
+        # citation under it — because a citation that drifted from its query is a false one.
+        listed = _list_bound(params.page, params.size, params.filters)
+        # The joined query cuts its own strings, and takes the same head a row's other strings
+        # do — one surface prints the row. Cited on its own below, out of this same mapping.
+        joined = bound(Page.DESCRIBED_SESSIONS, bounds.LIST_WIDTHS) if describes else {}
         rows, more = sorted_sessions(
             connection,
             params.sort,
             params.direction,
-            params.page,
             params.size,
             params.filters,
+            {**listed, **joined},
             described=describes,
         )
         projects = page_rows(connection, Page.PROJECTS, **bound(Page.PROJECTS, bounds.LIST_WIDTHS))
@@ -40,31 +49,42 @@ def sessions(db: Path, params: ListParams) -> SessionsPage:
         citations={
             Page.SESSIONS.value: cited(
                 Page.SESSIONS,
-                # The bindings the query above ran, out of the one builder it read them from —
+                # The bindings the query above ran, out of the one mapping it read them from —
                 # including the widths, which are composed around the file like the paging is:
                 # re-running it alone answers with whole titles, paths and skill lists. The
                 # sort and the direction are the composition's own and bind nothing, so they
                 # are stated here.
-                {
-                    "sort": params.sort,
-                    "direction": params.direction,
-                    **list_bound(params.page, params.size, params.filters),
-                },
+                {"sort": params.sort, "direction": params.direction, **listed},
             ),
             # Joined to that page rather than run against it, so it is cited on its own — and
             # only over a store whose enrichment tables exist to join.
             **(
-                {
-                    Page.DESCRIBED_SESSIONS.value: cited(
-                        Page.DESCRIBED_SESSIONS,
-                        bound(Page.DESCRIBED_SESSIONS, bounds.LIST_WIDTHS),
-                    )
-                }
+                {Page.DESCRIBED_SESSIONS.value: cited(Page.DESCRIBED_SESSIONS, joined)}
                 if describes
                 else {}
             ),
         },
     )
+
+
+def _list_bound(page: int, size: int, filters: Mapping[str, ParamValue]) -> dict[str, ParamValue]:
+    """What one page of the session list binds: its window, its row cut, and its filters.
+
+    The one difference between this and what the query runs is the store's `PAGER_PROBE`,
+    added where it is spent (`view/store.py:sorted_sessions`).
+    """
+    return {
+        "limit": size,
+        "offset": (page - 1) * size,
+        # Read off the surface a field at a time rather than through `bound`: the statement
+        # these three go to is composed in the store, so there is no parameter list to fill
+        # from — `SHOWN` binds them, the library query binds `item_chars` again, and the window
+        # and the filters are the composition's own.
+        "head_chars": bounds.LIST_WIDTHS.head_chars,
+        "item_chars": bounds.LIST_WIDTHS.item_chars,
+        "head_items": bounds.LIST_WIDTHS.head_items,
+        **filters,
+    }
 
 
 def _session_row(row: Row) -> SessionRow:

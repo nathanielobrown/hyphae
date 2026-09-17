@@ -94,8 +94,11 @@ def test_the_layers_the_plan_drew_are_the_ones_the_graph_shows(graph: str) -> No
     assert ("enrich", "store") in edges
     # ...no package imports the exporter or the parser to reach the store...
     assert not [edge for edge in edges if edge[1] in ("export", "extract")]
-    # ...and the edge phase 1 removed stays gone: `view` and `enrich` share a layer line.
+    # ...the edge phase 1 removed stays gone: `view` and `enrich` share a layer line...
     assert ("view", "enrich") not in edges
+    # ...and so does the one phase 3 cut: the viewer binds its widths and lists its statements
+    # through the library, so it reads nothing from the analysis layer.
+    assert ("view", "analyze") not in edges
 
 
 def test_each_edge_is_one_unlabelled_arrow(graph: str) -> None:

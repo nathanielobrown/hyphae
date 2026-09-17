@@ -20,8 +20,10 @@ from fastapi.testclient import TestClient
 
 from hyphae.analyze import manifest
 from hyphae.store import library, macros
+from hyphae.view import bounds
 from hyphae.view.citation import QUERY_URL
 from hyphae.view.nodes import BODY_URL
+from hyphae.view.store import Page
 from hyphae.view.text.highlight import Syntax, lit
 from tests.conftest import SPINE
 from tests.view.conftest import block, classed, fields, inside, plain, values
@@ -124,7 +126,9 @@ def test_a_citation_quotes_every_binding_its_query_takes(
 
     Every parameter the manifest declares and not exactly them: a page may bind more than the
     file takes — the sessions list composes its own sort, page and widths around a query that
-    declares one (`view/store.py`) — and what it composed is part of what it ran.
+    declares one (`view/store.py`) — and what it composed is part of what it ran. Those widths
+    are the one binding no seam fills off a surface (`pages/sessions/read.py:_list_bound`), so
+    the values are read back against the surface too and not the names alone.
 
     The bare corpus, unlike the leaf above: every response that cites `view_enrichment` fails
     this today, because a page names that query by its two keys and leaves off the three widths
@@ -135,6 +139,10 @@ def test_a_citation_quotes_every_binding_its_query_takes(
     described = manifest.catalog()
     for name, line in lines.items():
         assert set(described[name].params) <= set(bound(line)), name
+        if name == Page.SESSIONS.value:
+            listed = bound(line)
+            for width in ("head_chars", "item_chars", "head_items"):
+                assert listed[width] == str(getattr(bounds.LIST_WIDTHS, width)), width
 
 
 def test_the_query_page_serves_the_statement_the_citation_named(client: TestClient) -> None:

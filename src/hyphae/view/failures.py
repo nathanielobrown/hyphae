@@ -22,10 +22,11 @@ from typing import NamedTuple
 import duckdb
 
 from hyphae.view import bounds
+from hyphae.view.bounds import bound
 from hyphae.view.builders import tool_node
 from hyphae.view.citation import Ran
 from hyphae.view.nodes import NO_LEDGER, Node
-from hyphae.view.store import Page, bound, dropped, page_rows
+from hyphae.view.store import Page, dropped, page_rows
 
 
 class Failure(NamedTuple):

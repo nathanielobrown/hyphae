@@ -27,12 +27,16 @@ corpus or a reader moves (`tests/view/test_bounds.py`).
 The widths below the ceilings are the other half of the same question: a size is what a reader
 may ask a page for, and a width is what one surface of that page prints store text at. The
 profiles at the foot declare each surface's, one field per parameter it binds, and a read names
-the surface instead of the numbers (`view/store.py:bound`).
+the surface instead of the numbers (`bound`, at the foot).
 """
 
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import NamedTuple
 
 from hyphae.store import library
+from hyphae.store.library import ParamValue
+from hyphae.view.store import Library
 
 
 class Bound(NamedTuple):
@@ -189,7 +193,7 @@ NAV_TREE_ROW_BYTES = 1703
 # What each surface prints at. A surface is one place a page shows store text at widths of its
 # own — the NavTree, a node's header, a children log, an expansion, a popover, a list row — and
 # a profile is one field per query parameter that surface binds, named for the parameter. A read
-# names its surface and `view/store.py:bound` fills the mapping from it, so the pairing of
+# names its surface and `bound` below fills the mapping from it, so the pairing of
 # parameter to width is stated once here instead of in every line that reads.
 #
 # No field takes a default: a surface that binds a parameter says what it binds it at, and a read
@@ -400,3 +404,61 @@ ENRICHMENT_WIDTHS = Enrichment(
 # which node this is, and the node itself is open underneath. Narrow enough that a chain of long
 # titles still fits the line, wide enough that a path or a prompt says which one.
 CRUMB_CHARS = 40
+
+
+# A read that binds nothing a reader typed, which is most of them: a surface prints at its own
+# widths, and only the node page's `?detail=` reaches into a query from the URL.
+NO_SIZES: Mapping[str, ParamValue] = MappingProxyType({})
+
+
+def bound(
+    page: Library,
+    widths: Widths,
+    sizes: Mapping[str, ParamValue] = NO_SIZES,
+    /,
+    **keys: ParamValue,
+) -> dict[str, ParamValue]:
+    """What one read binds: its keys, the surface's widths, and the sizes a reader asked for.
+
+    The first three are positional so a key can be named anything a statement binds: a read
+    keyed by a column called `sizes` is a store shape away, and it would land here as an
+    argument rather than as a key.
+
+    Every parameter `page` declares is filled from one of the three or this raises, naming the
+    page, the parameter and the surface; a parameter filled twice raises too — a key or a size
+    that names a width is an override, which is a second surface, so declare one above, and a
+    key that names a size is two answers to what the URL asked. DuckDB refuses a read short of
+    a parameter as well, but only once a connection is open and a statement handed over, and
+    its message names neither the surface nor which half should have carried it.
+
+    The mapping comes back in the order it was spelled — keys, then widths, then sizes — which
+    is the order the citation under the page quotes them in (`view/citation.py`).
+    """
+    surface = type(widths).__name__
+    # Off the statement itself, in the order it binds them: what a page declares is what its
+    # file says, and the manifest's production defaults are `hp query`'s business, not a page's.
+    declared = library.parameters(library.statement(page))
+    fields = widths._asdict()
+    # Ahead of the merge, which is where the shadowing would happen: `sizes` is written second
+    # into the mapping, so the reader's number would take the read's silently.
+    if twice := sorted(keys.keys() & sizes.keys()):
+        raise ValueError(
+            f"{page} is passed {', '.join(twice)} twice: a size is what a reader asked the page "
+            f"for, so a read that keys one of its own is answering the URL over the reader"
+        )
+    given = {**keys, **sizes}
+    if claimed := sorted(given.keys() & fields.keys()):
+        raise ValueError(
+            f"{page} takes {', '.join(claimed)} from the {surface} surface: a read that prints "
+            f"at another width names another surface rather than binding one of its own"
+        )
+    if excess := sorted(given.keys() - set(declared)):
+        raise ValueError(
+            f"{page} binds no {', '.join(excess)}: the read passes a key its statement never names"
+        )
+    if missing := [name for name in declared if name not in given and name not in fields]:
+        raise ValueError(
+            f"{page} binds {', '.join(missing)}, which no key carries and the {surface} surface "
+            f"does not declare: pass it as a key, or give the surface the width in view/bounds.py"
+        )
+    return {**keys, **{name: fields[name] for name in fields if name in declared}, **sizes}

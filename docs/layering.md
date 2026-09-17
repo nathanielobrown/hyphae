@@ -24,7 +24,6 @@ graph TD
   export --> store
   extract --> pipeline
   store --> pipeline
-  view --> analyze
   view --> store
 ```
 <!-- aigarden:end -->

@@ -9,9 +9,10 @@ from pathlib import Path
 
 from hyphae.store.library import ParamValue
 from hyphae.view import bounds
+from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
 from hyphae.view.pages.records.models import RecordRow, RecordsPage
-from hyphae.view.store import MATCHED_ROWS, Page, bound, open_store, page_rows, paged
+from hyphae.view.store import MATCHED_ROWS, Page, open_store, page_rows, paged
 
 
 def records(db: Path, session_id: str, source: str, after: int, size: int) -> RecordsPage | None:

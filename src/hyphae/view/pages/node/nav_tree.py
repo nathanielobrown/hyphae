@@ -24,6 +24,7 @@ import duckdb
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.library import ParamValue
 from hyphae.view import bounds
+from hyphae.view.bounds import bound
 from hyphae.view.builders import (
     call_node,
     compaction_node,
@@ -44,7 +45,7 @@ from hyphae.view.nodes import (
 )
 from hyphae.view.pages.node.levels import Levels
 from hyphae.view.pages.node.models import NavTreeRow
-from hyphae.view.store import TURN_CURSOR, Library, Page, Row, bound
+from hyphae.view.store import TURN_CURSOR, Library, Page, Row
 
 
 @dataclass(frozen=True)

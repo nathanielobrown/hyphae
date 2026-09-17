@@ -17,6 +17,7 @@ from pathlib import Path
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.library import ParamValue
 from hyphae.view import bounds, builders, failures, links, nodes
+from hyphae.view.bounds import bound
 from hyphae.view.citation import Ran, cited
 from hyphae.view.detail import enrichment_lines
 from hyphae.view.enrichment import Descriptions, described
@@ -27,7 +28,7 @@ from hyphae.view.pages.node.kinds import EXPANDED, KINDS, Log, paged
 from hyphae.view.pages.node.knobs import Knobs, pager, preset_choices
 from hyphae.view.pages.node.levels import Levels
 from hyphae.view.pages.node.models import Expansion, NavTreeRow, NodePage
-from hyphae.view.store import Page, bound, open_store, page_rows
+from hyphae.view.store import Page, open_store, page_rows
 
 
 class Missing(Exception):

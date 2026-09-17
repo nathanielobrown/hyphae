@@ -20,6 +20,7 @@ import duckdb
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.library import ParamValue
 from hyphae.view import bounds, builders, detail, nodes
+from hyphae.view.bounds import NO_SIZES, bound
 from hyphae.view.citation import Ran
 from hyphae.view.detail import Detail, details, preview
 from hyphae.view.enrichment import Descriptions, Enrichment
@@ -28,17 +29,7 @@ from hyphae.view.pages.node import nav_tree, reads
 from hyphae.view.pages.node.columns import Shape
 from hyphae.view.pages.node.knobs import skipped, sliced
 from hyphae.view.pages.node.models import Logged
-from hyphae.view.store import (
-    NO_SIZES,
-    TURN_CURSOR,
-    Fragment,
-    Page,
-    Row,
-    bound,
-    listed,
-    page_rows,
-    window,
-)
+from hyphae.view.store import TURN_CURSOR, Fragment, Page, Row, listed, page_rows, window
 
 
 class Read(NamedTuple):
@@ -46,7 +37,7 @@ class Read(NamedTuple):
 
     Two exist. A page reads at `bounds.HEADER_WIDTHS` and passes `?detail=` as a size; an
     expansion reads at `bounds.EXPANSION_WIDTHS`, which declares its own detail width and takes
-    no size. A header whose query has no `detail_chars` to fill ignores the sizes — `store.bound`
+    no size. A header whose query has no `detail_chars` to fill ignores the sizes — `bounds.bound`
     raises on one the query does not declare.
     """
 

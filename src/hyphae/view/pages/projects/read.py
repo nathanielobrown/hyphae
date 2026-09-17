@@ -8,10 +8,11 @@ or a store column.
 from pathlib import Path
 
 from hyphae.view import bounds
+from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
 from hyphae.view.links import project_link
 from hyphae.view.pages.projects.models import ProjectRow, ProjectsPage
-from hyphae.view.store import Page, Row, bound, dropped, open_store, page_rows
+from hyphae.view.store import Page, Row, dropped, open_store, page_rows
 from hyphae.view.text import format as fmt
 
 

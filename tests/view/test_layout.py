@@ -63,11 +63,12 @@ WEB = frozenset({"fastapi", "starlette"})
 UNNAMED = frozenset({"logic.py", "utils.py", "helpers.py", "common.py", "misc.py"})
 
 # What a module may reach: an import goes down a layer or sideways, never up. The layers, from
-# the top: the server, then the pages, then what every page shares, then the store, and under
-# all of it the two leaves — how one value prints, and the sizes it prints to. `bounds` is a
+# the top: the server, then the pages, then what every page shares, and under all of it the
+# leaves — the store's reads, how one value prints, and the sizes it prints to. `bounds` is a
 # leaf beside `text/` rather than above it because `highlight` and `inline_markdown` read their
-# cuts from it, and a cut is a size (`design.md`, "Decisions").
-SERVER, PAGE, SHARED, BASE, LEAF = 4, 3, 2, 1, 0
+# cuts from it, and a cut is a size (`design.md`, "Decisions"); it sits beside the store rather
+# than under it because `bound` fills a read for a `Library` member the store names.
+SERVER, PAGE, SHARED, LEAF = 3, 2, 1, 0
 
 # The one number `store/library.py` declares that is not a size: the keyset cursor standing
 # before the first row, which a paged route takes as its default rather than cutting to it.
@@ -101,7 +102,7 @@ LAYERED = {
     "failures": SHARED,
     "builders": SHARED,
     "detail": SHARED,
-    "store": BASE,
+    "store": LEAF,
     "bounds": LEAF,
 }
 
@@ -470,9 +471,10 @@ def test_no_routes_module_of_a_page_names_the_stores_vocabulary() -> None:
         # ...and none names a query the library declares.
         asked = queried(path)
         assert asked <= NOT_A_SIZE | BINDABLE, f"{dotted(path)} names the library's {sorted(asked)}"
-    # ...and the scan can see that vocabulary where it belongs: the reads run the library.
-    ran = {name for path in read_modules() for name in taken(path, "store")}
-    assert {"page_rows", "bound"} <= ran
+    # ...and the scan can see that vocabulary where it belongs: the reads run the library
+    # through the store, and fill what they run through the sizes leaf.
+    assert "page_rows" in {name for path in read_modules() for name in taken(path, "store")}
+    assert "bound" in {name for path in read_modules() for name in taken(path, "bounds")}
 
 
 # --- Rule 2: a page package is a leaf ------------------------------------------------------
@@ -500,7 +502,7 @@ def test_no_page_package_imports_a_sibling_page() -> None:
 
 
 def test_no_import_inside_the_viewer_points_up_a_layer() -> None:
-    """The layers hold: pages over the shared view-models, over the store, over `text/`.
+    """The layers hold: pages over the shared view-models, over the store, `bounds` and `text/`.
 
     What keeps the shared layer readable without the pages and testable without a request. The
     failure prints the edge, because an edge is what has to be deleted to fix it.
