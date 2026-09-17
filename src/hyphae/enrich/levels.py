@@ -1,11 +1,11 @@
 """The prompt half of each enrichment level, declared once per level.
 
-A level is a prompt, a set of rows, and a reader that finds them. `LEVELS` holds the prompt
-and the reader, so adding one is one entry here beside the renderer it names — rather than
-an edit to a subject map, a budget constant, a render dispatch, a reader map and a round
-order, none of which would complain about being forgotten. The rows half — the table, its
-keys and the prompt version a row is stamped with — is `models/enrichment.py:ROWS`, keyed by
-the same `Level`, because the viewer reads it and may not import this package.
+A level is a prompt and a set of rows. `LEVELS` holds the prompt, so adding one is one entry
+here beside the renderer it names — rather than an edit to a subject map, a budget constant,
+a render dispatch and a round order, none of which would complain about being forgotten. The
+rows half — the table, its keys and the prompt version a row is stamped with — is
+`models/enrichment.py:ROWS`, keyed by the same `Level`, because the viewer reads it and may
+not import this package.
 
 The entries are written in round order: bottom-up, because every prompt embeds its children's
 descriptions rather than their text.
@@ -23,7 +23,7 @@ from hyphae.models.items import Item
 
 @dataclass(frozen=True)
 class LevelSpec:
-    """One level's prompt: what it sends the model, and what reads the items it describes."""
+    """One level's prompt: what it sends the model, and how it renders the items it describes."""
 
     # What this level is looking at. The rest of the instructions is the same everywhere, so a
     # level reads differently only where it should.
@@ -32,9 +32,6 @@ class LevelSpec:
     # This level's render, taking this level's item. The registry is keyed by level and an
     # item names its own level, so `render` cannot hand a renderer the wrong item.
     renderer: Callable[[Any, Budgets], str]
-    # The `EnrichmentStore` method that reads this level's items. Named rather than bound: the
-    # store imports this module, so a spec cannot hold one of its methods.
-    reader: str
     # Instruction paragraphs this level alone carries, past the shared guidance.
     riders: tuple[str, ...] = ()
 
@@ -50,7 +47,6 @@ LEVELS: dict[Level, LevelSpec] = {
         # recorded runs reach it.
         budgets=Budgets(total=30_000),
         renderer=prompts.render_run,
-        reader="run_items",
     ),
     Level.turn: LevelSpec(
         subject=(
@@ -59,7 +55,6 @@ LEVELS: dict[Level, LevelSpec] = {
         ),
         budgets=Budgets(total=30_000),
         renderer=prompts.render_turn,
-        reader="turn_items",
     ),
     Level.session: LevelSpec(
         subject=(
@@ -70,7 +65,6 @@ LEVELS: dict[Level, LevelSpec] = {
         # average 3.1 children and the longest recorded one has 92.
         budgets=Budgets(total=24_000),
         renderer=prompts.render_session,
-        reader="session_items",
         riders=(prompts.RELAYING,),
     ),
 }

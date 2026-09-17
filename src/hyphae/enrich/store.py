@@ -10,14 +10,12 @@ a level's `Stamp`s and it hands back what each stored row was written under, for
 """
 
 import datetime as dt
-from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import astuple, dataclass, fields
 from pathlib import Path
 from types import TracebackType
 from typing import Any
 
-from hyphae.enrich.levels import LEVELS
 from hyphae.models.enrichment import COLUMNS as STAMP_COLUMNS
 from hyphae.models.enrichment import ROWS, Enrichment, Level, Stamp
 from hyphae.models.items import (
@@ -509,11 +507,16 @@ class EnrichmentStore:
     def items(self, level: Level, project: str | None = None) -> list[Item]:
         """Every enrichable item of one level. The enricher's one door into the store.
 
-        The reader is the method `enrich/levels.py` names for the level; `turn_items`,
-        `run_items` and `session_items` are public because the tests read one level directly.
+        `turn_items`, `run_items` and `session_items` are public because the tests read one
+        level directly.
         """
-        reader: Callable[[str | None], list[Item]] = getattr(self, LEVELS[level].reader)
-        return list(reader(project))
+        match level:
+            case Level.turn:
+                return list(self.turn_items(project))
+            case Level.agent_run:
+                return list(self.run_items(project))
+            case Level.session:
+                return list(self.session_items(project))
 
     def _run_links(self, project: str | None) -> list[RunLink]:
         """Each agent run against whatever spawned it, by both rules the records offer.

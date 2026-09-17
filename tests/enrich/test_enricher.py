@@ -79,19 +79,21 @@ def forest(forest_store: Path, tmp_path: Path) -> Iterator[EnrichmentStore]:
 
 
 def test_every_level_is_declared_whole_and_described_bottom_up(store: EnrichmentStore) -> None:
-    """Each level's entry names a reader that exists, a renderer that takes its items, a table.
+    """Each level has a store read that hands back its own items, a renderer that takes them,
+    and a table.
 
     Two registries keyed by one `Level` declare all of it — the prompt half in
-    `enrich/levels.py`, the rows half in `models/enrichment.py` — so this is what stands in
-    for the checks the seven separate maps used to owe each other: a level naming a reader no
-    store has, or a renderer belonging to another level, would be found here rather than
-    partway through a paid pass.
+    `enrich/levels.py`, the rows half in `models/enrichment.py` — and the store's `items`
+    dispatches on the same `Level`, so this is what stands in for the checks the seven
+    separate maps used to owe each other: a level the store reads as another level's items,
+    or a renderer belonging to another level, would be found here rather than partway through
+    a paid pass.
     """
     # If every level the store can write is read through its own entry...
     for level, spec in LEVELS.items():
         items = store.items(level)
-        # ...then the entry's reader is a method of the store, and it hands back that level's
-        # items — never another level's, which is what a copied entry would produce...
+        # ...then the store hands back that level's items — never another level's, which is
+        # what a swapped or copied `match` arm would produce...
         assert {item.level for item in items} == {level}
         # ...each of which renders through the entry's renderer, at the entry's budgets...
         for item in items:
