@@ -20,7 +20,7 @@
      The middle blue covers a different span on each kind that draws it, because each kind's
      query measures its own: a turn's is the conversation between the opening context and the
      turn, a call's runs from zero and so takes the opening context in with it, and a
-     compaction's is the window the compaction left (`analyze/queries/view_compactions.sql`).
+     compaction's is the window the compaction left (`store/queries/view_compactions.sql`).
      Only a turn's is read against the base band. */
   --ctx-base: #1c3f8f;    /* the context the session opened on, under a turn's bands */
   --ctx-past: #3a6fd8;    /* what stood before the node — a different span on each kind, above */

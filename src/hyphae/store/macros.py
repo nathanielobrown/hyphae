@@ -114,7 +114,7 @@ CASE WHEN starts_with(tool_asked(input, 'file_path', chars + length(project_dir)
 # A MAP lookup rather than the `CASE model WHEN …` it reads like: a simple CASE desugars to one
 # comparison per arm, so an operand that is itself a correlated subquery — which
 # `view_compactions.sql` passes — is re-planned once per model in the table. The MAP evaluates
-# it once. `tests/analyze/test_macros.py` holds the two to the same answers.
+# it once. `tests/store/test_macros.py` holds the two to the same answers.
 _CONTEXT_WINDOW = (
     "\nCREATE OR REPLACE TEMP MACRO context_window(model) AS MAP {\n"
     + ",\n".join(

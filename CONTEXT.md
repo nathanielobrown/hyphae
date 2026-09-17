@@ -37,7 +37,7 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src
 - **Picker** — the multi-select a bare `hp extract` opens: one row per base project, sorted by recent activity, pre-checked with the last pick; the only thing that writes the settings file (`src/hyphae/extract/picker.py`)
 - **Settings file** — `settings.json` beside the store in `~/.hyphae`: what `hp` remembers for a person between runs, one JSON object namespaced by command; a preference rather than archive, so `--db` never moves it (`docs/store.md`)
 - **Tag** — a `KEY=VALUE` pair the caller stamps on an extract, saying what the run was for; a property of the extraction, so a re-extract replaces the set (`docs/store.md`)
-- **Price table** — what each model charges per million tokens and the window it answers in; one table, `src/hyphae/pricing.py:MODELS`, read by the extract, the viewer, the analyze macros and the `hp enrich` quote
+- **Price table** — what each model charges per million tokens and the window it answers in; one table, `src/hyphae/pricing.py:MODELS`, read by the extract, the viewer, the store macros and the `hp enrich` quote
 - **Corpus** — the rows minus every replayed copy: the basis for any cross-session count
 - **Library** — the query files in `store/queries/`: each statement declares its own parameters and scope, and Python holds only what a statement cannot say about itself: a parameter's type in `src/hyphae/store/library.py` and a production default in `src/hyphae/analyze/manifest.py`
 - **Scope** — corpus or keyed: whether a statement reads one of the relations the runner builds from `--project`, which is what decides the flags a query takes
@@ -114,7 +114,7 @@ The generators and the gate wrapper: `tools/`; how to write a generator and wher
 - **Cog block** — one splice in one document: the two markers and the generated text between them
 - **Gate** — one task wrapped in `tools/gate.py`: a line when it passes, everything the tool said when it fails
 - **Layers contract** — `[tool.importlinter]` in `pyproject.toml`: the children of `hyphae` top to bottom, each allowed to import only what sits below it; `mise run lint-imports` holds the code to it and `docs/layering.md` draws the result
-- **Forbidden contract** — the second contract in that table: which packages may import `duckdb` — `store`, and until their SQL moves there, `view` and `analyze`; the same run holds the code to both
+- **Forbidden contract** — the second contract in that table: which packages may import `duckdb` — `store`, and until their reads move behind it, `view` and `analyze`; the same run holds the code to both
 - **Browser tier** — the Playwright specs under `tests/e2e/` that drive the gallery in a real Chromium; every other test the suite runs is the Python tier
 - **Pre-commit hook** — `tools/pre-commit`, installed by `mise run setup`: the staged Python and Markdown held to the gates before a commit lands
 

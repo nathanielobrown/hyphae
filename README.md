@@ -54,7 +54,7 @@ hp query --list                                     # the saved queries and the 
 hp query session_counts --project ~/repos/mycelia   # one of them, with its citation line
 ```
 
-`hp view` opens the store in your browser ([the viewer guide](docs/viewer.md)). `hp query` runs a query from the library in `src/hyphae/analyze/queries/` and prints the citation every finding must carry. Follow [the analysis guide](docs/analysis.md) to turn queries into a report.
+`hp view` opens the store in your browser ([the viewer guide](docs/viewer.md)). `hp query` runs a query from the library in `src/hyphae/store/queries/` and prints the citation every finding must carry. Follow [the analysis guide](docs/analysis.md) to turn queries into a report.
 
 ### Describe and export
 

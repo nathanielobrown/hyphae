@@ -27,7 +27,7 @@ EMPTY_FIELDS: dict[str, object] = dict.fromkeys(
 )
 
 
-# What the store hands a formatter, per tool: the fields `analyze/macros.py:tool_fields`
+# What the store hands a formatter, per tool: the fields `store/macros.py:tool_fields`
 # extracts, with everything the tool did not carry NULL. Written out as one table because
 # fourteen small rules are where a registry drifts from the design that specified it
 # (`plans/viewer-polish/design.md`, the formatter table).

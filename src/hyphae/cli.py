@@ -292,7 +292,7 @@ def _query(args: argparse.Namespace) -> None:
 
 
 def _query_arguments(subcommand: argparse.ArgumentParser) -> None:
-    subcommand.add_argument("name", nargs="?", help="The query to run — a file in analyze/queries/")
+    subcommand.add_argument("name", nargs="?", help="The query to run — a file in store/queries/")
     _add_db_argument(subcommand, "The trace store")
     subcommand.add_argument(
         "--project", type=Path, help="The analyzed repository — required by a corpus query"

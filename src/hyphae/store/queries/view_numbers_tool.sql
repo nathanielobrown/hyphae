@@ -5,7 +5,7 @@
 -- so there is no window and no price to print. What the store does hold is the size of the
 -- result, which is the honest proxy for what the call put in front of the model, and the other
 -- calls it was made alongside. What comes back per sibling is the fields it is named by
--- (`analyze/macros.py:tool_fields`); the words are composed in Python
+-- (`store/macros.py:tool_fields`); the words are composed in Python
 -- (`view/builders.py:tool_titles`), so the siblings read the way the same calls read everywhere
 -- else.
 WITH beside AS (

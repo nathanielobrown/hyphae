@@ -40,7 +40,7 @@ SELECT
         WHERE t.session_id = c.session_id AND t.source = c.source AND t.api_call_id = c.id
     ) AS tools,
     -- Where the call left the model's context window, how much of that it put there itself,
-    -- and the window it was answering in (`analyze/macros.py`). A synthetic reply is Claude
+    -- and the window it was answering in (`store/macros.py`). A synthetic reply is Claude
     -- Code's own and reports no tokens at all, so it says nothing about the window rather
     -- than saying the window was empty.
     CASE WHEN NOT c.synthetic THEN {

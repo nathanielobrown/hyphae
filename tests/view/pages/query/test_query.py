@@ -179,7 +179,7 @@ def test_a_query_page_carries_the_definitions_its_statement_runs_under(
     """A statement calling a library macro does not run alone, and the page says so.
 
     The footer promises a line a shell re-runs, and four viewer queries now call a macro the
-    consumer installs first (`analyze/macros.py`). A reader who pastes one of those into a
+    consumer installs first (`store/macros.py`). A reader who pastes one of those into a
     bare `duckdb` gets a catalog error and no way to find out why, so the page carries the
     setup above the statement. A query that calls none carries nothing extra.
     """

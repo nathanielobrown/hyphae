@@ -49,7 +49,7 @@ def _setup(macro_setup: str) -> Html | None:
     """The definitions the statement calls, above it — and nothing where it calls none.
 
     Both consumers install these before they run anything, so a reader who pastes the statement
-    alone gets a catalog error and no way to find out why (`analyze/macros.py`).
+    alone gets a catalog error and no way to find out why (`store/macros.py`).
     """
     if not macro_setup:
         return None

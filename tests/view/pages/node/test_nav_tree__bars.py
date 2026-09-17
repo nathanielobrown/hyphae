@@ -52,7 +52,7 @@ class Call(NamedTuple):
     synthetic: bool
     # Where the call left the model's window, and how much of that the call itself put there:
     # everything it was billed for, and that less the cache it read. Restated here in the
-    # test's own SQL rather than read off `analyze/macros.py`, so the two can disagree.
+    # test's own SQL rather than read off `store/macros.py`, so the two can disagree.
     fill: int
     added: int
     # What the call sent before it answered: the cache it read and the input it wrote. The

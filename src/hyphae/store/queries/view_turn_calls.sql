@@ -11,7 +11,7 @@
 -- tool rows under a call are their own query (`view_call_tools`), capped the same way.
 --
 -- A row names the tool calls it made as well as counting them: what comes back is the fields
--- each of them is named by (`analyze/macros.py:tool_fields`) and the words are composed in
+-- each of them is named by (`store/macros.py:tool_fields`) and the words are composed in
 -- Python (`view/builders.py:tool_titles`), the same derivation the tools log's own rows read,
 -- so a call's row and the log inside it name one tool the same way. Every tool comes back and
 -- the composed line is cut whole where it is printed: what a reader gets is the first tools of

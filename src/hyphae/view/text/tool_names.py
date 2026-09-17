@@ -3,7 +3,7 @@
 A tool call's title is read from the input field that tells two of that tool's calls apart —
 a path for a file tool, the command for `Bash` — under a glyph that stands for the tool, so a
 NavTree row says which tool ran without spending the width on its name. The store extracts the
-fields (`analyze/macros.py:tool_fields`) and this module composes the name out of them: SQL
+fields (`store/macros.py:tool_fields`) and this module composes the name out of them: SQL
 ships fields, and the name a reader reads is Python's.
 
 `name_tool` is the entry point and `view/builders.py` its only caller, so the surfaces that
@@ -16,7 +16,7 @@ from collections.abc import Callable, Mapping
 from typing import NamedTuple
 
 # What the store extracts from a tool call's input for the formatters below
-# (`analyze/macros.py:tool_fields`): every member present on every row, NULL where the call
+# (`store/macros.py:tool_fields`): every member present on every row, NULL where the call
 # carried nothing under that name.
 Fields = Mapping[str, object]
 
@@ -108,7 +108,7 @@ FORMATTERS: dict[str, Formatter] = {
     "WebSearch": _one("🔍", "query"),
     # The two names read off session `4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b` (Claude Code
     # 2.1.221): a tool search carries `query`, a notification `message`
-    # (`analyze/macros.py:tool_fields`).
+    # (`store/macros.py:tool_fields`).
     "ToolSearch": _one("🧰", "query"),
     "PushNotification": _one("🔔", "message"),
     "TodoWrite": _todo_write,

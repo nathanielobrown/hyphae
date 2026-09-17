@@ -129,7 +129,7 @@ def test_the_table_ends_without_its_own_newline(table: gen_bounds.Table) -> None
 
 def test_a_width_is_cited_through_the_surface_that_declares_it() -> None:
     # A surface is a `NamedTuple`, which is neither a `Bound` nor a number, so the ratchet above
-    # looked straight past one: a table could have cited a width off `analyze/queries.py`, or a
+    # looked straight past one: a table could have cited a width off `store/library.py`, or a
     # surface could have been added, with nothing red. `valued` reads a width off the surface
     # instead, and refuses to stand for a surface whole — a table prints one number per cell.
     assert gen_bounds.valued("bounds.LIST_WIDTHS.head_chars") == bounds.LIST_WIDTHS.head_chars

@@ -10,7 +10,7 @@ would hand back a window of raw transcript instead of an error. The viewer's hal
 defaults at all — a page size belongs to the surface that prints it (`view/bounds.py`).
 
 The parameter vocabulary both halves are written in — the types and the widths — is
-`analyze/queries.py`.
+`store/library.py`.
 """
 
 from hyphae.store import library
@@ -189,7 +189,7 @@ def describe(name: str) -> Query:
     defaults = DEFAULTS.get(name, {})
     if untyped := [parameter for parameter in bound if parameter not in PARAM_TYPES]:
         raise QueryError(
-            f"{name} binds {', '.join(untyped)}, which analyze/queries.py:PARAM_TYPES does not "
+            f"{name} binds {', '.join(untyped)}, which store/library.py:PARAM_TYPES does not "
             "type: name it there with what it binds as"
         )
     if orphans := [key for key in defaults if key not in bound]:

@@ -69,7 +69,7 @@ UNNAMED = frozenset({"logic.py", "utils.py", "helpers.py", "common.py", "misc.py
 # cuts from it, and a cut is a size (`design.md`, "Decisions").
 SERVER, PAGE, SHARED, BASE, LEAF = 4, 3, 2, 1, 0
 
-# The one number `analyze/queries.py` declares that is not a size: the keyset cursor standing
+# The one number `store/library.py` declares that is not a size: the keyset cursor standing
 # before the first row, which a paged route takes as its default rather than cutting to it.
 NOT_A_SIZE = frozenset({"FIRST_PAGE"})
 

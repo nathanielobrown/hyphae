@@ -248,8 +248,9 @@ def test_a_parameter_the_library_types_nowhere_is_refused_rather_than_bound_blin
     # If a query binds a parameter the type table does not know...
     monkeypatch.setattr(library, "QUERY_DIR", tmp_path)
     (tmp_path / "planted.sql").write_text("SELECT $undeclared AS value")
-    # ...the refusal names it, so the fix is one line in the table rather than a hunt.
-    with pytest.raises(SystemExit, match="undeclared"):
+    # ...the refusal names it and the table it belongs in, so the fix is one line rather than
+    # a hunt.
+    with pytest.raises(SystemExit, match=r"undeclared, which store/library\.py:PARAM_TYPES"):
         query(corpus_db, capsys, "planted", "--param", "undeclared=1")
 
 

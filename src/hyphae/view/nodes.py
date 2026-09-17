@@ -136,7 +136,7 @@ def meter(share: float | None) -> str:
 
 
 class Context(NamedTuple):
-    """Where a node left the model's context window, in tokens (`analyze/macros.py`)."""
+    """Where a node left the model's context window, in tokens (`store/macros.py`)."""
 
     # Everything the node's last answering call was billed for: the cache it read, the cache
     # it wrote, what it sent, and what it said back.
