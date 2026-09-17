@@ -14,11 +14,11 @@ from typing import get_args, get_type_hints
 import duckdb
 import pytest
 
-from hyphae.enrich.store import _SCHEMA as ENRICHMENT_SCHEMA
-from hyphae.enrich.store import EnrichmentStore
 from hyphae.export.otlp_delivery import _DELIVERY_SCHEMA as DELIVERY_SCHEMA
 from hyphae.export.otlp_delivery import Backend, DeliveryLedger, OtlpExporter
 from hyphae.models.trace import LiveRows
+from hyphae.store.enrichment import _SCHEMA as ENRICHMENT_SCHEMA
+from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.schema import (
     SCHEMA_VERSION,
     SchemaShapeError,
@@ -48,7 +48,7 @@ DDL_OWNERS = [
         id="trace",
     ),
     pytest.param(
-        "hyphae.enrich.store",
+        "hyphae.store.enrichment",
         ENRICHMENT_SCHEMA,
         "a24819f7cb8b1b09ad8e6d00661c6dbe26dc0495c2534bd534b1fcb3d7e9c14c",
         id="enrichment",

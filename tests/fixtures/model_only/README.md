@@ -8,7 +8,7 @@ drove no model response at all.
 
 45 of the 571 recorded mycelia sessions are in this shape (`hp query sessions`, 2026-08-13),
 and enrichment used to describe every one of them from a render with no work in it. The gate in
-`src/hyphae/enrich/store.py` skips them; this recording is what proves it.
+`src/hyphae/store/enrichment.py` skips them; this recording is what proves it.
 
 Four recordings carry the shape. This one was picked for its date: 2026-07-20 falls inside
 `AS_OF_WHOLE`, the one `$as_of` in `tests/analyze/conftest.py` whose 28-day window covers the whole

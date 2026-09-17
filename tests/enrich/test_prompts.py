@@ -9,7 +9,6 @@ from pathlib import Path
 
 from hyphae.enrich.levels import instructions, render
 from hyphae.enrich.prompts import OUTPUT_SCHEMA
-from hyphae.enrich.store import EnrichmentStore
 from hyphae.models.enrichment import (
     CATEGORY_DEFINITIONS,
     OUTCOME_DEFINITIONS,
@@ -19,6 +18,7 @@ from hyphae.models.enrichment import (
     Level,
     Outcome,
 )
+from hyphae.store.enrichment import EnrichmentStore
 from tests.conftest import MODEL_ONLY
 from tests.enrich.conftest import (
     AUDITOR_RUN,

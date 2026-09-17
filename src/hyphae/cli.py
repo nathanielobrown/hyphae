@@ -24,7 +24,6 @@ from hyphae.enrich.client import (
 from hyphae.enrich.cost import Prompt, estimate
 from hyphae.enrich.enricher import PlannedItem, enrich, plan
 from hyphae.enrich.levels import ROUND_ORDER
-from hyphae.enrich.store import EnrichmentStore
 from hyphae.export.otlp import DEFAULT_MAX_CHARS, Census, TextPolicy
 from hyphae.export.otlp_delivery import (
     BACKEND_NAMES,
@@ -46,6 +45,7 @@ from hyphae.models.enrichment import Versions
 from hyphae.pipeline import Failure, refresh
 from hyphae.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.projects import encode_project_path, resolve_project
+from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.trace_reader import StoreSource, UnknownProjectError
 from hyphae.store.trace_store import CLI_WAIT, DuckDbExporter, open_trace_store
 from hyphae.store_path import default_store

@@ -1,9 +1,9 @@
 """The version the whole store file carries, and the two guards that hold a file to it.
 
-Three modules create tables in the one DuckDB file — `store/trace_store.py`, `enrich/store.py`,
-and `export/otlp_delivery.py` — so the version stamps the file rather than any one owner's
-tables, and lives here instead of with one of them. This module imports nothing from
-`hyphae`: the owners import it, and one of them already imports another.
+Three modules create tables in the one DuckDB file — `store/trace_store.py`,
+`store/enrichment.py` and `export/otlp_delivery.py` — so the version stamps the file rather
+than any one owner's tables, and lives here instead of with one of them. This module imports
+nothing from `hyphae`: the owners import it, and one of them already imports another.
 
 Both guards run before an owner's DDL touches a file. `migrate` carries a store forward to
 `SCHEMA_VERSION` by the steps in `MIGRATIONS`. `check_shape` refuses a store whose tables no

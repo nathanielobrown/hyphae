@@ -36,7 +36,7 @@ from hyphae.store.trace_store import CLI_WAIT, open_trace_store
 
 # What one enrichment row is, past its primary key: the model's answer, the stamp it was
 # written under, and when. In the order `upsert` binds them, and the one list the views
-# project and the DDL below is held to (`tests/enrich/test_store.py`).
+# project and the DDL below is held to (`tests/store/test_enrichment.py`).
 PAYLOAD_COLUMNS: tuple[str, ...] = (
     *(field.name for field in fields(Enrichment)),
     *STAMP_COLUMNS,

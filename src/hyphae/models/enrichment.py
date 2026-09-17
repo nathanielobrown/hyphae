@@ -118,7 +118,7 @@ class LevelRows:
 
 
 # Closed set, in the order a pass describes the levels: a level here with no table in
-# `enrich/store.py`'s DDL cannot be written, and a table there with no level here would never
+# `store/enrichment.py`'s DDL cannot be written, and a table there with no level here would never
 # be swept.
 ROWS: dict[Level, LevelRows] = {
     Level.agent_run: LevelRows(

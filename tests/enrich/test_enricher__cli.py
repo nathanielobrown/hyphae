@@ -20,9 +20,9 @@ from hyphae.enrich.enricher import (
     enrich,
     plan,
 )
-from hyphae.enrich.store import EnrichmentStore
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION
 from hyphae.pricing import SYNTHETIC_MODEL
+from hyphae.store.enrichment import EnrichmentStore
 from tests.conftest import MYCELIA
 from tests.enrich.conftest import (
     CURRENT,

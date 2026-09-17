@@ -32,7 +32,7 @@ erDiagram
     agent_runs ||--o{ agent_runs : "spawned"
 ```
 
-`_SCHEMA` in `src/hyphae/store/trace_store.py` defines the trace tables and their columns. The OTLP exporter defines its own `otlp_delivery` table in `src/hyphae/export/otlp_delivery.py`. Other components that write to the store also own their tables, including the enrichment tables described below. [The schema guide](schema.md) defines each telemetry field and cites the recording that proves it.
+`_SCHEMA` in `src/hyphae/store/trace_store.py` defines the trace tables and their columns. `src/hyphae/store/enrichment.py` defines the enrichment tables described below, and the OTLP exporter defines its own `otlp_delivery` table in `src/hyphae/export/otlp_delivery.py`. [The schema guide](schema.md) defines each telemetry field and cites the recording that proves it.
 
 A session's main thread and agent runs use the same trace tables. The `source` column distinguishes them, so `(session_id, source, id)` identifies a turn or call.
 

@@ -11,10 +11,10 @@ from dataclasses import dataclass
 from hyphae.enrich.client import BatchClient, EnrichRequest, Failed, Succeeded
 from hyphae.enrich.levels import ROUND_ORDER, instructions, render
 from hyphae.enrich.stamp import mint, stale
-from hyphae.enrich.store import EnrichmentStore
 from hyphae.enrich.validation import InvalidOutput, ItemFailure, validate
 from hyphae.models.enrichment import Level, Stamp, Versions
 from hyphae.models.items import Item, level_of
+from hyphae.store.enrichment import EnrichmentStore
 
 
 @dataclass(frozen=True)

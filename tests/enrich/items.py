@@ -6,7 +6,6 @@ picker asserts it named exactly one item: a fixture that stops carrying the shap
 rather than rendering something else. A plain module, read by both prompt test files.
 """
 
-from hyphae.enrich.store import EnrichmentStore
 from hyphae.models.enrichment import (
     Category,
     Enrichment,
@@ -19,6 +18,7 @@ from hyphae.models.items import (
     SessionItem,
     TurnItem,
 )
+from hyphae.store.enrichment import EnrichmentStore
 
 
 def turn(store: EnrichmentStore, session_id: str, prefix: str) -> TurnItem:

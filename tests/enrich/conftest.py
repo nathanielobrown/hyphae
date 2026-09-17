@@ -1,12 +1,11 @@
 """Scaffolding for the enrichment tier: a store built from recorded fixtures, and no `claude`.
 
 The enrichment renders read rows, so their evidence is a real DuckDB built by running the
-existing pipeline over `tests/fixtures/` — the same keys the pipeline really writes. Building
-it costs an extraction per fixture, so `fixture_db` builds once per test session and
-`mutable_db` hands out a copy to any test that plants or deletes rows.
+existing pipeline over `tests/fixtures/` — the same keys the pipeline really writes. The
+store every leaf here reads, `fixture_db`, is the root conftest's, because the tables' own
+tests under `tests/store/` read it too; this file holds the ids its transcripts carry.
 """
 
-import shutil
 import subprocess
 from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
@@ -14,7 +13,6 @@ from pathlib import Path
 import pytest
 
 from hyphae.enrich.client import CLAUDE
-from hyphae.enrich.store import EnrichmentStore
 from hyphae.models.enrichment import (
     TAXONOMY_VERSION,
     Category,
@@ -24,6 +22,7 @@ from hyphae.models.enrichment import (
     Versions,
 )
 from hyphae.models.items import SessionItem
+from hyphae.store.enrichment import EnrichmentStore
 from tests.conftest import build_store, fixture_transcripts
 from tests.enrich.fake_cli import FakeCli, Reply
 
@@ -69,19 +68,6 @@ BYREF_RUN = "afa3946951a08a798"
 WORKFLOW_RUN = "a6f04bb0e6eff6013"
 ORIGIN_RUN = "a61a059e3610e6fb4"
 AUDITOR_RUN = "acbc29008a04b9702"
-ENRICHMENT_FIXTURES = (
-    "spine",
-    "server_tools",
-    "workflow",
-    "teammate",
-    "fork_byref",
-    "fork_origin",
-    "compaction",
-    "dup_uuid",
-    "model_only",
-    "legacy_title",
-    "resume_pair",
-)
 
 
 def stamp(input_hash: str = "hash-1") -> Stamp:
@@ -136,22 +122,6 @@ def store(spine_store: Path, tmp_path: Path) -> Iterator[EnrichmentStore]:
     copy.write_bytes(spine_store.read_bytes())
     with EnrichmentStore(copy) as opened:
         yield opened
-
-
-@pytest.fixture(scope="session")
-def fixture_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The recorded fixtures as one trace store. Read from it; copy it before writing."""
-    path = tmp_path_factory.mktemp("enrichment") / "traces.duckdb"
-    build_store(path, fixture_transcripts(*ENRICHMENT_FIXTURES))
-    return path
-
-
-@pytest.fixture
-def mutable_db(fixture_db: Path, tmp_path: Path) -> Path:
-    """A private copy of `fixture_db`, for tests that enrich, plant, or delete rows."""
-    copy = tmp_path / "traces.duckdb"
-    shutil.copy(fixture_db, copy)
-    return copy
 
 
 # The opt-in for anything that really runs a process. Set it and the `live` tests run.

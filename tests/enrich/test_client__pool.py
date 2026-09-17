@@ -26,9 +26,9 @@ from hyphae.enrich.client import (
     preflight,
 )
 from hyphae.enrich.prompts import OUTPUT_SCHEMA
-from hyphae.enrich.store import EnrichmentStore
 from hyphae.enrich.validation import FailureKind, validate
 from hyphae.models.enrichment import Category, Enrichment, Outcome
+from hyphae.store.enrichment import EnrichmentStore
 from tests.enrich.conftest import LIVE_CLI
 from tests.enrich.fake_cli import (
     AUTH_CALL,

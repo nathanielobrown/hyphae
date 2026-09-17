@@ -22,7 +22,6 @@ import duckdb
 import pytest
 
 from hyphae.analyze import macros
-from hyphae.enrich.store import EnrichmentStore
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
 from hyphae.models.enrichment import (
@@ -35,6 +34,7 @@ from hyphae.models.enrichment import (
     Stamp,
 )
 from hyphae.models.trace import SessionTrace
+from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.schema import table_ddl
 from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
 from hyphae.store.trace_store import DuckDbExporter, open_trace_store
@@ -513,6 +513,23 @@ def shared_store(
     return path
 
 
+# The fixture directories enrichment reads. `plans/enrichment/testing_plan.md` maps each one
+# to the shapes it carries; the rest of `tests/fixtures/` is left out so the build stays cheap.
+ENRICHMENT_FIXTURES = (
+    "spine",
+    "server_tools",
+    "workflow",
+    "teammate",
+    "fork_byref",
+    "fork_origin",
+    "compaction",
+    "dup_uuid",
+    "model_only",
+    "legacy_title",
+    "resume_pair",
+)
+
+
 @pytest.fixture(scope="session")
 def corpus_db(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Path:
     """The fixture corpus as one trace store: 13 mycelia sessions and three outside them.
@@ -524,6 +541,22 @@ def corpus_db(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Path:
     return shared_store(
         "corpus", lambda path: build_store(path, corpus_transcripts()), tmp_path_factory, worker_id
     )
+
+
+@pytest.fixture(scope="session")
+def fixture_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The recorded fixtures as one trace store. Read from it; copy it before writing."""
+    path = tmp_path_factory.mktemp("enrichment") / "traces.duckdb"
+    build_store(path, fixture_transcripts(*ENRICHMENT_FIXTURES))
+    return path
+
+
+@pytest.fixture
+def mutable_db(fixture_db: Path, tmp_path: Path) -> Path:
+    """A private copy of `fixture_db`, for tests that enrich, plant, or delete rows."""
+    copy = tmp_path / "traces.duckdb"
+    shutil.copy(fixture_db, copy)
+    return copy
 
 
 @pytest.fixture(scope="session")

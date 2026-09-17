@@ -6,7 +6,7 @@
 -- versions, are a pass someone stopped halfway.
 -- The denominators are the items a pass would describe, which is not every row of a level:
 -- enrichment describes main turns, every agent run, and the sessions that drove a model
--- response (`src/hyphae/enrich/store.py`). Counting the rest would report a permanent
+-- response (`src/hyphae/store/enrichment.py`). Counting the rest would report a permanent
 -- shortfall.
 -- Counts through the `corpus_*` family like everything else here, rather than the
 -- `enriched_*` views, which are LEFT joins over `live_*`: a resume's copied turn is enriched

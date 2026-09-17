@@ -32,7 +32,7 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src
 
 - **Extractor** — reads one agent's sessions into the model
 - **Exporter** — writes the model to a sink; the store and OTLP are sinks
-- **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache; its schema, writer and reader are `src/hyphae/store/`
+- **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache; its schema, writers and reader are `src/hyphae/store/`
 - **Fingerprint** — changes when any of a session's files do; the only thing deciding re-extraction
 - **Picker** — the multi-select a bare `hp extract` opens: one row per base project, sorted by recent activity, pre-checked with the last pick; the only thing that writes the settings file (`src/hyphae/extract/picker.py`)
 - **Settings file** — `settings.json` beside the store in `~/.hyphae`: what `hp` remembers for a person between runs, one JSON object namespaced by command; a preference rather than archive, so `--db` never moves it (`docs/store.md`)
@@ -50,7 +50,7 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src
 
 ## Enrichment
 
-Model-written descriptions beside the telemetry: `docs/enrichment.md`; the vocabularies and the row: `src/hyphae/models/enrichment.py`; the items: `src/hyphae/models/items.py`.
+Model-written descriptions beside the telemetry: `docs/enrichment.md`; the vocabularies and the row: `src/hyphae/models/enrichment.py`; the items: `src/hyphae/models/items.py`; the tables: `src/hyphae/store/enrichment.py`.
 
 - **Item** — one thing that gets one enrichment row (a turn, an agent run, or a session), and the row type the store selects it into
 - **Enrichment** — one accepted model answer about one item: description, category, outcome, friction
