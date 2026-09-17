@@ -87,12 +87,12 @@ Two changes that were measured together green **[Py]**:
   `tests/conftest.py`, at module import, wrap `duckdb.connect` so every connection the harness
   or the app-under-test opens runs `SET threads TO 1` (works on read-only connections;
   verified **[Py]**). One seam covers all three connection sites: the viewer's per-request
-  `open_store` (`src/hyphae/view/store.py`), the fixtures' direct `duckdb.connect` calls
+  `open_store` (`src/hyphae/store/handle.py`), the fixtures' direct `duckdb.connect` calls
   (`tests/view/conftest.py`), and the store builders. Comment it with the measurement:
   the pool costs more than it earns on ~20-row fixture tables
 
 Why this does not touch the standing ruling: the production viewer's per-request connect
-(`view/deps.py` + `view/store.py::open_store`) stays exactly as it is. The ruling exists
+(`view/deps.py` + `store/handle.py::open_store`) stays exactly as it is. The ruling exists
 because a cached read-only DuckDB connection holds the shared file lock and would block
 `hp extract` for the viewer's lifetime. Nothing here caches a connection, and the thread pin
 lives only in test scaffolding — production `hp view` keeps DuckDB's default pool, whose value
@@ -296,7 +296,7 @@ Why it would not contradict the ruling: the ruling protects `hp extract` from a 
 the store's file lock. A test's store is a private tmp file no extractor will ever open; the
 lock the cached connection holds excludes nobody. The shipped `open_store` is untouched.
 
-Deliberately last: it is the most invasive harness change (the `SchemaMoved` /
+Deliberately last: it is the most invasive harness change (the `SchemaVersionError` /
 store-moved-underneath lifecycle tests *depend* on per-request opens and would need to opt
 out), and the gate is judged after Phase 3, which the projections say suffices without it. Do not build it
 speculatively.
