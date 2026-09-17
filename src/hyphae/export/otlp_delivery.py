@@ -227,22 +227,26 @@ class DeliveryLedger:
         check_shape(self.connection, _DELIVERY_SCHEMA)
         self.connection.execute(_DELIVERY_SCHEMA)
 
-    def fingerprints(self) -> dict[str, str]:
+    def fingerprints(self, *, mapper_version: str) -> dict[str, str]:
         """What this backend holds, as far as delivery can tell.
 
-        Rows recorded under an older mapper are left out, which is what makes a shaping
-        change re-send the corpus: `refresh()` sees them as sessions it never shipped.
+        Rows recorded under a mapper other than `mapper_version` are left out, which is what
+        makes a shaping change re-send the corpus: `refresh()` sees them as sessions it never
+        shipped. No default: the ledger has no version of its own, and the caller that
+        records under one must read under the same.
         """
         if not self._exists():
             return {}
         rows = self.connection.execute(
             "SELECT session_id, fingerprint FROM otlp_delivery"
             " WHERE backend = ? AND mapper_version = ?",
-            [self.backend, MAPPER_VERSION],
+            [self.backend, mapper_version],
         ).fetchall()
         return dict(rows)
 
-    def record(self, session_id: str, fingerprint: str, spans_sent: int) -> None:
+    def record(
+        self, session_id: str, fingerprint: str, spans_sent: int, *, mapper_version: str
+    ) -> None:
         """Record one confirmed delivery, replacing what this backend held for the session."""
         self.connection.execute(
             "INSERT OR REPLACE INTO otlp_delivery VALUES (?, ?, ?, ?, ?, ?)",
@@ -250,7 +254,7 @@ class DeliveryLedger:
                 session_id,
                 self.backend,
                 fingerprint,
-                MAPPER_VERSION,
+                mapper_version,
                 spans_sent,
                 dt.datetime.now(dt.UTC),
             ],
@@ -281,7 +285,7 @@ class OtlpCensus:
 
     def fingerprints(self) -> dict[str, str]:
         """What this backend holds, which is what the count leaves out."""
-        return self.ledger.fingerprints()
+        return self.ledger.fingerprints(mapper_version=MAPPER_VERSION)
 
     def export(self, trace: SessionTrace, fingerprint: str) -> None:
         """Shape one session the way a send would, and count it instead of posting it.
@@ -358,7 +362,7 @@ class OtlpExporter:
 
     def fingerprints(self) -> dict[str, str]:
         """What this backend holds, as far as delivery can tell."""
-        return self.ledger.fingerprints()
+        return self.ledger.fingerprints(mapper_version=MAPPER_VERSION)
 
     def export(self, trace: SessionTrace, fingerprint: str) -> None:
         """Ship one session, and record it only once every batch came back confirmed."""
@@ -368,7 +372,7 @@ class OtlpExporter:
         for index, batch in enumerate(_batches(spans, self.batch_spans)):
             self._post(trace.session.id, index, batch, resource)
             sent += len(batch)
-        self.ledger.record(trace.session.id, fingerprint, sent)
+        self.ledger.record(trace.session.id, fingerprint, sent, mapper_version=MAPPER_VERSION)
 
     def _post(
         self,

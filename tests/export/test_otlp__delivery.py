@@ -359,7 +359,8 @@ def test_a_ledger_over_a_store_with_no_table_holds_nothing(store_path: Path) -> 
     # If a store `extract` wrote, which knows nothing of OTLP, is opened read-only...
     with open_trace_store(store_path, read_only=True, wait=NO_WAIT) as connection:
         # ...then its ledger answers for the backend rather than crashing on the absent table...
-        assert DeliveryLedger(connection, backend=GENERIC).fingerprints() == {}
+        ledger = DeliveryLedger(connection, backend=GENERIC)
+        assert ledger.fingerprints(mapper_version=MAPPER_VERSION) == {}
         # ...and reading one created nothing: the DDL is `OtlpExporter`'s alone, and running it
         # here would need the write lock this open does not hold.
         assert connection.execute(
