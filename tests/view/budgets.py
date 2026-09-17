@@ -399,7 +399,7 @@ def worst_session_row_bytes() -> int:
         # row shows, each member of its two lists, and the pass's own line — one mark per cut,
         # outside the escape, since an ellipsis is three bytes of UTF-8 and nothing escapes it.
         # The kinds of work are the one cut column with no mark: their vocabulary is closed
-        # (`enrich/taxonomy.py`) and its longest member is 9 characters against `TAG_CHARS`, so
+        # (`models/enrichment.py`) and its longest member is 9 characters against `TAG_CHARS`, so
         # that cut is a bound this arithmetic needs rather than one a value reaches.
         + (shown + members + written) * MARK_BYTES
         + MEASURED_LIST_ENRICHMENT_MARKUP

@@ -13,8 +13,8 @@ a bound; quote it as an estimate.
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import instructions
+from hyphae.models.enrichment import Level
 from hyphae.pricing import MODELS, PER_MILLION
 
 # The low end of the corpus's measured 3.3-4 range, so the token count reads high. Prompts are

@@ -22,17 +22,16 @@ import duckdb
 import pytest
 
 from hyphae.analyze import macros
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.store import EnrichmentStore
-from hyphae.enrich.taxonomy import TAXONOMY_VERSION, Category, Outcome
 from hyphae.enrich.validation import Enrichment
 from hyphae.export.duckdb import _SCHEMA as TRACE_SCHEMA
 from hyphae.export.duckdb import DuckDbExporter, open_trace_store
 from hyphae.export.schema import table_ddl
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
+from hyphae.models.enrichment import TAXONOMY_VERSION, Category, Level, Outcome
 from hyphae.models.trace import SessionTrace
 from hyphae.store_path import HP_DB
 

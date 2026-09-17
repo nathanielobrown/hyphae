@@ -19,9 +19,8 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS
-from hyphae.enrich.taxonomy import TAXONOMY_VERSION
+from hyphae.models.enrichment import TAXONOMY_VERSION, Level
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.enrichment import GLYPH, GLYPH_CLASS

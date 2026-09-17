@@ -1,4 +1,4 @@
-"""What enrichment describes: the three levels, and the rows each item is built from.
+"""What enrichment describes: the rows each item is built from, keyed by its `Level`.
 
 An item is one thing that gets one enrichment row. The store reads these out of the trace
 store (`enrich/store.py`), the renders turn them into prompt text (`enrich/prompts.py`), and
@@ -7,21 +7,14 @@ the persistence side reads its row types from holds no prompt text and no SQL.
 """
 
 from dataclasses import dataclass
-from enum import StrEnum
 from typing import override
+
+from hyphae.models.enrichment import Level
 
 # Between an item key's fields. Absent from every value it joins: a session id is a uuid, a turn
 # id is the prompt record's uuid (`model.Turn.id`), a run id is the hex stem of the run's own
 # files, and a source is a run id or `main`.
 SEPARATOR = "|"
-
-
-class Level(StrEnum):
-    """The three things that get an enrichment row, each with its own table and prompt."""
-
-    turn = "turn"
-    agent_run = "agent_run"
-    session = "session"
 
 
 @dataclass(frozen=True)

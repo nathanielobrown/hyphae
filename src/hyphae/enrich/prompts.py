@@ -19,7 +19,7 @@ from hyphae.enrich.items import (
     ToolCallRow,
     TurnItem,
 )
-from hyphae.enrich.taxonomy import (
+from hyphae.models.enrichment import (
     CATEGORY_DEFINITIONS,
     OUTCOME_DEFINITIONS,
     Category,

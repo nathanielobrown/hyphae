@@ -14,7 +14,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from hyphae.enrich import prompts
-from hyphae.enrich.items import Budgets, Item, Level
+from hyphae.enrich.items import Budgets, Item
+from hyphae.models.enrichment import Level
 
 
 @dataclass(frozen=True)

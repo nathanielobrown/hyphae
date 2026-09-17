@@ -1,13 +1,25 @@
-"""The one vocabulary every enrichment level is written in.
+"""The enrichment vocabulary: what gets described, and the closed words it is described in.
 
-Closed and code-resident on purpose: `GROUP BY category` only means something over a fixed
-set, and the code that validates a model's answer is the code a reviewer reads. A member
-added here is a taxonomy change — bump `TAXONOMY_VERSION` with it, which makes every
-existing row stale without invalidating it, so the viewer can render version-N rows while
-version-N+1 backfills.
+`Level` names the three things that get an enrichment row. `Category` and `Outcome` are the
+taxonomy every level is written in — closed and code-resident on purpose: `GROUP BY category`
+only means something over a fixed set, and the code that validates a model's answer is the
+code a reviewer reads. A member added here is a taxonomy change — bump `TAXONOMY_VERSION`
+with it, which makes every existing row stale without invalidating it, so the viewer can
+render version-N rows while version-N+1 backfills.
+
+Here rather than in `enrich` because the viewer reads these words too, and `view` imports
+nothing from `enrich`.
 """
 
 from enum import StrEnum
+
+
+class Level(StrEnum):
+    """The three things that get an enrichment row, each with its own table and prompt."""
+
+    turn = "turn"
+    agent_run = "agent_run"
+    session = "session"
 
 
 class Category(StrEnum):

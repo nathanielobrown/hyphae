@@ -286,7 +286,7 @@ HAND_CUTS: dict[str, set[str]] = {
     "error_records": {r"regexp_replace(trim(t.result), '\s+', ' ', 'g')"},
     "records_slice": {"raw"},
     "view_records": {"raw"},
-    # The closed vocabularies (`enrich/taxonomy.py`) and the model that wrote an enrichment: a
+    # The closed vocabularies (`models/enrichment.py`) and the model that wrote an enrichment: a
     # width no member reaches, held as arithmetic the page's bound needs rather than as a cut.
     "view_compactions": {"k.trigger"},
     "view_numbers_compaction": {"k.trigger"},

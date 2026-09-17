@@ -50,7 +50,7 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `doc
 
 ## Enrichment
 
-Model-written descriptions beside the telemetry: `docs/enrichment.md`; the vocabularies: `src/hyphae/enrich/taxonomy.py`.
+Model-written descriptions beside the telemetry: `docs/enrichment.md`; the vocabularies: `src/hyphae/models/enrichment.py`.
 
 - **Enrichment** — one accepted model answer about one item: description, category, outcome, friction
 - **Level** — the three kinds a pass describes: turn, agent run, session

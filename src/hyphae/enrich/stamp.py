@@ -4,16 +4,15 @@ Four values decide it — the hash of the rendered content, the level's prompt v
 taxonomy version, and the model that answered. They are minted, compared and judged here, so
 a pass and a reader cannot hold two versions of the rule. The two versions are declared
 elsewhere and read here alone: `LevelSpec.prompt_version` in `levels.py`, `TAXONOMY_VERSION`
-in `taxonomy.py`.
+in `models/enrichment.py`.
 """
 
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass, fields
 
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS
-from hyphae.enrich.taxonomy import TAXONOMY_VERSION
+from hyphae.models.enrichment import TAXONOMY_VERSION, Level
 
 
 @dataclass(frozen=True)

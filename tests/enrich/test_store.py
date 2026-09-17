@@ -10,11 +10,12 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from hyphae.enrich.items import Level, TurnItem, item_key, level_of
+from hyphae.enrich.items import TurnItem, item_key, level_of
 from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.stamp import stale
 from hyphae.enrich.store import _SCHEMA, PAYLOAD_COLUMNS, EnrichmentStore
 from hyphae.export.schema import SchemaVersionError, declared_shape
+from hyphae.models.enrichment import Level
 from hyphae.models.trace import MAIN_SOURCE
 from tests.conftest import MODEL_ONLY, MYCELIA, build_store, fixture_transcripts
 from tests.enrich.conftest import (

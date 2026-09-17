@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from hyphae.analyze import queries
 from hyphae.analyze.queries import ParamValue
-from hyphae.enrich.taxonomy import Category, Outcome
+from hyphae.models.enrichment import Category, Outcome
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.store import TURN_CURSOR, Page, cursorless_rows

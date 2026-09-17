@@ -21,7 +21,7 @@ src/hyphae/
   store/                 the trace store: schema, writer, reader, the SQL library, and one repository per area
   extract/               transcripts in, `SessionTrace` out; touches no database
   export/                OTLP only; reads the store through a repository
-  enrich/                prompts, taxonomy, the LLM client; reads and writes through the enrichment repository
+  enrich/                prompts, the LLM client; reads and writes through the enrichment repository
   analyze/               the manifest and runner behind `hp query`; every statement it runs lives in the store
   view/                  pages, page models, markup; every read goes through a repository
   pipeline.py            the extractor ↔ exporter contract, owning the errors it catches

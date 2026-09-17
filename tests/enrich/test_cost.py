@@ -16,8 +16,8 @@ from hyphae.enrich.cost import (
     Prompt,
     estimate,
 )
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import instructions
+from hyphae.models.enrichment import Level
 from hyphae.pricing import MODELS, PER_MILLION
 
 MODEL = "claude-haiku-4-5-20251001"

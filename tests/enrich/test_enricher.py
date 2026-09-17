@@ -21,12 +21,11 @@ from hyphae.enrich.client import (
     Succeeded,
 )
 from hyphae.enrich.enricher import EnrichmentFailed, EnrichReport, enrich, plan
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS, ROUND_ORDER, render
 from hyphae.enrich.stamp import input_hash
 from hyphae.enrich.store import EnrichmentStore
-from hyphae.enrich.taxonomy import TAXONOMY_VERSION
 from hyphae.enrich.validation import FailureKind
+from hyphae.models.enrichment import TAXONOMY_VERSION, Level
 from tests.conftest import MODEL_ONLY, build_store, fixture_transcripts
 from tests.enrich.conftest import (
     AUDITOR_RUN,

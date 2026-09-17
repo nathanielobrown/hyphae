@@ -3,8 +3,8 @@
 Plain maps and strings in, verdicts out — no store and no client, because the rule is about
 four values and nothing else. The stamps here are invented, as every stamp in the suite is:
 a stamp is ours, so no recorded session holds one. The oracles read `levels.py` and
-`taxonomy.py` directly; one that asked `Versions` what the versions are would test the code
-against itself.
+`models/enrichment.py` directly; one that asked `Versions` what the versions are would test
+the code against itself.
 """
 
 import hashlib
@@ -13,10 +13,9 @@ from typing import Any
 
 import pytest
 
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.stamp import Stamp, Versions, input_hash, stale
-from hyphae.enrich.taxonomy import TAXONOMY_VERSION
+from hyphae.models.enrichment import TAXONOMY_VERSION, Level
 
 # What a row this file plants was written under. The versions are today's, so a leaf that
 # wants drift asks for it by name.
@@ -81,7 +80,7 @@ def test_an_identical_stamp_is_fresh_and_a_held_key_nothing_planned_is_not_repor
 
 
 def test_current_reads_the_two_declarations() -> None:
-    """`Versions.current()` is exactly what `levels.py` and `taxonomy.py` declare today.
+    """`Versions.current()` is exactly what `levels.py` and `models/enrichment.py` declare today.
 
     The one equality behind the whole module: the viewer and the enricher can no longer
     disagree about a row's versions because both ask this, and this is the declarations.

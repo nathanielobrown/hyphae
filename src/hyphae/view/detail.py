@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any, NamedTuple, assert_never
 
-from hyphae.enrich.items import Level
+from hyphae.models.enrichment import Level
 from hyphae.view import bounds
 from hyphae.view.enrichment import Enrichment
 from hyphae.view.store import Page, Value

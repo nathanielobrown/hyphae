@@ -14,11 +14,11 @@ from hyphae.enrich.items import (
 )
 from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.store import EnrichmentStore
-from hyphae.enrich.taxonomy import (
+from hyphae.enrich.validation import Enrichment
+from hyphae.models.enrichment import (
     Category,
     Outcome,
 )
-from hyphae.enrich.validation import Enrichment
 
 
 def turn(store: EnrichmentStore, session_id: str, prefix: str) -> TurnItem:

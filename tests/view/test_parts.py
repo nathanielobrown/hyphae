@@ -16,9 +16,8 @@ import re
 import htpy
 import pytest
 
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS
-from hyphae.enrich.taxonomy import TAXONOMY_VERSION
+from hyphae.models.enrichment import TAXONOMY_VERSION, Level
 from hyphae.view import bounds
 from hyphae.view.citation import cited
 from hyphae.view.components import citation, parts

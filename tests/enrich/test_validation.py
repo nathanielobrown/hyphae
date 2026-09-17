@@ -7,14 +7,14 @@ could never be committed.
 
 import pytest
 
-from hyphae.enrich.taxonomy import (
+from hyphae.enrich.validation import Enrichment, FailureKind, InvalidOutput, validate
+from hyphae.models.enrichment import (
     CATEGORY_DEFINITIONS,
     OUTCOME_DEFINITIONS,
     TAXONOMY_VERSION,
     Category,
     Outcome,
 )
-from hyphae.enrich.validation import Enrichment, FailureKind, InvalidOutput, validate
 
 
 def payload(**overrides: object) -> dict[str, object]:

@@ -7,15 +7,15 @@ the render — is in `test_prompts__budget.py`.
 
 from pathlib import Path
 
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS, instructions, render
 from hyphae.enrich.prompts import OUTPUT_SCHEMA
 from hyphae.enrich.store import EnrichmentStore
-from hyphae.enrich.taxonomy import (
+from hyphae.models.enrichment import (
     CATEGORY_DEFINITIONS,
     OUTCOME_DEFINITIONS,
     TAXONOMY_VERSION,
     Category,
+    Level,
     Outcome,
 )
 from tests.conftest import MODEL_ONLY
@@ -131,7 +131,7 @@ def test_version_2_of_the_taxonomy_moved_two_borders_and_no_member() -> None:
 def test_every_level_names_every_taxonomy_member() -> None:
     """A level's instructions carry the whole vocabulary, each member with its definition."""
     # If a member reached `OUTPUT_SCHEMA` alone, the model could answer it without ever being
-    # told what it means, so every definition `taxonomy.py` holds must reach every level...
+    # told what it means, so every definition `models/enrichment.py` holds must reach every level...
     definitions = {**CATEGORY_DEFINITIONS, **OUTCOME_DEFINITIONS}
     for level in Level:
         rendered = instructions(level)

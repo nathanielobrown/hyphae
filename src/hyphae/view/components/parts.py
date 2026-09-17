@@ -182,7 +182,7 @@ def more(*, cut: int) -> Html | None:
 def tags(*, category: str, outcome: str, stale: bool) -> Html:
     """What an enrichment pass said an item was and how it went.
 
-    The vocabularies are closed (`enrich/taxonomy.py`); `stale` says the row was written under
+    The vocabularies are closed (`models/enrichment.py`); `stale` says the row was written under
     a prompt or taxonomy version this build has moved past, which is a reason to re-run a pass
     and not a reason to distrust the words.
     """

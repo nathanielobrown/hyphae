@@ -43,7 +43,7 @@ src/hyphae/               Analyze AI coding agents from their telemetry
   enrich/                 The enrichment layer: what a model wrote about each run, turn and session in the store
   analyze/                The analysis layer: a versioned SQL library and the runner that binds and cites it
   view/                   The trace viewer: a local web app serving every node of a session as its own page
-  models/                 The types that cross package lines: the trace model every extractor builds and sink writes
+  models/                 The types that cross package lines: the trace model every extractor builds and sink writes, and the enrichment vocabulary a pass writes and a page reads
   pipeline.py             The seams: what an extractor and an exporter owe each other, and the loop that drives them
 tests/                    The suite, mirroring the package layout; fixtures are recorded sessions, and `gallery/` serves them as pages (`docs/ui-development.md`)
 tools/                    The repo's own tooling: what the code already owns written back out, and what runs the gates

@@ -15,11 +15,11 @@ from pathlib import Path
 
 import pytest
 
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS, render
 from hyphae.enrich.prompts import render_run, render_session, render_turn
 from hyphae.enrich.stamp import input_hash
 from hyphae.enrich.store import EnrichmentStore
+from hyphae.models.enrichment import Level
 from tests.enrich.conftest import (
     SERVER_TOOLS,
     SPINE,

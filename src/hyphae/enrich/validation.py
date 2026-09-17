@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from hyphae.enrich.taxonomy import Category, Outcome
+from hyphae.models.enrichment import Category, Outcome
 
 
 class FailureKind(StrEnum):

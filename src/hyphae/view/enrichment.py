@@ -14,9 +14,9 @@ from typing import NamedTuple
 
 import duckdb
 
-from hyphae.enrich.items import Level
 from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.stamp import Versions
+from hyphae.models.enrichment import Level
 from hyphae.view import bounds
 from hyphae.view.store import Page, bound, page_rows
 from hyphae.view.text.format import when

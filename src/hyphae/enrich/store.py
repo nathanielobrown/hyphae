@@ -21,7 +21,6 @@ from hyphae.enrich.items import (
     AgentRunItem,
     ApiCallRow,
     Item,
-    Level,
     RunSection,
     SessionChild,
     SessionItem,
@@ -35,6 +34,7 @@ from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.validation import Enrichment
 from hyphae.export.duckdb import CLI_WAIT, open_trace_store
 from hyphae.export.schema import check_shape
+from hyphae.models.enrichment import Level
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.projects import project_predicate
 
