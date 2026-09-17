@@ -235,6 +235,8 @@ markers = [
 
 [tool.importlinter]
 root_package = "hyphae"
+# The forbidden contract below names `duckdb`, which the linter cannot see without this.
+include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "Layers"
@@ -255,6 +257,30 @@ layers = [
   "user_settings",
   "models | projects | pricing | settings | store_path",
 ]
+
+[[tool.importlinter.contracts]]
+name = "Only the store and, until phase 3, the viewer and analyze speak DuckDB"
+type = "forbidden"
+# Every layer but `store`, `view` and `analyze` — a leaf in `tests/tools/test_import_contract.py`
+# holds this list to the layers above. Phase 3 of the store-layering plan adds the last two
+# once their SQL has moved into `store`.
+source_modules = [
+  "hyphae.cli",
+  "hyphae.enrich",
+  "hyphae.export",
+  "hyphae.extract",
+  "hyphae.pipeline",
+  "hyphae.user_settings",
+  "hyphae.models",
+  "hyphae.projects",
+  "hyphae.pricing",
+  "hyphae.settings",
+  "hyphae.store_path",
+]
+forbidden_modules = ["duckdb"]
+# The contract is about who names the driver, not who reaches it: every package above reaches
+# `duckdb` through `store`, and following chains would make that the break.
+allow_indirect_imports = true
 
 [tool.mutmut]
 # What `mise run mutate` mutates when it is given no scope of its own. mutmut copies the tree

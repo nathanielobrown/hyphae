@@ -6,7 +6,11 @@ Which package under `src/hyphae` may import which, held by a gate and drawn from
 
 `[tool.importlinter]` in `pyproject.toml` lists the children of `hyphae` as layers, top to bottom. A module may import anything on a line below its own and nothing above; modules sharing a line with `|` are independent of each other. The contract is exhaustive: every child of `hyphae` must sit on a line, so a new package picks its layer there rather than adding a rule beside the list. Later phases of the store-layering plan edit the list; nothing else does.
 
-`mise run lint-imports` runs the contract, in `check-fast` and in `check`. A red run names the importer and the imported package, then each import behind the break as `module -> module (l.N)`. The fix is to move the code, not the line: an import that points up is the code in the wrong package, or the contract describing a layering the code has outgrown, and either way the answer is a design change rather than a suppression.
+`mise run lint-imports` runs both contracts, in `check-fast` and in `check`. A red run names the importer and the imported package, then each import behind the break as `module -> module (l.N)`. The fix is to move the code, not the line: an import that points up is the code in the wrong package, or the contract describing a layering the code has outgrown, and either way the answer is a design change rather than a suppression.
+
+## The forbidden contract
+
+A second contract in the same table says which packages may name `duckdb`: today only `store`, `view` and `analyze`, and once phase 3 of the store-layering plan moves the viewer's and the runner's SQL into the store, only `store`. It lists every other layer as a source and `duckdb` as forbidden, with `allow_indirect_imports` on: the contract is about who imports the driver, not who reaches it, since whatever a source needs from the database it gets through `store`. The same run reports both contracts, and a red one names the module and the line of the import.
 
 ## The graph
 

@@ -5,7 +5,7 @@ generated from, so the one thing that tier shares is the parser that turns a tab
 cells. No test compares a generator's output to a golden string: a golden would pin today's
 wording and say nothing about whether the numbers in it are still the code's. Beside it, the
 one reader of `mise.toml`, which two files ask different questions of, and the one reader of
-the layers contract, which two files hold the code and the diagram to.
+the import contracts, which two files hold the code and the diagram to.
 """
 
 import re
@@ -36,11 +36,16 @@ def numbers(text: str) -> list[int]:
     return [int(match.replace(",", "")) for match in re.findall(r"\d[\d,]*", text)]
 
 
+def contract(kind: str) -> dict:
+    """The one contract of this type under `[tool.importlinter]` in `pyproject.toml`, as data."""
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    (found,) = [c for c in config["tool"]["importlinter"]["contracts"] if c["type"] == kind]
+    return found
+
+
 def contract_layers() -> list[str]:
     """The `layers` list the layers contract in `pyproject.toml` declares, top to bottom."""
-    config = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    contracts = config["tool"]["importlinter"]["contracts"]
-    return next(c for c in contracts if c["type"] == "layers")["layers"]
+    return contract("layers")["layers"]
 
 
 def mise_config() -> dict:
