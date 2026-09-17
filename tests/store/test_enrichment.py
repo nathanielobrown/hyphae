@@ -262,17 +262,21 @@ def test_every_reader_narrows_to_the_project_it_was_given(mutable_db: Path) -> N
             "UPDATE sessions SET project_dir = ? WHERE id = ?", [f"{MYCELIA}-old", TEAMMATE]
         )
         # ...then every reader that takes a project reads the project's own items, and none
-        # of them the neighbour's.
+        # of them the neighbour's — through the door the pass reads each level by as well as
+        # directly, since `items` could hand the level's reader no project and still return
+        # that level's items.
         for scoped, whole in (
             (store.turn_items(MYCELIA), store.turn_items()),
             (store.run_items(MYCELIA), store.run_items()),
             (store.session_items(MYCELIA), store.session_items()),
+            *((store.items(level, MYCELIA), store.items(level)) for level in Level),
         ):
-            kept = {item.session_id for item in scoped}
+            # The session id leads every level's key, as it leads every table's primary key.
+            kept = {item.key_values[0] for item in scoped}
             assert TEAMMATE not in kept, "kept the neighbouring checkout's session"
             assert scoped, "narrowed to nothing"
             # The filter only drops sessions: what it keeps is what the unscoped read built.
-            assert scoped == [item for item in whole if item.session_id in kept]
+            assert scoped == [item for item in whole if item.key_values[0] in kept]
             assert len(scoped) < len(whole), "returned the whole corpus"
         # The parent links narrow with them: a link the scoped items cannot name is a parent
         # the pass would send a request for and never write a row from.
