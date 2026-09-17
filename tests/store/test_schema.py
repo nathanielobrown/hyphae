@@ -14,9 +14,10 @@ from typing import get_args, get_type_hints
 import duckdb
 import pytest
 
-from hyphae.export.otlp_delivery import _DELIVERY_SCHEMA as DELIVERY_SCHEMA
-from hyphae.export.otlp_delivery import Backend, DeliveryLedger, OtlpExporter
+from hyphae.export.otlp_delivery import Backend, OtlpExporter
 from hyphae.models.trace import LiveRows
+from hyphae.store.delivery import _DELIVERY_SCHEMA as DELIVERY_SCHEMA
+from hyphae.store.delivery import DeliveryLedger
 from hyphae.store.enrichment import _SCHEMA as ENRICHMENT_SCHEMA
 from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.schema import (
@@ -54,7 +55,7 @@ DDL_OWNERS = [
         id="enrichment",
     ),
     pytest.param(
-        "hyphae.export.otlp_delivery",
+        "hyphae.store.delivery",
         DELIVERY_SCHEMA,
         "90437444e97303d1fa036146bd70d273e40aaaf1f541ee6625d08f6eae2bce2f",
         id="otlp-delivery",

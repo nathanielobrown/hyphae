@@ -28,11 +28,11 @@ What one session recorded. Entities: `src/hyphae/models/trace.py`; relationships
 
 ## Pipeline
 
-The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src/hyphae/store/`, `docs/store.md`; OTLP: `src/hyphae/export/otlp_delivery.py`, `docs/otlp-export.md`.
+The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src/hyphae/store/`, `docs/store.md`; OTLP: `src/hyphae/export/otlp_delivery.py`, its ledger: `src/hyphae/store/delivery.py`, `docs/otlp-export.md`.
 
 - **Extractor** — reads one agent's sessions into the model
 - **Exporter** — writes the model to a sink; the store and OTLP are sinks
-- **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache; its schema, writers and reader are `src/hyphae/store/`
+- **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache; its schema, every table's writer and the reader are `src/hyphae/store/`
 - **Fingerprint** — changes when any of a session's files do; the only thing deciding re-extraction
 - **Picker** — the multi-select a bare `hp extract` opens: one row per base project, sorted by recent activity, pre-checked with the last pick; the only thing that writes the settings file (`src/hyphae/extract/picker.py`)
 - **Settings file** — `settings.json` beside the store in `~/.hyphae`: what `hp` remembers for a person between runs, one JSON object namespaced by command; a preference rather than archive, so `--db` never moves it (`docs/store.md`)
@@ -45,7 +45,7 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src
 - **Rollup** — one row per session: counts, tokens, cost
 - **Timeline** — one thread in outline, a row per turn in the order they ran: `session_timeline` for `main`, `run_timeline` for an agent run
 - **Span** — a store row's OTLP shadow; one OTLP trace per session
-- **Delivery ledger** — `otlp_delivery`: what one backend acknowledged of each session, and the fingerprints an OTLP send or census diffs against
+- **Delivery ledger** — `otlp_delivery`: what one backend acknowledged of each session, and the fingerprints an OTLP send or census diffs against; kept in the store beside what it fingerprints (`src/hyphae/store/delivery.py`), created by the first send
 - **Census** — the sessions and spans a send to one backend would ship now: the dry run
 
 ## Enrichment

@@ -246,8 +246,8 @@ exhaustive = true
 layers = [
   "cli",
   "view | enrich",
-  "analyze",
-  "export",
+  # Peers: neither has ever imported the other; both read the store.
+  "analyze | export",
   # Peers: the reader rebuilds a trace from rows and never parses, and the parser touches no
   # database. Each imports only `pipeline` and the leaves below it.
   "store | extract",

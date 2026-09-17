@@ -30,12 +30,12 @@ from hyphae.export.otlp_delivery import (
     BackendMismatchError,
     ConfigurationError,
     DeliveryError,
-    DeliveryLedger,
     OtlpExporter,
     RejectedSpansError,
     named_backend,
 )
 from hyphae.pipeline import refresh
+from hyphae.store.delivery import DeliveryLedger
 from hyphae.store.schema import SCHEMA_VERSION
 from hyphae.store.trace_reader import StoreSource
 from hyphae.store.trace_store import DuckDbExporter, open_trace_store

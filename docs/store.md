@@ -32,7 +32,7 @@ erDiagram
     agent_runs ||--o{ agent_runs : "spawned"
 ```
 
-`_SCHEMA` in `src/hyphae/store/trace_store.py` defines the trace tables and their columns. `src/hyphae/store/enrichment.py` defines the enrichment tables described below, and the OTLP exporter defines its own `otlp_delivery` table in `src/hyphae/export/otlp_delivery.py`. [The schema guide](schema.md) defines each telemetry field and cites the recording that proves it.
+`_SCHEMA` in `src/hyphae/store/trace_store.py` defines the trace tables and their columns. `src/hyphae/store/enrichment.py` defines the enrichment tables described below, and `src/hyphae/store/delivery.py` the `otlp_delivery` table the OTLP exporter writes. [The schema guide](schema.md) defines each telemetry field and cites the recording that proves it.
 
 A session's main thread and agent runs use the same trace tables. The `source` column distinguishes them, so `(session_id, source, id)` identifies a turn or call.
 
@@ -80,7 +80,7 @@ Once Claude Code deletes those files, the store holds the only copy. Deleting it
 
 Each session fingerprint includes `EXTRACTOR_VERSION` from `src/hyphae/extract/claude_code.py`. Raising that version makes the next refresh re-extract every session whose files remain on disk. Extraction updates the existing store, so you don't need to delete it. Pruned sessions keep the rows produced by the parser that first extracted them.
 
-`SCHEMA_VERSION` in `src/hyphae/store/schema.py` stamps the file, not one owner's tables: three modules create tables in the one DuckDB file, so the version belongs to the file they share. Opening a store for write carries it forward. `MIGRATIONS` holds one step per version, keyed by the version it produces, and a store older than the build runs every step above it in one transaction. A store newer than the build, or one no step reaches, is still refused and sent to a fresh store — don't delete the old one until you run the check below. A read-only open cannot migrate, so the viewer and the analysis runner refuse an older store and tell you to open it for write once.
+`SCHEMA_VERSION` in `src/hyphae/store/schema.py` stamps the file, not one owner's tables: three modules under `src/hyphae/store/` create tables in the one DuckDB file, so the version belongs to the file they share. Opening a store for write carries it forward. `MIGRATIONS` holds one step per version, keyed by the version it produces, and a store older than the build runs every step above it in one transaction. A store newer than the build, or one no step reaches, is still refused and sent to a fresh store — don't delete the old one until you run the check below. A read-only open cannot migrate, so the viewer and the analysis runner refuse an older store and tell you to open it for write once.
 
 Migrating rather than refusing bends this project's preference for clean breaking changes over compatibility shims. It loses to the constraint above: the store can hold the only copy of a pruned session, so a schema change has to move the store it finds rather than ask for a fresh one.
 

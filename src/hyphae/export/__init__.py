@@ -1,2 +1,2 @@
-"""Exporters: `SessionTrace` in, rows in a sink out. OTLP lives here; the DuckDB writer is
-`hyphae.store`."""
+"""The OTLP exporter: `SessionTrace` in, spans to a backend out. The store is the other sink,
+and `hyphae.store` owns it."""

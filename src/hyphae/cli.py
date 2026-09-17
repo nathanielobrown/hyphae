@@ -32,7 +32,6 @@ from hyphae.export.otlp_delivery import (
     GENERIC,
     Backend,
     ConfigurationError,
-    DeliveryLedger,
     OtlpCensus,
     OtlpExporter,
     named_backend,
@@ -45,6 +44,7 @@ from hyphae.models.enrichment import Versions
 from hyphae.pipeline import Failure, refresh
 from hyphae.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.projects import encode_project_path, resolve_project
+from hyphae.store.delivery import DeliveryLedger
 from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.trace_reader import StoreSource, UnknownProjectError
 from hyphae.store.trace_store import CLI_WAIT, DuckDbExporter, open_trace_store

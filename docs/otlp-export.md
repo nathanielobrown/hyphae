@@ -64,7 +64,7 @@ The exporter sends a session whole and writes its `otlp_delivery` row only after
 
 A resend uses the same trace and span ids. Each id is derived from the session id, row kind, and the row's natural id. A backend that deduplicates those ids can treat the send as an update; a backend that does not will store another copy. The exporter does not compare remote spans with the next payload.
 
-The `otlp_delivery` table is keyed by session and backend. Each row stores the shipped session fingerprint and the `MAPPER_VERSION` that shaped it. A changed fingerprint resends that session. A changed mapper version resends every selected session because their old delivery rows no longer count as current.
+The `otlp_delivery` table (`src/hyphae/store/delivery.py`) is keyed by session and backend. Each row stores the shipped session fingerprint and the `MAPPER_VERSION` that shaped it. A changed fingerprint resends that session. A changed mapper version resends every selected session because their old delivery rows no longer count as current.
 
 This ledger records what the backend acknowledged, not what a later query can find there. Backend-side delivery verification is not built.
 
