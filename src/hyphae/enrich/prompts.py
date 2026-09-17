@@ -1,6 +1,6 @@
 """What every level sends the model: the shared instructions, and each level's render.
 
-The renders are pure — items in (`enrich/items.py`), prompt text out — so their evidence is a
+The renders are pure — items in (`models/items.py`), prompt text out — so their evidence is a
 real store built from the recorded fixtures rather than a client and a network. Every size
 limit is a parameter rather than a constant read here, because a redacted fixture is two
 orders of magnitude short of the real budgets and elision could not otherwise be tested at
@@ -9,22 +9,46 @@ all; `enrich/levels.py` holds the budgets a pass really runs on.
 
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 
-from hyphae.enrich.items import (
-    AgentRunItem,
-    ApiCallRow,
-    Budgets,
-    SessionChild,
-    SessionItem,
-    ToolCallRow,
-    TurnItem,
-)
 from hyphae.models.enrichment import (
     CATEGORY_DEFINITIONS,
     OUTCOME_DEFINITIONS,
     Category,
     Outcome,
 )
+from hyphae.models.items import (
+    AgentRunItem,
+    ApiCallRow,
+    SessionChild,
+    SessionItem,
+    ToolCallRow,
+    TurnItem,
+)
+
+
+@dataclass(frozen=True)
+class Budgets:
+    """Every size limit one render obeys, in characters.
+
+    Passed rather than read from a constant so the elision paths can be exercised: every
+    string in a redacted fixture is ten characters long, so no recorded row comes within two
+    orders of magnitude of `total`.
+    """
+
+    # The whole rendered prompt. Differs per level, so there is no sensible default.
+    total: int
+    prompt: int = 4_000
+    # The assistant's text per api call. Enough for the narration, not for a file dump.
+    text: int = 1_500
+    # The head of a tool's input — the file read, the command run, the URL fetched.
+    input_head: int = 120
+    # The tail of a *failed* tool result. No other result content travels at all.
+    error_tail: int = 300
+    # A slash command's own printed output — for most command turns, the whole of what
+    # happened. 315 of the 316 recorded bodies fit it; the median is 71 characters.
+    command_result: int = 2_000
+
 
 _ANSWER = """Answer with one JSON object recording what you just read, and say nothing else:
 

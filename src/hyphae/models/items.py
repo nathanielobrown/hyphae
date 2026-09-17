@@ -2,8 +2,9 @@
 
 An item is one thing that gets one enrichment row. The store reads these out of the trace
 store (`enrich/store.py`), the renders turn them into prompt text (`enrich/prompts.py`), and
-the enricher carries them between the two. Nothing here renders or queries — so the module
-the persistence side reads its row types from holds no prompt text and no SQL.
+the enricher carries them between the two. Nothing here renders or queries, and nothing here
+imports outside `models` — so the store can select a row into its type without importing the
+pass that describes it. The render's size limits are the render's own (`enrich/prompts.py:Budgets`).
 """
 
 from dataclasses import dataclass
@@ -15,29 +16,6 @@ from hyphae.models.enrichment import Level
 # id is the prompt record's uuid (`model.Turn.id`), a run id is the hex stem of the run's own
 # files, and a source is a run id or `main`.
 SEPARATOR = "|"
-
-
-@dataclass(frozen=True)
-class Budgets:
-    """Every size limit one render obeys, in characters.
-
-    Passed rather than read from a constant so the elision paths can be exercised: every
-    string in a redacted fixture is ten characters long, so no recorded row comes within two
-    orders of magnitude of `total`.
-    """
-
-    # The whole rendered prompt. Differs per level, so there is no sensible default.
-    total: int
-    prompt: int = 4_000
-    # The assistant's text per api call. Enough for the narration, not for a file dump.
-    text: int = 1_500
-    # The head of a tool's input — the file read, the command run, the URL fetched.
-    input_head: int = 120
-    # The tail of a *failed* tool result. No other result content travels at all.
-    error_tail: int = 300
-    # A slash command's own printed output — for most command turns, the whole of what
-    # happened. 315 of the 316 recorded bodies fit it; the median is 71 characters.
-    command_result: int = 2_000
 
 
 @dataclass(frozen=True)

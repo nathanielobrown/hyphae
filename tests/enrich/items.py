@@ -6,18 +6,18 @@ picker asserts it named exactly one item: a fixture that stops carrying the shap
 rather than rendering something else. A plain module, read by both prompt test files.
 """
 
-from hyphae.enrich.items import (
+from hyphae.enrich.store import EnrichmentStore
+from hyphae.models.enrichment import (
+    Category,
+    Enrichment,
+    Outcome,
+    Stamp,
+)
+from hyphae.models.items import (
     AgentRunItem,
     Item,
     SessionItem,
     TurnItem,
-)
-from hyphae.enrich.stamp import Stamp
-from hyphae.enrich.store import EnrichmentStore
-from hyphae.enrich.validation import Enrichment
-from hyphae.models.enrichment import (
-    Category,
-    Outcome,
 )
 
 

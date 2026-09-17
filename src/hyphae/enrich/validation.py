@@ -1,4 +1,4 @@
-"""The output side: what a valid enrichment is, and how an item fails to produce one.
+"""The output side: how a model answer becomes an `Enrichment`, and how an item fails to.
 
 Nothing here ever repeats what the model wrote. The descriptions are derived from private
 transcripts, so a failure record carries the item's key and a kind and has nowhere to put
@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from hyphae.models.enrichment import Category, Outcome
+from hyphae.models.enrichment import Category, Enrichment, Outcome
 
 
 class FailureKind(StrEnum):
@@ -44,19 +44,6 @@ _SECRET_SHAPES: tuple[re.Pattern[str], ...] = (
     re.compile(r"xox[abprs]-[A-Za-z0-9-]{10,}"),  # Slack token
     re.compile(r"AIza[0-9A-Za-z_\-]{35}"),  # Google API key
 )
-
-
-@dataclass(frozen=True)
-class Enrichment:
-    """One accepted model answer about one item."""
-
-    # One or two sentences saying what the item did.
-    description: str
-    category: Category
-    outcome: Outcome
-    # One line naming visible struggle — retries, errors, backtracking. None when the
-    # records show none, which is the common case.
-    friction: str | None
 
 
 @dataclass(frozen=True)

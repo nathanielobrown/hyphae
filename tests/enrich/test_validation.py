@@ -7,12 +7,13 @@ could never be committed.
 
 import pytest
 
-from hyphae.enrich.validation import Enrichment, FailureKind, InvalidOutput, validate
+from hyphae.enrich.validation import FailureKind, InvalidOutput, validate
 from hyphae.models.enrichment import (
     CATEGORY_DEFINITIONS,
     OUTCOME_DEFINITIONS,
     TAXONOMY_VERSION,
     Category,
+    Enrichment,
     Outcome,
 )
 

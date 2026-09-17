@@ -14,11 +14,16 @@ from pathlib import Path
 import pytest
 
 from hyphae.enrich.client import CLAUDE
-from hyphae.enrich.items import SessionItem
-from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.store import EnrichmentStore
-from hyphae.enrich.validation import Enrichment
-from hyphae.models.enrichment import TAXONOMY_VERSION, Category, Outcome, Versions
+from hyphae.models.enrichment import (
+    TAXONOMY_VERSION,
+    Category,
+    Enrichment,
+    Outcome,
+    Stamp,
+    Versions,
+)
+from hyphae.models.items import SessionItem
 from tests.conftest import build_store, fixture_transcripts
 from tests.enrich.fake_cli import FakeCli, Reply
 

@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from hyphae.enrich.stamp import Stamp, input_hash, mint, stale
-from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level, Versions
+from hyphae.enrich.stamp import input_hash, mint, stale
+from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level, Stamp, Versions
 
 # What a row this file plants was written under. The versions are today's, so a leaf that
 # wants drift asks for it by name.

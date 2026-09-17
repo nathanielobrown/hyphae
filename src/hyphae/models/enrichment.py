@@ -1,5 +1,6 @@
 """The enrichment vocabulary: what gets described, the closed words it is described in, where
-each level's rows live, and the versions this build writes them under.
+each level's rows live, the versions this build writes them under, and the row a store holds
+— an `Enrichment` and the `Stamp` it was written under.
 
 `Level` names the three things that get an enrichment row. `Category` and `Outcome` are the
 taxonomy every level is written in — closed and code-resident on purpose: `GROUP BY category`
@@ -9,12 +10,14 @@ with it, which makes every existing row stale without invalidating it, so the vi
 render version-N rows while version-N+1 backfills.
 
 Here rather than in `enrich` because a reader with no prompt in hand — the viewer judging a
-row `stale` — needs the words, the table and today's versions, and `view` imports nothing
-from `enrich`. The prompts themselves stay there (`enrich/levels.py:LEVELS`).
+row `stale`, the store writing one — needs the words, the table, today's versions and the
+row's shape, and neither `view` nor the store imports `enrich`. The prompts stay there
+(`enrich/levels.py:LEVELS`), as do the staleness rule (`enrich/stamp.py`) and the validator
+that turns an answer into an `Enrichment` (`enrich/validation.py`).
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import StrEnum
 
 
@@ -174,3 +177,33 @@ class Versions:
         holding only a stored row gets the verdict those two can support and no more.
         """
         return prompt_version != self.prompt[level] or taxonomy_version != self.taxonomy
+
+
+@dataclass(frozen=True)
+class Enrichment:
+    """One accepted model answer about one item."""
+
+    # One or two sentences saying what the item did.
+    description: str
+    category: Category
+    outcome: Outcome
+    # One line naming visible struggle — retries, errors, backtracking. None when the
+    # records show none, which is the common case.
+    friction: str | None
+
+
+@dataclass(frozen=True)
+class Stamp:
+    """What a row was written under. A row is current when its stamp equals today's."""
+
+    # sha256 of the rendered prompt content — not of the instructions, which
+    # `prompt_version` covers.
+    input_hash: str
+    prompt_version: int
+    taxonomy_version: int
+    model: str
+
+
+# The stamp's columns, in field order. A writer binds `astuple(stamp)` against this and a
+# reader unpacks `Stamp(*row)` from it, so the two cannot drift from the fields above.
+COLUMNS: tuple[str, ...] = tuple(field.name for field in fields(Stamp))

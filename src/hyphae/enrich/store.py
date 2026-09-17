@@ -17,7 +17,10 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any
 
-from hyphae.enrich.items import (
+from hyphae.enrich.levels import LEVELS
+from hyphae.models.enrichment import COLUMNS as STAMP_COLUMNS
+from hyphae.models.enrichment import ROWS, Enrichment, Level, Stamp
+from hyphae.models.items import (
     AgentRunItem,
     ApiCallRow,
     Item,
@@ -28,11 +31,6 @@ from hyphae.enrich.items import (
     TurnItem,
     item_key,
 )
-from hyphae.enrich.levels import LEVELS
-from hyphae.enrich.stamp import COLUMNS as STAMP_COLUMNS
-from hyphae.enrich.stamp import Stamp
-from hyphae.enrich.validation import Enrichment
-from hyphae.models.enrichment import ROWS, Level
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.projects import project_predicate
 from hyphae.store.schema import check_shape

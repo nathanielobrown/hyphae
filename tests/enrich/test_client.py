@@ -20,8 +20,8 @@ from hyphae.enrich.client import (
     Failed,
     Succeeded,
 )
-from hyphae.enrich.validation import Enrichment, FailureKind, validate
-from hyphae.models.enrichment import Category, Outcome
+from hyphae.enrich.validation import FailureKind, validate
+from hyphae.models.enrichment import Category, Enrichment, Outcome
 from tests.enrich.fake_cli import (
     FIXTURES,
     MODEL,
