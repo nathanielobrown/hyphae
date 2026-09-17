@@ -188,7 +188,7 @@ Each PR edits the layers list to the row in the table above, and greps for the s
 
 - SQL in `view` or `analyze` (deferred to phase 3).
 - Renaming classes (phase 5).
-- Moving the ledger's leaves into `tests/store/`: they need `tests/export/conftest.py`'s fixtures, and a ledger test that does not drive the exporter does not exist yet.
+- Moving the exporter's ledger leaves into `tests/store/`: they need `tests/export/conftest.py`'s fixtures. `tests/store/test_delivery.py` drives the ledger on its own, under a mapper version the exporter never passes.
 - Any write path except enrichment (phase 4).
 
 ## Open questions
