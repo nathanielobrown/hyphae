@@ -15,11 +15,12 @@ Every direct import between the drawn children of `hyphae`, from the importer to
 <!-- aigarden:cog sh "uv run python -m tools.gen_imports" -->
 ```mermaid
 graph TD
-  analyze --> export
-  enrich --> export
-  extract --> export
+  analyze --> store
+  enrich --> store
+  export --> store
   extract --> pipeline
+  extract --> store
   view --> analyze
-  view --> export
+  view --> store
 ```
 <!-- aigarden:end -->

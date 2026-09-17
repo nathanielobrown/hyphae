@@ -20,7 +20,7 @@ def default_store() -> Path:
 
     Resolves a path and touches no disk. One archive serves every checkout, whatever
     directory a command runs from, and an extract can never land in a commit. The directories
-    above it are made by the first write (`export/duckdb.py`).
+    above it are made by the first write (`store/trace_store.py`).
     """
     named = os.environ.get(HP_DB)
     # An exported-but-empty variable is what an unset shell variable expands to. Falling back

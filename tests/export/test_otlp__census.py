@@ -12,7 +12,6 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from hyphae.export.duckdb import open_trace_store
 from hyphae.export.otlp import METADATA_ONLY, Census, SpanKey, census, session_spans, span_id
 from hyphae.export.otlp_delivery import (
     GENERIC,
@@ -24,6 +23,7 @@ from hyphae.export.otlp_delivery import (
 from hyphae.extract.store import StoreSource
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import RefreshResult, refresh
+from hyphae.store.trace_store import open_trace_store
 from tests.conftest import FORK_COMPACTION, FORK_RUN, MYCELIA, NO_WAIT, SPINE, SPINE_RUN
 from tests.export.conftest import (
     FIRST,

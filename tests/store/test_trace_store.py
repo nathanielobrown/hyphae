@@ -2,7 +2,7 @@
 
 Traces come from the recorded fixtures rather than from hand-built dataclasses, so the
 columns under test hold values a real transcript produced. What a store written by an older
-build is carried forward through is `test_duckdb__migrations.py`.
+build is carried forward through is `test_trace_store__migrations.py`.
 """
 
 import dataclasses
@@ -13,12 +13,12 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from hyphae.export.duckdb import (
+from hyphae.models.trace import LiveRows, SessionTag, SessionTrace
+from hyphae.store.trace_store import (
     TABLES,  # every table a session owns — read off the exporter so a new one cannot slip past
     DuckDbExporter,
     open_trace_store,
 )
-from hyphae.models.trace import LiveRows, SessionTag, SessionTrace
 from tests.conftest import MODEL_ONLY, NO_WAIT, TraceFactory, stored_rows
 
 SPINE = "4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b"
@@ -533,7 +533,7 @@ def test_a_view_definition_reaches_a_reader_without_a_re_extract(
 ):
     """A view is rebuilt from the code at every open, so editing one takes effect at once.
 
-    The definitions live in `export/duckdb.py`, but a store on disk carries a copy of the
+    The definitions live in `store/trace_store.py`, but a store on disk carries a copy of the
     text that was current when it was last extracted. A reader that answered off that copy
     would report yesterday's rule for as long as nothing re-extracted the file.
     """

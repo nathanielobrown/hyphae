@@ -11,15 +11,15 @@ from pathlib import Path
 import pytest
 
 from hyphae import cli
-from hyphae.export.duckdb import DuckDbExporter, StoreLocked
 from hyphae.extract import claude_code
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.errors import SessionLayoutError
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import Exporter, ExtractionError, Failure, RefreshResult, refresh
 from hyphae.projects import encode_project_path
+from hyphae.store.trace_store import DuckDbExporter, StoreLocked
 from tests.conftest import FIXTURES, NO_WAIT, locked, opens_elsewhere, stored_rows
-from tests.export.test_duckdb__locking import BRIEF_HOLD, IMPATIENT
+from tests.store.test_trace_store__locking import BRIEF_HOLD, IMPATIENT
 
 SPINE = "4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b"
 DUPS = "8ee00a94-b01a-4394-b447-b065f74b11af"

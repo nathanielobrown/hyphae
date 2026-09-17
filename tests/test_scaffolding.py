@@ -17,7 +17,7 @@ from typing import Any
 import duckdb
 import pytest
 
-from hyphae.export.duckdb import DuckDbExporter, open_trace_store
+from hyphae.store.trace_store import DuckDbExporter, open_trace_store
 from tests.conftest import (
     BLOCK_SIZE,
     LOCK_TIMEOUT,

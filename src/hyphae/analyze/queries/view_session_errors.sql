@@ -8,7 +8,7 @@
 -- carries the crumb chain that places it. Thin like `view_nav_tree_tools`, and cut to the same
 -- width, because both name a node rather than describe one.
 -- The order is total — `(source, "index")` and `(source, id)` are each unique within a
--- session (`export/duckdb.py`) — which is what a cut means anything against: a page showing
+-- session (`store/trace_store.py`) — which is what a cut means anything against: a page showing
 -- the first `$errors` of a partial order would show different rows on two reads of one store.
 SELECT
     t.source,

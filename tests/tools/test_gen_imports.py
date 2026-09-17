@@ -81,12 +81,12 @@ def test_the_omitted_modules_are_the_contracts_top_line_and_bottom_two() -> None
 
 
 def test_the_layers_the_plan_drew_are_the_ones_the_graph_shows(graph: str) -> None:
-    """`view`, `analyze` and `enrich` reach the store through `export`, never through `extract`,
+    """The store is what every package reaches: nothing imports `export` or `extract` for it,
     and the viewer reads the enrichment vocabulary from `models` rather than from the pass."""
-    # The one edge phase 2 will remove is still real today...
-    assert ("extract", "export") in drawn_edges(graph)
-    # ...no page, query or enrichment imports the parser...
-    assert not [edge for edge in drawn_edges(graph) if edge[1] == "extract"]
+    # The one edge phase 2.2 will remove is still real today...
+    assert ("extract", "store") in drawn_edges(graph)
+    # ...no package imports the exporter or the parser to reach the store...
+    assert not [edge for edge in drawn_edges(graph) if edge[1] in ("export", "extract")]
     # ...and the edge phase 1 removed stays gone: `view` and `enrich` share a layer line.
     assert ("view", "enrich") not in drawn_edges(graph)
 

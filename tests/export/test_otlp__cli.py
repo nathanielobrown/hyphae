@@ -13,7 +13,6 @@ from typing import Any
 import pytest
 
 from hyphae import cli
-from hyphae.export.duckdb import StoreLocked, open_trace_store
 from hyphae.export.otlp import Census, TextPolicy, census
 from hyphae.export.otlp_delivery import (
     BACKENDS,
@@ -28,6 +27,7 @@ from hyphae.export.otlp_delivery import (
 )
 from hyphae.extract.store import StoreSource
 from hyphae.pipeline import refresh
+from hyphae.store.trace_store import StoreLocked, open_trace_store
 from tests.conftest import MYCELIA, NO_WAIT, locked
 from tests.export.conftest import (
     FIRST,
@@ -39,7 +39,7 @@ from tests.export.conftest import (
     delivery_rows,
     trace_of,
 )
-from tests.export.test_duckdb__locking import IMPATIENT
+from tests.store.test_trace_store__locking import IMPATIENT
 
 
 @pytest.fixture

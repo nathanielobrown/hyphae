@@ -247,9 +247,10 @@ layers = [
   "cli",
   "view | enrich",
   "analyze",
-  # Above `export` only for the `TABLES` import, which phase 2 of the store-layering plan removes.
+  # Above `store` only for the `TABLES` import, which phase 2.2 of the store-layering plan moves.
   "extract",
   "export",
+  "store",
   "pipeline",
   "user_settings",
   "models | projects | pricing | settings | store_path",

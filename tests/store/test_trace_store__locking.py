@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from hyphae.export.duckdb import CLI_WAIT, DuckDbExporter, StoreLocked, open_trace_store
-from hyphae.export.schema import SchemaVersionError
 from hyphae.models.trace import SessionTrace
+from hyphae.store.schema import SchemaVersionError
+from hyphae.store.trace_store import CLI_WAIT, DuckDbExporter, StoreLocked, open_trace_store
 from tests.conftest import (
     LOCK_TIMEOUT,
     NO_WAIT,
@@ -24,7 +24,7 @@ from tests.conftest import (
     opens_elsewhere,
     stored_rows,
 )
-from tests.export.test_duckdb__migrations import foreign_store, unmigratable_store
+from tests.store.test_trace_store__migrations import foreign_store, unmigratable_store
 
 # How long the holder below keeps the lock before letting go on its own. Every wait the tests
 # name is measured against it, and it is what they cost the suite.

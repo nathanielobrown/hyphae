@@ -16,8 +16,8 @@ import duckdb
 import pytest
 from opentelemetry.proto.trace.v1 import trace_pb2
 
-from hyphae.export.duckdb import open_trace_store
 from hyphae.export.otlp import TextPolicy
+from hyphae.store.trace_store import open_trace_store
 from tests.conftest import MYCELIA, NO_WAIT
 from tests.export.conftest import Receiver, any_value, deliver
 

@@ -15,7 +15,6 @@ from typing import Any
 import duckdb
 import pytest
 
-from hyphae.export.duckdb import TABLES, open_trace_store
 from hyphae.extract.store import (
     StoreSource,
     UnknownProjectError,
@@ -23,6 +22,7 @@ from hyphae.extract.store import (
 )
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import SessionSource
+from hyphae.store.trace_store import TABLES, open_trace_store
 from tests.conftest import (
     FIXTURE_TAG,
     FIXTURES,

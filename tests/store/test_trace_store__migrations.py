@@ -1,6 +1,6 @@
 """Carrying a store on disk forward to the schema this build writes.
 
-Split from `test_duckdb.py`, which owns what an export puts in the store; this file owns what
+Split from `test_trace_store.py`, which owns what an export puts in the store; this file owns what
 happens to a store written by an older build, or by nobody we know.
 """
 
@@ -9,9 +9,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from hyphae.export.duckdb import _SCHEMA as TRACE_SCHEMA
-from hyphae.export.duckdb import DuckDbExporter, open_trace_store
-from hyphae.export.schema import (
+from hyphae.models.trace import SessionTrace
+from hyphae.store.schema import (
     MIGRATIONS,
     SCHEMA_VERSION,
     SchemaVersionError,
@@ -19,7 +18,8 @@ from hyphae.export.schema import (
     missing_steps,
     table_ddl,
 )
-from hyphae.models.trace import SessionTrace
+from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
+from hyphae.store.trace_store import DuckDbExporter, open_trace_store
 from tests.conftest import (
     FORK_ORIGIN,
     FORK_ORIGIN_RUN,

@@ -25,13 +25,6 @@ from typing import Any
 
 import duckdb
 
-from hyphae.export.schema import (
-    SCHEMA_VERSION,
-    SchemaVersionError,
-    check_shape,
-    check_version,
-    migrate,
-)
 from hyphae.models.trace import (
     AgentRun,
     ApiCall,
@@ -45,6 +38,13 @@ from hyphae.models.trace import (
     SessionTrace,
     ToolCall,
     Turn,
+)
+from hyphae.store.schema import (
+    SCHEMA_VERSION,
+    SchemaVersionError,
+    check_shape,
+    check_version,
+    migrate,
 )
 
 _SCHEMA = """
@@ -308,7 +308,7 @@ def refresh_views(connection: duckdb.DuckDBPyConnection, *, read_only: bool) -> 
     """
     view = "TEMP VIEW" if read_only else "VIEW"
     # Which tables get a live view is the model's answer, not a second list here: the fields
-    # of `LiveRows` are the family, and `tests/export/test_schema.py` pins each one to the
+    # of `LiveRows` are the family, and `tests/store/test_schema.py` pins each one to the
     # `TABLES` entry holding its rows.
     counted = [field.name for field in fields(LiveRows)]
     # `first_seen` leads: the corpus views read it, and the rollups read those.
@@ -329,7 +329,7 @@ def refresh_views(connection: duckdb.DuckDBPyConnection, *, read_only: bool) -> 
 class TableSpec:
     """Everything a session-owned table's rows need: their shape, their owner, their order."""
 
-    # The dataclass whose fields are the table's columns, in order. `tests/export/
+    # The dataclass whose fields are the table's columns, in order. `tests/store/
     # test_schema.py` holds the DDL to it, so a column added to one side and not the other
     # fails there rather than at an insert.
     model: type

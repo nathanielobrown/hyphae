@@ -32,11 +32,11 @@ from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.stamp import COLUMNS as STAMP_COLUMNS
 from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.validation import Enrichment
-from hyphae.export.duckdb import CLI_WAIT, open_trace_store
-from hyphae.export.schema import check_shape
 from hyphae.models.enrichment import ROWS, Level
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.projects import project_predicate
+from hyphae.store.schema import check_shape
+from hyphae.store.trace_store import CLI_WAIT, open_trace_store
 
 # What one enrichment row is, past its primary key: the model's answer, the stamp it was
 # written under, and when. In the order `upsert` binds them, and the one list the views

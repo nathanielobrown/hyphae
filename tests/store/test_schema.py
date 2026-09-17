@@ -16,18 +16,18 @@ import pytest
 
 from hyphae.enrich.store import _SCHEMA as ENRICHMENT_SCHEMA
 from hyphae.enrich.store import EnrichmentStore
-from hyphae.export.duckdb import _SCHEMA as TRACE_SCHEMA
-from hyphae.export.duckdb import TABLES, DuckDbExporter, open_trace_store
 from hyphae.export.otlp_delivery import _DELIVERY_SCHEMA as DELIVERY_SCHEMA
 from hyphae.export.otlp_delivery import Backend, DeliveryLedger, OtlpExporter
-from hyphae.export.schema import (
+from hyphae.models.trace import LiveRows
+from hyphae.store.schema import (
     SCHEMA_VERSION,
     SchemaShapeError,
     check_shape,
     declared_shape,
     table_ddl,
 )
-from hyphae.models.trace import LiveRows
+from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
+from hyphae.store.trace_store import TABLES, DuckDbExporter, open_trace_store
 from tests.conftest import NO_WAIT, opens_elsewhere
 
 
@@ -42,7 +42,7 @@ def db(tmp_path: Path) -> Path:
 # rebuilds one at every open, so no store can drift from it.
 DDL_OWNERS = [
     pytest.param(
-        "hyphae.export.duckdb",
+        "hyphae.store.trace_store",
         TRACE_SCHEMA,
         "766a1fa0a3cfe5826ef17bd7a36ba8b9d48facd73e018ae80428c5c51f8f7380",
         id="trace",
@@ -141,13 +141,14 @@ def test_a_renamed_trace_column_is_refused_with_the_table_and_column_named(db: P
     with duckdb.connect(str(db)) as drifted:
         drifted.execute("ALTER TABLE agent_runs RENAME brief TO description")
 
-    # ...then opening it says which table drifted, which column each side has, and where to
-    # read before touching an archive.
+    # ...then opening it says which table drifted, which column each side has, where the
+    # migration goes, and where to read before touching an archive.
     with pytest.raises(SchemaShapeError) as refused:
         DuckDbExporter(db, wait=NO_WAIT)
     message = str(refused.value)
     assert "agent_runs" in message
     assert "description" in message and "brief" in message
+    assert "src/hyphae/store/schema.py" in message
     assert "docs/store.md" in message
 
 

@@ -17,9 +17,9 @@ import duckdb
 
 from hyphae.analyze import macros, manifest, queries
 from hyphae.analyze.queries import NoDefault, ParamType, ParamValue, QueryError, Scope
-from hyphae.export.duckdb import CLI_WAIT, StoreLocked, open_trace_store
-from hyphae.export.schema import SchemaVersionError
 from hyphae.projects import project_predicate, resolve_project
+from hyphae.store.schema import SchemaVersionError
+from hyphae.store.trace_store import CLI_WAIT, StoreLocked, open_trace_store
 
 # The sessions `--project` selects, and the window flag every corpus query reads. Written
 # here rather than in each query file so that a query cannot scope itself differently from

@@ -1,6 +1,6 @@
 """The version the whole store file carries, and the two guards that hold a file to it.
 
-Three modules create tables in the one DuckDB file — `export/duckdb.py`, `enrich/store.py`,
+Three modules create tables in the one DuckDB file — `store/trace_store.py`, `enrich/store.py`,
 and `export/otlp_delivery.py` — so the version stamps the file rather than any one owner's
 tables, and lives here instead of with one of them. This module imports nothing from
 `hyphae`: the owners import it, and one of them already imports another.
@@ -98,7 +98,7 @@ def check_shape(connection: duckdb.DuckDBPyConnection, ddl: str) -> None:
         raise SchemaShapeError(
             f"{_database_path(connection)} holds tables this build's schema does not "
             f"describe:\n" + "\n".join(drifted) + "\nAdd a migration step to "
-            "src/hyphae/export/schema.py and bump SCHEMA_VERSION. Read docs/store.md first: "
+            "src/hyphae/store/schema.py and bump SCHEMA_VERSION. Read docs/store.md first: "
             "this store may hold the only copy of a pruned session."
         )
 
@@ -159,7 +159,7 @@ def _add_the_session_tags_table(connection: duckdb.DuckDBPyConnection) -> None:
     """9 -> 10: `session_tags`, the pairs `hp extract --tag` stamps on a session.
 
     Nothing to back-fill: no store written before this one holds a tag, and no transcript
-    records one. The columns are spelled again here rather than read off `export/duckdb.py`'s
+    records one. The columns are spelled again here rather than read off `store/trace_store.py`'s
     DDL because this module imports nothing from `hyphae`; `check_shape` holds the two
     spellings to each other at the next open.
     """

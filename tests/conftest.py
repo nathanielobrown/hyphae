@@ -25,13 +25,13 @@ from hyphae.analyze import macros
 from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.store import EnrichmentStore
 from hyphae.enrich.validation import Enrichment
-from hyphae.export.duckdb import _SCHEMA as TRACE_SCHEMA
-from hyphae.export.duckdb import DuckDbExporter, open_trace_store
-from hyphae.export.schema import table_ddl
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Category, Level, Outcome
 from hyphae.models.trace import SessionTrace
+from hyphae.store.schema import table_ddl
+from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
+from hyphae.store.trace_store import DuckDbExporter, open_trace_store
 from hyphae.store_path import HP_DB
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -358,7 +358,7 @@ _HOLDER = (
 _READER = """
 import pathlib, sys, time
 
-from hyphae.export.duckdb import PAGE_WAIT, open_trace_store
+from hyphae.store.trace_store import PAGE_WAIT, open_trace_store
 
 path, signal, hold = sys.argv[1:]
 with open_trace_store(pathlib.Path(path), read_only=True, wait=PAGE_WAIT):

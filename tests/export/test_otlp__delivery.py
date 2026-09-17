@@ -16,7 +16,6 @@ import httpx
 import pytest
 from opentelemetry.proto.trace.v1 import trace_pb2
 
-from hyphae.export.duckdb import DuckDbExporter, open_trace_store
 from hyphae.export.otlp import (
     MAPPER_VERSION,
     METADATA_ONLY,
@@ -36,9 +35,10 @@ from hyphae.export.otlp_delivery import (
     RejectedSpansError,
     named_backend,
 )
-from hyphae.export.schema import SCHEMA_VERSION
 from hyphae.extract.store import StoreSource
 from hyphae.pipeline import refresh
+from hyphae.store.schema import SCHEMA_VERSION
+from hyphae.store.trace_store import DuckDbExporter, open_trace_store
 from tests.conftest import MYCELIA, NO_WAIT
 from tests.export.conftest import (
     FIRST,

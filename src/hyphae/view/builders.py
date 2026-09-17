@@ -260,7 +260,7 @@ def tool_node(session_id: str, source: str, row: Row, held: Ledger) -> Node:
         unpriced_api_calls=(row.get("unpriced_api_calls") or 0) if asked else 0,
         # Every query a tool node is built from selects it, and the column is NOT NULL, so a
         # row arriving without it is a query that forgot rather than a call that may have
-        # failed (`export/duckdb.py`).
+        # failed (`store/trace_store.py`).
         is_error=row["is_error"],
     )
 
@@ -322,6 +322,6 @@ def _turn_title(row: Row) -> str:
     """
     if row["command_name"] is not None:
         return f"{row['command_name']} {row['command_args'] or ''}".strip()
-    # The store declares a turn's prompt NOT NULL (`export/duckdb.py`), so this arm always
+    # The store declares a turn's prompt NOT NULL (`store/trace_store.py`), so this arm always
     # has something to say, even when what it says is the empty string.
     return row["prompt"]

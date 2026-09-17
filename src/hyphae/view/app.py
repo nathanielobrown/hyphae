@@ -28,7 +28,7 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from hyphae.export.duckdb import StoreLocked
+from hyphae.store.trace_store import StoreLocked
 from hyphae.view.deps import Viewer
 from hyphae.view.pages.errors import routes as errors
 from hyphae.view.pages.node import routes as node

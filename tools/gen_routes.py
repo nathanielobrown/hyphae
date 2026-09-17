@@ -18,7 +18,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from starlette.routing import Route
 
-from hyphae.export.duckdb import DuckDbExporter
+from hyphae.store.trace_store import DuckDbExporter
 from hyphae.view import nodes
 from hyphae.view.app import build_app
 from tools import text

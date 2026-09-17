@@ -31,8 +31,8 @@ from hyphae.export.otlp import (
     session_resource,
     session_spans,
 )
-from hyphae.export.schema import check_shape
 from hyphae.models.trace import SessionTrace
+from hyphae.store.schema import check_shape
 
 # Spans per POST. The biggest canonical session is ~29K spans, so a backfill of it is ~15
 # requests. A parameter rather than a constant so tests can bind it down and cross a real

@@ -26,9 +26,9 @@ import duckdb
 
 from hyphae.analyze import macros, manifest, queries
 from hyphae.analyze.queries import ParamValue
-from hyphae.export.duckdb import PAGE_WAIT, open_trace_store
-from hyphae.export.schema import SchemaVersionError
 from hyphae.projects import project_predicate
+from hyphae.store.schema import SchemaVersionError
+from hyphae.store.trace_store import PAGE_WAIT, open_trace_store
 from hyphae.view import bounds
 
 Row = dict[str, Any]
@@ -206,7 +206,7 @@ class SchemaMoved(Exception):
 def open_store(db_path: Path) -> Generator[duckdb.DuckDBPyConnection]:
     """A read-only connection for one request, checked and closed.
 
-    The store's one opener (`export/duckdb.py`), told how long a page may hang, with the
+    The store's one opener (`store/trace_store.py`), told how long a page may hang, with the
     viewer's own refusal over it: `SchemaMoved` when the store moved under the running
     viewer. That is checked per request rather than at startup because an extract can land
     between two page loads, and so is the opener's own `StoreLocked`, which the request

@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from hyphae.export.duckdb import DuckDbExporter
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
+from hyphae.store.trace_store import DuckDbExporter
 from tests.analyze.conftest import (
     AS_OF_MID,
     AS_OF_PARTIAL,

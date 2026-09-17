@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hyphae.export.duckdb import DuckDbExporter
+from hyphae.store.trace_store import DuckDbExporter
 from hyphae.store_path import HP_DB, default_store
 from tests.conftest import NO_WAIT, TraceFactory, stored_rows
 

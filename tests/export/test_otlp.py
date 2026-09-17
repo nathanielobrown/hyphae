@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-from hyphae.export.duckdb import open_trace_store
 from hyphae.export.otlp import (
     CLIENT,
     INTERNAL,
@@ -24,6 +23,7 @@ from hyphae.export.otlp import (
 from hyphae.extract.store import StoreSource
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import SessionSource
+from hyphae.store.trace_store import open_trace_store
 from tests.conftest import (
     FIXTURES,
     FORK_ORIGIN,

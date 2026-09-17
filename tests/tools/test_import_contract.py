@@ -2,7 +2,7 @@
 
 `mise run lint-imports` holds `src/hyphae` to `[tool.importlinter]` in `pyproject.toml`, and a
 green run says only that today's tree keeps today's contract. What these leaves add is that
-the gate can go red at all: that a layer swap names the edge that now points up, and that
+the gate can go red at all: that a lifted layer names the edge that now points up, and that
 `exhaustive` names a module no line claims. Each case rewrites the real contract rather than
 pinning a copy, so a layer added later is still the one under test.
 """
@@ -18,13 +18,19 @@ from tests.tools.conftest import contract_layers
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def swapped(layers: list[str]) -> list[str]:
-    """`export` moved above `extract`, so `extract -> export` points up."""
-    extract, export = layers.index("extract"), layers.index("export")
-    assert extract < export, "`extract` no longer sits above `export`; retarget this case"
-    layers = list(layers)
-    layers[extract], layers[export] = layers[export], layers[extract]
-    return layers
+def store_above_view(layers: list[str]) -> list[str]:
+    """`store` lifted off its line to above `view | enrich`, so every import of it points up."""
+    holding = [layer for layer in layers if "store" in layer.split(" | ")]
+    assert holding, "no line holds `store`; retarget this case"
+    (line,) = holding
+    peers = [name for name in line.split(" | ") if name != "store"]
+    layers = [
+        (" | ".join(peers) if layer == line else layer)
+        for layer in layers
+        if layer != line or peers
+    ]
+    at = layers.index("view | enrich")
+    return [*layers[:at], "store", *layers[at:]]
 
 
 def without_user_settings(layers: list[str]) -> list[str]:
@@ -76,10 +82,10 @@ def run_contract(layers: list[str], tmp_path: Path) -> subprocess.CompletedProce
 @pytest.mark.parametrize(
     ("loosen", "named"),
     [
-        (swapped, "hyphae.extract is not allowed to import hyphae.export"),
+        (store_above_view, "hyphae.view is not allowed to import hyphae.store"),
         (without_user_settings, "hyphae.user_settings"),
     ],
-    ids=["export_swapped_above_extract", "user_settings_line_dropped"],
+    ids=["store_lifted_above_view", "user_settings_line_dropped"],
 )
 def test_a_loosened_contract_goes_red_and_names_what_broke(
     loosen: Callable[[list[str]], list[str]], named: str, tmp_path: Path

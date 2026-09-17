@@ -25,7 +25,6 @@ from opentelemetry.proto.common.v1 import common_pb2
 from opentelemetry.proto.resource.v1 import resource_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2
 
-from hyphae.export.duckdb import open_trace_store
 from hyphae.export.otlp import METADATA_ONLY, TextPolicy
 from hyphae.export.otlp_delivery import (
     DEFAULT_BATCH_SPANS,
@@ -37,6 +36,7 @@ from hyphae.export.otlp_delivery import (
 from hyphae.extract.store import StoreSource
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import RefreshResult, SessionSource, refresh
+from hyphae.store.trace_store import open_trace_store
 from tests.conftest import FIXTURES, MYCELIA, NO_WAIT, SERVER_TOOLS, SPINE, build_store
 
 # No request in these tests crosses a network, so a slow one is a hang, not a slow link.

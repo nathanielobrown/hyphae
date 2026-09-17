@@ -19,8 +19,8 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.export.duckdb import StoreLocked
-from hyphae.export.schema import MIGRATE_REMEDY, SCHEMA_MISMATCH_REMEDY, SCHEMA_VERSION
+from hyphae.store.schema import MIGRATE_REMEDY, SCHEMA_MISMATCH_REMEDY, SCHEMA_VERSION
+from hyphae.store.trace_store import StoreLocked
 from hyphae.view import store as view_store
 from hyphae.view.app import CSP, build_app, serve
 from hyphae.view.components import parts
@@ -51,7 +51,7 @@ DOCUMENTS = {
 }
 
 # How long the writer below holds the store before letting go on its own — well inside the
-# second a page will wait (`export/duckdb.PAGE_WAIT`), and what the test costs the suite.
+# second a page will wait (`store/trace_store.PAGE_WAIT`), and what the test costs the suite.
 BRIEF_HOLD = 0.4
 
 
@@ -160,7 +160,7 @@ def test_a_running_viewer_leaves_the_store_free_between_requests(copy: Path) -> 
     The window rule from a writer's side: the count above says a document opens the store
     once, and this says the connection is gone by the time the response is — so what an
     extract waits out is one page load rather than the viewer's lifetime
-    (`tests/export/test_duckdb__locking.py` runs the extract). Asked of another process,
+    (`tests/store/test_trace_store__locking.py` runs the extract). Asked of another process,
     because this one's own open answers differently from the file lock (`tests/conftest.locked`).
     """
     # If a viewer is up and has served a page...
