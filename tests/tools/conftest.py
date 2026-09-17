@@ -39,8 +39,8 @@ def numbers(text: str) -> list[int]:
 def contract_layers() -> list[str]:
     """The `layers` list the layers contract in `pyproject.toml` declares, top to bottom."""
     config = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    (contract,) = config["tool"]["importlinter"]["contracts"]
-    return contract["layers"]
+    contracts = config["tool"]["importlinter"]["contracts"]
+    return next(c for c in contracts if c["type"] == "layers")["layers"]
 
 
 def mise_config() -> dict:

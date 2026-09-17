@@ -5,11 +5,13 @@ a path that has moved and a directory nobody added. Both are properties of the l
 is what these leaves read; the order of the entries is an editorial choice and is not asserted.
 """
 
+import pkgutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
+import hyphae
 import hyphae.extract
 from tools import gen_layout
 
@@ -46,6 +48,13 @@ def test_every_tracked_top_level_directory_is_in_the_tree_or_named_as_left_out()
 def test_nothing_is_named_as_left_out_that_the_repo_no_longer_holds() -> None:
     # And the excuses are pruned with what they excused.
     assert set(gen_layout.UNLISTED) <= tracked_directories()
+
+
+def test_every_package_under_hyphae_has_an_entry() -> None:
+    # `ENTRIES` is hand-kept, so a package born without a line here would be a directory the
+    # tree never mentions — and, through `Module`, one whose docstring nothing has demanded.
+    packages = {f"src/hyphae/{m.name}/" for m in pkgutil.iter_modules(hyphae.__path__) if m.ispkg}
+    assert packages <= {entry.path for entry in gen_layout.ENTRIES}
 
 
 def test_every_project_document_is_in_the_tree() -> None:
