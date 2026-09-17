@@ -33,9 +33,9 @@ from hyphae.export.otlp_delivery import (
     DeliveryLedger,
     OtlpExporter,
 )
-from hyphae.extract.store import StoreSource
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import RefreshResult, SessionSource, refresh
+from hyphae.store.trace_reader import StoreSource
 from hyphae.store.trace_store import open_trace_store
 from tests.conftest import FIXTURES, MYCELIA, NO_WAIT, SERVER_TOOLS, SPINE, build_store
 

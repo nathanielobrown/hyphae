@@ -35,9 +35,9 @@ from hyphae.export.otlp_delivery import (
     RejectedSpansError,
     named_backend,
 )
-from hyphae.extract.store import StoreSource
 from hyphae.pipeline import refresh
 from hyphae.store.schema import SCHEMA_VERSION
+from hyphae.store.trace_reader import StoreSource
 from hyphae.store.trace_store import DuckDbExporter, open_trace_store
 from tests.conftest import MYCELIA, NO_WAIT
 from tests.export.conftest import (

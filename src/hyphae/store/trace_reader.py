@@ -5,7 +5,7 @@ than the transcripts on disk, because the store is the archive (a pruned session
 here), because a backend then mirrors exactly what the analyses and the viewer cite, and
 because reading rows costs a fraction of re-parsing every record.
 
-Rebuilding is mechanical: `store/trace_store.py`'s `TABLES` registry drives the read, so the
+Rebuilding is mechanical: `trace_store.py`'s `TABLES` registry drives the read, so the
 columns, the session key and the row order are the ones the write used and a new column
 reaches both sides at once. Provenance is not rebuilt — `extract_state`'s `extractor` and
 `extractor_version` come back verbatim, naming the parser that produced the rows rather than

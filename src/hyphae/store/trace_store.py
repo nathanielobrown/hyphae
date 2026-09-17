@@ -343,7 +343,7 @@ class TableSpec:
 
 
 # Every table a session owns. This registry drives the insert, the delete, and
-# `extract/store.py`'s read back out, so a new table or column reaches every side at once.
+# `trace_reader.py`'s read back out, so a new table or column reaches every side at once.
 TABLES: dict[str, TableSpec] = {
     "sessions": TableSpec(Session, session_key="id", order=("id",)),
     "turns": TableSpec(Turn, session_key="session_id", order=("source", "id")),

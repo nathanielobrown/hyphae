@@ -19,7 +19,7 @@ graph TD
   enrich --> store
   export --> store
   extract --> pipeline
-  extract --> store
+  store --> pipeline
   view --> analyze
   view --> store
 ```

@@ -20,9 +20,9 @@ from hyphae.export.otlp import (
     session_spans,
     span_id,
 )
-from hyphae.extract.store import StoreSource
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import SessionSource
+from hyphae.store.trace_reader import StoreSource
 from hyphae.store.trace_store import open_trace_store
 from tests.conftest import (
     FIXTURES,

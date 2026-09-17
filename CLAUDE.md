@@ -43,7 +43,7 @@ src/hyphae/               Analyze AI coding agents from their telemetry
   enrich/                 The enrichment layer: what a model wrote about each run, turn and session in the store
   analyze/                The analysis layer: a versioned SQL library and the runner that binds and cites it
   view/                   The trace viewer: a local web app serving every node of a session as its own page
-  store/                  The trace store: the schema, and the writer that owns every trace table in the DuckDB file
+  store/                  The trace store: the schema, the writer that owns every trace table in the DuckDB file, and the reader that rebuilds a session from its rows
   models/                 The types that cross package lines: the trace model every extractor builds and sink writes, and the enrichment vocabulary a pass writes and a page reads
   pipeline.py             The seams: what an extractor and an exporter owe each other, and the loop that drives them
 tests/                    The suite, mirroring the package layout; fixtures are recorded sessions, and `gallery/` serves them as pages (`docs/ui-development.md`)

@@ -42,11 +42,11 @@ from hyphae.extract import picker
 from hyphae.extract.claude_code import ClaudeCodeExtractor
 from hyphae.extract.discover import discover
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_project_dirs, find_sessions
-from hyphae.extract.store import StoreSource, UnknownProjectError
 from hyphae.models.enrichment import Versions
 from hyphae.pipeline import Failure, refresh
 from hyphae.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.projects import encode_project_path, resolve_project
+from hyphae.store.trace_reader import StoreSource, UnknownProjectError
 from hyphae.store.trace_store import CLI_WAIT, DuckDbExporter, open_trace_store
 from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve

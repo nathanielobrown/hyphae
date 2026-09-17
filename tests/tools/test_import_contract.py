@@ -18,6 +18,14 @@ from tests.tools.conftest import contract_layers
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def peer_line(layers: list[str], peers: set[str]) -> int:
+    """The index of the line holding exactly these peers, in whichever order it spells them."""
+    holding = [at for at, layer in enumerate(layers) if set(layer.split(" | ")) == peers]
+    assert holding, f"{sorted(peers)} no longer share a line; retarget this case"
+    (at,) = holding
+    return at
+
+
 def store_above_view(layers: list[str]) -> list[str]:
     """`store` lifted off its line to above `view | enrich`, so every import of it points up."""
     holding = [layer for layer in layers if "store" in layer.split(" | ")]
@@ -46,11 +54,19 @@ def enrich_above_view(layers: list[str]) -> list[str]:
     while `enrich` could import `view`. Kept green, it is the lasting proof that the viewer
     reads the enrichment vocabulary from `models` and nothing from `enrich`.
     """
-    assert "view | enrich" in layers, (
-        "`view` and `enrich` no longer share a line; retarget this case"
-    )
-    at = layers.index("view | enrich")
+    at = peer_line(layers, {"view", "enrich"})
     return [*layers[:at], "enrich", "view", *layers[at + 1 :]]
+
+
+def store_above_extract(layers: list[str]) -> list[str]:
+    """`store` lifted onto its own line above `extract`: strictly tighter than `store | extract`.
+
+    The shipped line says neither imports the other; this says `extract` may not import `store`
+    while `store` could import `extract`. Kept green, it is the lasting proof that the parser
+    reaches no store: transcripts in, `SessionTrace` out, and no database on the way.
+    """
+    at = peer_line(layers, {"store", "extract"})
+    return [*layers[:at], "store", "extract", *layers[at + 1 :]]
 
 
 def run_contract(layers: list[str], tmp_path: Path) -> subprocess.CompletedProcess[str]:
@@ -105,6 +121,15 @@ def test_the_viewer_imports_nothing_from_enrich(tmp_path: Path) -> None:
     # If `enrich` is lifted above `view`, so that only `view -> enrich` would break it...
     done = run_contract(enrich_above_view(contract_layers()), tmp_path)
     # ...the contract is still kept: no page, part or fetch reaches into the enrichment pass.
+    assert done.returncode == 0, done.stdout
+    assert "Contracts: 1 kept, 0 broken" in done.stdout
+
+
+@pytest.mark.reads_the_repo  # the same subprocess, over a contract tighter than the one written
+def test_the_parser_imports_nothing_from_store(tmp_path: Path) -> None:
+    # If `store` is lifted above `extract`, so that only `extract -> store` would break it...
+    done = run_contract(store_above_extract(contract_layers()), tmp_path)
+    # ...the contract is still kept: no extractor opens, reads or names the trace store.
     assert done.returncode == 0, done.stdout
     assert "Contracts: 1 kept, 0 broken" in done.stdout
 

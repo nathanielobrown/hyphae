@@ -247,10 +247,10 @@ layers = [
   "cli",
   "view | enrich",
   "analyze",
-  # Above `store` only for the `TABLES` import, which phase 2.2 of the store-layering plan moves.
-  "extract",
   "export",
-  "store",
+  # Peers: the reader rebuilds a trace from rows and never parses, and the parser touches no
+  # database. Each imports only `pipeline` and the leaves below it.
+  "store | extract",
   "pipeline",
   "user_settings",
   "models | projects | pricing | settings | store_path",

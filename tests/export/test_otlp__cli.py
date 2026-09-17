@@ -25,8 +25,8 @@ from hyphae.export.otlp_delivery import (
     OtlpCensus,
     OtlpExporter,
 )
-from hyphae.extract.store import StoreSource
 from hyphae.pipeline import refresh
+from hyphae.store.trace_reader import StoreSource
 from hyphae.store.trace_store import StoreLocked, open_trace_store
 from tests.conftest import MYCELIA, NO_WAIT, locked
 from tests.export.conftest import (
