@@ -169,11 +169,6 @@ DEFAULTS: dict[str, dict[str, ParamValue]] = {
 }
 
 
-def names() -> list[str]:
-    """Every query the library ships: `library.names()`, for the callers that ask the manifest."""
-    return library.names()
-
-
 def describe(name: str) -> Query:
     """What the runner needs to bind and scope one query, read off its statement.
 
@@ -182,8 +177,8 @@ def describe(name: str) -> Query:
     library does not ship, a parameter `PARAM_TYPES` does not type, and a default no
     statement binds — the two ways what stays in Python can drift from the SQL.
     """
-    if name not in set(names()):
-        raise QueryError(f"no query named {name!r}. Known queries: {', '.join(names())}")
+    if name not in set(library.names()):
+        raise QueryError(f"no query named {name!r}. Known queries: {', '.join(library.names())}")
     text = statement(name)
     bound = parameters(text)
     defaults = DEFAULTS.get(name, {})
@@ -211,4 +206,4 @@ def describe(name: str) -> Query:
 
 def catalog() -> dict[str, Query]:
     """The whole library described, in name order: what `--list` and the viewer read."""
-    return {name: describe(name) for name in names()}
+    return {name: describe(name) for name in library.names()}

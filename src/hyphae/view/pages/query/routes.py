@@ -1,6 +1,6 @@
 """The query page: one library query's SQL, where every citation in a footer goes.
 
-The name is a key of the query manifest and never a path, which is what makes a request for
+The name is a stem the library lists and never a path, which is what makes a request for
 `../../secret` a miss rather than a file (`docs/viewer.md`). Three dependencies and an adapter,
 the shape a full document takes — this one reads the query library rather than the store, and
 the request's own query string crosses the seam as the bindings the citation carried.
@@ -43,8 +43,8 @@ QueryMarkup = Annotated[Html, Depends(query_markup)]
 def query_page(page: QueryMarkup, viewer: ViewerDep) -> Response:
     """One library query's SQL, under the bindings a page cited it with.
 
-    Where every citation in a footer goes. The name is a key of the query manifest and never
-    a path: a name the manifest does not declare is a 404 before anything is read, which is
+    Where every citation in a footer goes. The name is a stem the library lists and never
+    a path: a name the library does not list is a 404 before anything is read, which is
     what makes a request for `../../secret` a miss rather than a file.
     """
     return viewer.html(page)

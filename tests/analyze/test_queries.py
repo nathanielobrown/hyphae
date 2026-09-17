@@ -239,7 +239,7 @@ ENRICHMENT_VIEWS = "enriched_"
 # fixture store today and returns nothing next month.
 CLOCK = ("current_date", "current_timestamp", "now", "today", "get_current_timestamp")
 
-NAMES = manifest.names()
+NAMES = library.names()
 
 
 def identifiers(name: str) -> set[str]:

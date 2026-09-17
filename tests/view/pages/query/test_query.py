@@ -183,7 +183,7 @@ def test_a_query_page_carries_the_definitions_its_statement_runs_under(
     bare `duckdb` gets a catalog error and no way to find out why, so the page carries the
     setup above the statement. A query that calls none carries nothing extra.
     """
-    for name in manifest.names():
+    for name in library.names():
         page = client.get(f"{QUERY_URL}/{name}").text
         calls = any(f"{macro}(" in library.load(name) for macro in macros.DEFINITIONS)
         assert ('data-field="macros"' in page) == calls, name
@@ -248,7 +248,7 @@ def test_a_query_asked_for_with_no_bindings_still_serves(client: TestClient) -> 
     ],
 )
 def test_only_a_name_the_library_declares_is_served(name: str, client: TestClient) -> None:
-    """A name outside the manifest is a 404, and the response repeats nothing back."""
+    """A name outside the library is a 404, and the response repeats nothing back."""
     response = client.get(f"{QUERY_URL}/{name}")
     assert response.status_code == 404
     assert name not in response.text
@@ -274,7 +274,7 @@ def test_the_sheet_paints_only_classes_the_highlighter_can_emit(
     # names (`code`, `plain`, `lineno`) out of the comparison.
     painted = {found for rule in selectors for found in re.findall(r"\.([a-z]{1,3}\d?)\b", rule)}
     emitted: set[str] = set()
-    for name in manifest.names():
+    for name in library.names():
         emitted |= classed(lit(library.load(name), Syntax.SQL).html)
     for (value,) in store.execute(
         "SELECT input FROM live_tool_calls UNION ALL SELECT result FROM live_tool_calls"

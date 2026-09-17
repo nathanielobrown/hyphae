@@ -165,8 +165,8 @@ def test_the_listing_names_every_query_with_its_scope_and_what_it_needs_bound(
     printed = run_query("--list").stdout.splitlines()
     listed = {line.split()[0]: line.split()[1:] for line in printed}
     # One line per query, and the names are the library's...
-    assert len(printed) == len(manifest.names())
-    assert set(listed) == set(manifest.names())
+    assert len(printed) == len(library.names())
+    assert set(listed) == set(library.names())
     # ...each carrying the scope, which is what says whether `--project` is wanted...
     assert listed["agent_types"] == ["corpus"]
     # ...and the parameters with no default, in the order the statement binds them.
