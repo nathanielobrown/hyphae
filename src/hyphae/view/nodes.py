@@ -18,8 +18,8 @@ from typing import NamedTuple
 
 from markupsafe import Markup
 
+from hyphae.store.pages import Row
 from hyphae.view import bounds
-from hyphae.view.store import Row
 from hyphae.view.text import inline_markdown
 from hyphae.view.text.format import cut
 

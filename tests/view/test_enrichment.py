@@ -20,11 +20,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
+from hyphae.store.pages import Page
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.enrichment import GLYPH, GLYPH_CLASS
 from hyphae.view.nodes import BODY_URL, Kind
-from hyphae.view.store import Page
 from hyphae.view.text.format import cut, when
 from tests.conftest import SPINE, SPINE_RUN
 from tests.view.conftest import Planter, fields, inside, one, pages, reads, values

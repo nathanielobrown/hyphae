@@ -8,9 +8,9 @@ a store column.
 from pathlib import Path
 
 from hyphae.store.library import ParamValue
+from hyphae.store.pages import Page, open_store, page_rows
 from hyphae.view.citation import cited
 from hyphae.view.pages.offload.models import OffloadFile, OffloadPage
-from hyphae.view.store import Page, open_store, page_rows
 
 
 def offload(db: Path, session_id: str, name: str, after: int, size: int) -> OffloadPage | None:

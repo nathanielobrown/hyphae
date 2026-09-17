@@ -23,9 +23,9 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
+from hyphae.store.pages import open_store
 from hyphae.view.app import DEV_SHUTDOWN_SECONDS, HOST, build_app, claim
 from hyphae.view.components import Html, layout
-from hyphae.view.store import open_store
 from hyphae.view.text import format as fmt
 from tests.conftest import build_enriched_store
 from tests.view.scenarios import SCENARIOS, Group, Scenario

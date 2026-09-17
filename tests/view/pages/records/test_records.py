@@ -13,9 +13,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hyphae.store import library
+from hyphae.store.pages import Page
 from hyphae.view import bounds
 from hyphae.view.app import build_app
-from hyphae.view.store import Page
 from tests.conftest import ANCESTOR, MAIN, RESUME, RESUME_LONG_RECORD, SPINE, SPINE_RUN
 from tests.view.conftest import (
     MISSING,

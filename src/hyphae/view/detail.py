@@ -16,9 +16,9 @@ from enum import StrEnum
 from typing import Any, NamedTuple, assert_never
 
 from hyphae.models.enrichment import Level
+from hyphae.store.pages import Page, Value
 from hyphae.view import bounds
 from hyphae.view.enrichment import Enrichment
-from hyphae.view.store import Page, Value
 from hyphae.view.text import format as fmt
 from hyphae.view.text import highlight
 

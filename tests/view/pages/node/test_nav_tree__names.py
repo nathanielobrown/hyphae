@@ -14,10 +14,10 @@ from collections.abc import Sequence
 import duckdb
 from fastapi.testclient import TestClient
 
+from hyphae.store.pages import Page, open_store, page_rows
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.nodes import LEAD_SEPARATOR, Kind
-from hyphae.view.store import Page, open_store, page_rows
 from hyphae.view.text.format import cut
 from tests.view.conftest import Planter, fields, one, values
 from tests.view.nav_trees import candidates, node_url

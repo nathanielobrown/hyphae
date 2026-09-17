@@ -15,9 +15,9 @@ from typing import NamedTuple
 import duckdb
 
 from hyphae.models.enrichment import ROWS, Level, Versions
+from hyphae.store.pages import Page, page_rows
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
-from hyphae.view.store import Page, page_rows
 from hyphae.view.text.format import when
 
 # The enrichment tables, by the level whose rows they hold. Read off the rows map rather than

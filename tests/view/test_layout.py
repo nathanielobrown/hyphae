@@ -50,7 +50,7 @@ READS = frozenset({"read", "browser", "fragments"})
 
 # What a value crossing that seam may not be made of: a request, a response, or an element.
 # The store is banned by name below rather than listed here — `duckdb` is not what a raw row
-# arrives as, `view.store.Row` is.
+# arrives as, `store.pages.Row` is.
 FRAMEWORKS = frozenset({"fastapi", "starlette", "htpy"})
 
 # And the two of those a routes module is the one place for. Split from the set above because
@@ -64,19 +64,22 @@ UNNAMED = frozenset({"logic.py", "utils.py", "helpers.py", "common.py", "misc.py
 
 # What a module may reach: an import goes down a layer or sideways, never up. The layers, from
 # the top: the server, then the pages, then what every page shares, and under all of it the
-# leaves — the store's reads, how one value prints, and the sizes it prints to. `bounds` is a
-# leaf beside `text/` rather than above it because `highlight` and `inline_markdown` read their
-# cuts from it, and a cut is a size (`design.md`, "Decisions"); it sits beside the store rather
-# than under it because `bound` fills a read for a `Library` member the store names.
+# leaves — how one value prints, and the sizes it prints to. `bounds` is a leaf beside `text/`
+# rather than above it because `highlight` and `inline_markdown` read their cuts from it, and a
+# cut is a size (`design.md`, "Decisions"). The store's reads sit below the whole package, in
+# `hyphae.store.pages`.
 SERVER, PAGE, SHARED, LEAF = 3, 2, 1, 0
 
 # The one number `store/library.py` declares that is not a size: the keyset cursor standing
 # before the first row, which a paged route takes as its default rather than cutting to it.
 NOT_A_SIZE = frozenset({"FIRST_PAGE"})
 
+# The module of the store a page reads through: its queries, its bindings and its rows.
+STORE = "hyphae.store.pages"
+
 # What a routes module may still take from the store: the words a session-list URL is written
 # in. A route's job is to refuse a URL, and refusing `?sort=banana` means holding the list of
-# sorts (`view/store.py`). Everything else the store exports is a query, a binding or a row.
+# sorts (`store/pages.py`). Everything else the store exports is a query, a binding or a row.
 URL_WORDS = frozenset({"SORTS", "FILTERS", "DIRECTIONS"})
 
 # And what it may still take from the query library: the cursor above, plus the two names for
@@ -102,7 +105,6 @@ LAYERED = {
     "failures": SHARED,
     "builders": SHARED,
     "detail": SHARED,
-    "store": LEAF,
     "bounds": LEAF,
 }
 
@@ -180,13 +182,29 @@ def imports(path: Path) -> set[str]:
 
 
 def taken(path: Path, module: str) -> set[str]:
-    """Every name one file imports out of one module of the viewer, by that module's own name."""
+    """Every name one file imports out of one module: a module of the viewer by its own name,
+    or any other by its dotted name."""
+    target = module if module.startswith("hyphae.") else f"{PACKAGE}.{module}"
     return {
         alias.name
         for node in ast.walk(ast.parse(path.read_text()))
-        if isinstance(node, ast.ImportFrom) and node.module == f"{PACKAGE}.{module}"
+        if isinstance(node, ast.ImportFrom) and node.module == target
         for alias in node.names
     }
+
+
+def whole(path: Path, module: str) -> bool:
+    """Whether one file imports a module itself, by `import a.b` or `from a import b`."""
+    package, _, name = module.rpartition(".")
+    return any(
+        (isinstance(node, ast.Import) and any(alias.name == module for alias in node.names))
+        or (
+            isinstance(node, ast.ImportFrom)
+            and node.module == package
+            and any(alias.name == name for alias in node.names)
+        )
+        for node in ast.walk(ast.parse(path.read_text()))
+    )
 
 
 def queried(path: Path) -> set[str]:
@@ -409,7 +427,7 @@ def test_a_page_model_is_made_of_nothing_either_side_of_the_seam_owns() -> None:
     for path in found:
         here = f"{PACKAGE}.{dotted(path)}"
         assert frameworks([here], FRAMEWORKS) == "", f"{path.relative_to(VIEW)} holds a framework"
-        assert "Row" not in taken(path, "store"), f"{path.relative_to(VIEW)} carries a store row"
+        assert "Row" not in taken(path, STORE), f"{path.relative_to(VIEW)} carries a store row"
     # ...and the probe can see one where one is: every page's markup names htpy, and holds it.
     assert all("htpy" in named(path) for path in markup_modules())
     marked = [f"{PACKAGE}.{dotted(path)}" for path in markup_modules()]
@@ -442,7 +460,7 @@ def test_neither_side_of_a_pages_seam_imports_the_other() -> None:
         assert reached == [], f"{here} imports its page's markup: {reached}"
 
 
-def test_no_routes_module_of_a_page_names_the_stores_vocabulary() -> None:
+def test_no_routes_module_of_a_page_names_the_stores_vocabulary(tmp_path: Path) -> None:
     """A route holds a URL and a refusal; what a query is, what it binds and what it answers
     stops in the read.
 
@@ -463,18 +481,22 @@ def test_no_routes_module_of_a_page_names_the_stores_vocabulary() -> None:
     # There are routes to read...
     assert found, "no page declares a routes module"
     for path in found:
-        names = taken(path, "store")
+        names = taken(path, STORE)
         # ...none of them takes the store module whole, which would hide the names below...
-        assert "store" not in imports(path) or names, f"{dotted(path)} imports the store whole"
+        assert not whole(path, STORE), f"{dotted(path)} imports the store whole"
         # ...none names anything the store exports but the words a URL is written in...
         assert names <= URL_WORDS, f"{dotted(path)} names the store's {sorted(names - URL_WORDS)}"
         # ...and none names a query the library declares.
         asked = queried(path)
         assert asked <= NOT_A_SIZE | BINDABLE, f"{dotted(path)} names the library's {sorted(asked)}"
     # ...and the scan can see that vocabulary where it belongs: the reads run the library
-    # through the store, and fill what they run through the sizes leaf.
-    assert "page_rows" in {name for path in read_modules() for name in taken(path, "store")}
+    # through the store, and fill what they run through the sizes leaf...
+    assert "page_rows" in {name for path in read_modules() for name in taken(path, STORE)}
     assert "bound" in {name for path in read_modules() for name in taken(path, "bounds")}
+    # ...and it can see the module taken whole, in either spelling, where a module does.
+    for spelling in (f"import {STORE}\n", f"from {STORE.rpartition('.')[0]} import pages\n"):
+        (tmp_path / "routes.py").write_text(spelling)
+        assert whole(tmp_path / "routes.py", STORE), spelling
 
 
 # --- Rule 2: a page package is a leaf ------------------------------------------------------
@@ -502,7 +524,7 @@ def test_no_page_package_imports_a_sibling_page() -> None:
 
 
 def test_no_import_inside_the_viewer_points_up_a_layer() -> None:
-    """The layers hold: pages over the shared view-models, over the store, `bounds` and `text/`.
+    """The layers hold: pages over the shared view-models, over `bounds` and `text/`.
 
     What keeps the shared layer readable without the pages and testable without a request. The
     failure prints the edge, because an edge is what has to be deleted to fix it.

@@ -36,7 +36,7 @@ from typing import NamedTuple
 
 from hyphae.store import library
 from hyphae.store.library import ParamValue
-from hyphae.view.store import Library
+from hyphae.store.pages import Library
 
 
 class Bound(NamedTuple):

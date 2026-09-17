@@ -23,10 +23,10 @@ from fastapi.testclient import TestClient
 from hyphae.analyze.manifest import catalog
 from hyphae.store import library, macros
 from hyphae.store.library import VIEW_PREFIX
+from hyphae.store.pages import Fragment, Page, Value
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.citation import QUERY_URL
-from hyphae.view.store import Fragment, Page, Value
 from tests.conftest import (
     CONFIG_ONLY,
     MAIN,

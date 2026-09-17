@@ -20,10 +20,10 @@ from fastapi.testclient import TestClient
 
 from hyphae.analyze import manifest
 from hyphae.store import library, macros
+from hyphae.store.pages import Page
 from hyphae.view import bounds
 from hyphae.view.citation import QUERY_URL
 from hyphae.view.nodes import BODY_URL
-from hyphae.view.store import Page
 from hyphae.view.text.highlight import Syntax, lit
 from tests.conftest import SPINE
 from tests.view.conftest import block, classed, fields, inside, plain, values

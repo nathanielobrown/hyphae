@@ -7,11 +7,11 @@ a store column.
 
 from pathlib import Path
 
+from hyphae.store.pages import Page, open_store, page_rows
 from hyphae.view import bounds, failures
 from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
 from hyphae.view.pages.errors.models import ErrorsPage
-from hyphae.view.store import Page, open_store, page_rows
 
 
 def errors(db: Path, session_id: str) -> ErrorsPage:

@@ -15,8 +15,8 @@ from pathlib import Path
 import pytest
 
 import hyphae.view
+from hyphae.store.pages import Page
 from hyphae.view import bounds
-from hyphae.view.store import Page
 
 VIEW = Path(hyphae.view.__file__).parent
 

@@ -9,13 +9,13 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from hyphae.store.library import ParamValue
+from hyphae.store.pages import Page, Row, open_store, page_rows, sorted_sessions
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
 from hyphae.view.enrichment import enriched
 from hyphae.view.models import Count
 from hyphae.view.pages.sessions.models import Described, ListParams, SessionRow, SessionsPage
-from hyphae.view.store import Page, Row, open_store, page_rows, sorted_sessions
 
 
 def sessions(db: Path, params: ListParams) -> SessionsPage:

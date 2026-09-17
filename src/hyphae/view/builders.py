@@ -10,6 +10,7 @@ the facts a body prints, the cells of a log row — is the page's own (`view/pag
 
 from collections.abc import Sequence
 
+from hyphae.store.pages import Row
 from hyphae.view.enrichment import Descriptions
 from hyphae.view.nodes import (
     COST_PLACES,
@@ -26,7 +27,6 @@ from hyphae.view.nodes import (
     Ref,
     Spend,
 )
-from hyphae.view.store import Row
 from hyphae.view.text.format import ELLIPSIS
 from hyphae.view.text.tool_names import Fields, name_tool
 

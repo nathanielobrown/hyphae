@@ -164,7 +164,7 @@ def test_the_forbidden_contract_names_the_viewer_when_it_is_a_source(tmp_path: P
     # `include_external_packages` dies with, which also exits 1.
     assert done.returncode != 0, done.stdout
     assert "hyphae.view is not allowed to import duckdb:" in done.stdout, done.stdout
-    assert "hyphae.view.store -> duckdb" in done.stdout, done.stdout
+    assert "hyphae.view.deps -> duckdb" in done.stdout, done.stdout
 
 
 @pytest.mark.reads_the_repo  # reads the two contracts in `pyproject.toml`

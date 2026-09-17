@@ -18,10 +18,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hyphae.projects import project_predicate
+from hyphae.store.pages import Page
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.components.parts import unpriced
-from hyphae.view.store import Page
 from hyphae.view.text import format as fmt
 from hyphae.view.text.format import ABSENT, ELLIPSIS
 from tests.conftest import HOME, MYCELIA, NO_PROJECT_SESSION, SPINE

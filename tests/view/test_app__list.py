@@ -17,12 +17,12 @@ from fastapi.testclient import TestClient
 
 from hyphae.analyze import manifest
 from hyphae.store import library
+from hyphae.store.pages import DIRECTIONS, SORTS, Page
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.links import DEFAULT_DIRECTION, DEFAULT_SORT
 from hyphae.view.pages.sessions.models import HEADINGS
 from hyphae.view.pages.sessions.routes import ARIA_SORT
-from hyphae.view.store import DIRECTIONS, SORTS, Page
 from hyphae.view.text import format as fmt
 from hyphae.view.text.format import ABSENT
 from tests.conftest import (

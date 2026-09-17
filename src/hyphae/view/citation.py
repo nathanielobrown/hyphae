@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 
 from hyphae.store import library
 from hyphae.store.library import ParamValue
-from hyphae.view.store import Library
+from hyphae.store.pages import Library
 
 # Where the SQL behind a page is read. Every citation in a footer links here, so the path is
 # written once and the route below takes the query's name from it.

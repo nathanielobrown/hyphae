@@ -16,9 +16,9 @@ from hyphae.analyze import manifest
 from hyphae.models.enrichment import ROWS
 from hyphae.store import library
 from hyphae.store.library import PARAM_TYPES, Scope, parameters, relations, statement
+from hyphae.store.pages import SHOWN
 from hyphae.store.trace_store import TABLES
 from hyphae.view.detail import DETAILS, Spec, Written
-from hyphae.view.store import SHOWN
 from tests.analyze.conftest import AS_OF_WHOLE, QueryRunner
 from tests.conftest import (
     ANCESTOR,

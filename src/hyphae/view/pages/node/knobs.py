@@ -11,10 +11,10 @@ from collections.abc import Sequence
 from typing import NamedTuple
 from urllib.parse import urlencode
 
+from hyphae.store.pages import Listed, Row
 from hyphae.view import bounds, nodes
 from hyphae.view.models import Pager, Step
 from hyphae.view.pages.node.models import PresetChoice
-from hyphae.view.store import Listed, Row
 
 
 class Knobs(NamedTuple):

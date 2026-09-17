@@ -21,8 +21,8 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
+from hyphae.store import pages
 from hyphae.store.library import ParamValue
-from hyphae.view import store
 from tests.conftest import DENSE_TOOL, FORK_ORIGIN, FORK_ORIGIN_RUN, MAIN, SPINE
 from tests.view.conftest import fields, inside, kin, one, plain, under, values
 
@@ -292,15 +292,15 @@ def test_the_walk_asks_the_store_nothing_the_nav_tree_already_asked(
     # If every statement one page runs is written down...
     url = select(client)
     ran: list[tuple[str, tuple[tuple[str, ParamValue], ...]]] = []
-    read = store.fetch
+    read = pages.fetch
 
     def watched(
         connection: duckdb.DuckDBPyConnection, sql: str, bindings: Mapping[str, ParamValue]
-    ) -> list[store.Row]:
+    ) -> list[pages.Row]:
         ran.append((sql, tuple(sorted(bindings.items()))))
         return read(connection, sql, bindings)
 
-    monkeypatch.setattr(store, "fetch", watched)
+    monkeypatch.setattr(pages, "fetch", watched)
     page = client.get(url)
     assert page.status_code == 200
 

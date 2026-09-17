@@ -25,9 +25,9 @@ import duckdb
 from fastapi import Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
+from hyphae.store.pages import open_store
 from hyphae.view.components import Html
 from hyphae.view.components import error as error_markup
-from hyphae.view.store import open_store
 
 
 @dataclass(frozen=True)

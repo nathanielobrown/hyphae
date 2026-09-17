@@ -17,6 +17,7 @@ from fastapi.responses import Response
 
 from hyphae.store import library
 from hyphae.store.library import ParamValue
+from hyphae.store.pages import DIRECTIONS, FILTERS, SORTS
 from hyphae.view import bounds
 from hyphae.view.components import Html
 from hyphae.view.deps import ViewerDep
@@ -24,7 +25,6 @@ from hyphae.view.links import DEFAULT_DIRECTION, DEFAULT_SORT, LIST_URL, list_ur
 from hyphae.view.pages.sessions import markup, read
 from hyphae.view.pages.sessions.markup import Control
 from hyphae.view.pages.sessions.models import HEADINGS, ListParams, SessionsPage
-from hyphae.view.store import DIRECTIONS, FILTERS, SORTS
 
 router = APIRouter()
 

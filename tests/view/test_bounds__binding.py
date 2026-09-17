@@ -17,9 +17,9 @@ import pytest
 
 from hyphae.analyze import manifest
 from hyphae.store import library
+from hyphae.store.pages import Fragment, Library, Page, Value
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
-from hyphae.view.store import Fragment, Library, Page, Value
 from tests.conftest import MAIN, SLASH_TURN, SPINE
 
 MEMBERS = (*Page, *Fragment, *Value)

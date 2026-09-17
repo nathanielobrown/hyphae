@@ -13,9 +13,9 @@ import re
 from markupsafe import escape
 
 from hyphae.store import library
+from hyphae.store.pages import SHOWN, Page
 from hyphae.view import bounds, nodes
 from hyphae.view.pages.node.knobs import Knobs
-from hyphae.view.store import SHOWN, Page
 from hyphae.view.text.format import ELLIPSIS
 from tests.view.conftest import (
     Statement,

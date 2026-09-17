@@ -19,13 +19,13 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
+from hyphae.store import pages
+from hyphae.store.pages import SchemaMoved
 from hyphae.store.schema import MIGRATE_REMEDY, SCHEMA_MISMATCH_REMEDY, SCHEMA_VERSION
 from hyphae.store.trace_store import StoreLocked
-from hyphae.view import store as view_store
 from hyphae.view.app import CSP, build_app, serve
 from hyphae.view.components import parts
 from hyphae.view.nodes import NUMBERS_URL
-from hyphae.view.store import SchemaMoved
 from tests.conftest import SPINE, locked, opens_elsewhere
 from tests.view.conftest import fields
 from tests.view.scenarios import SCENARIOS, Group
@@ -142,14 +142,14 @@ def test_a_full_document_opens_the_store_once_and_the_query_page_not_at_all(
     through, so the count holds however a page imported the opener.
     """
     opens = 0
-    opener = view_store.open_trace_store
+    opener = pages.open_trace_store
 
     def counted(*args: object, **kwargs: object) -> object:
         nonlocal opens
         opens += 1
         return opener(*args, **kwargs)  # pyrefly: ignore
 
-    monkeypatch.setattr(view_store, "open_trace_store", counted)
+    monkeypatch.setattr(pages, "open_trace_store", counted)
     assert enriched_client.get(SCENARIOS[route].url).status_code == 200
     assert opens == DOCUMENTS[route]
 

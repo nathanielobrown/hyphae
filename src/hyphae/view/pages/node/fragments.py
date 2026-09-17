@@ -17,6 +17,7 @@ import duckdb
 
 from hyphae.store import library
 from hyphae.store.library import ParamValue
+from hyphae.store.pages import Fragment, Row, Value, page_rows
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
 from hyphae.view.detail import Spec, Written, syntax_of
@@ -27,7 +28,6 @@ from hyphae.view.pages.node.browser import Missing
 from hyphae.view.pages.node.kinds import KINDS
 from hyphae.view.pages.node.models import Detailed, Measured, Popover, Record, Whole
 from hyphae.view.pages.node.numbers import breakout, charges, spend, wash
-from hyphae.view.store import Fragment, Row, Value, page_rows
 
 
 def counted(

@@ -28,6 +28,10 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from hyphae.store.pages import (
+    SchemaMoved,
+    open_store,
+)
 from hyphae.store.trace_store import StoreLocked
 from hyphae.view.deps import Viewer
 from hyphae.view.pages.errors import routes as errors
@@ -37,10 +41,6 @@ from hyphae.view.pages.projects import routes as projects
 from hyphae.view.pages.query import routes as query
 from hyphae.view.pages.records import routes as records
 from hyphae.view.pages.sessions import routes as sessions
-from hyphae.view.store import (
-    SchemaMoved,
-    open_store,
-)
 
 # Loopback only, and a port unlikely to be taken. Fixed rather than picked at startup so a
 # link pasted into a note opens the same page tomorrow.
