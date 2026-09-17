@@ -154,6 +154,24 @@ def test_the_query_page_serves_the_statement_the_citation_named(client: TestClie
         assert echoed(shown) == bound(lines[name])
 
 
+@pytest.mark.parametrize("name", manifest.names())
+def test_every_statement_in_the_library_serves_as_a_query_page(
+    client: TestClient, name: str
+) -> None:
+    """Every statement the library ships is a page, and the page shows the file whole.
+
+    One scenario opens one query page, so the render sweeps see one statement in seventy. This
+    is the same promise as `test_the_query_page_serves_the_statement_the_citation_named`, made
+    for every name rather than the ones a session page happens to cite: a statement the
+    library moved, reformatted or lost is caught by name.
+    """
+    page = client.get(f"{QUERY_URL}/{name}")
+    assert page.status_code == 200
+    assert values(page.text, "data-sql") == [name]
+    # Against the file rather than the loader, so a loader that trimmed it would show here.
+    assert plain(block(page.text, "sql")) == (queries.QUERY_DIR / f"{name}.sql").read_text()
+
+
 def test_a_query_page_carries_the_definitions_its_statement_runs_under(
     client: TestClient,
 ) -> None:

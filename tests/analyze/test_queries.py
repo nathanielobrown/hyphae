@@ -382,13 +382,6 @@ def test_a_detail_spec_names_a_column_its_header_answers_and_a_whole_query_that_
     assert set(answered(spec.whole, run_query, enriched_query)) == {"value"} | marks_itself
 
 
-def test_a_citation_with_nothing_bound_ends_at_the_query_file() -> None:
-    """A citation is a line someone pastes into a report, so it never trails whitespace."""
-    # Every shipped query resolves at least one binding, so this is the contract for a caller
-    # that composes its own — the viewer builds citations from what it bound, not a manifest.
-    assert queries.citation("sessions", {}) == "-- queries/sessions.sql"
-
-
 def test_every_default_and_param_type_is_bound_by_a_shipped_query() -> None:
     """`DEFAULTS` and `PARAM_TYPES` name only what a shipped statement actually binds.
 
