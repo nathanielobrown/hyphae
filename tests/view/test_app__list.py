@@ -421,6 +421,11 @@ def test_the_list_is_served_a_page_at_a_time(
         pytest.fail("the pager never ran out of pages")
     # ...holds every session once, in the order one long list would have had.
     assert seen == sessions(store)
+    # A page exactly the store's size is the last page: the probe row past it is what says
+    # there is another, and a full page with nothing past it mints no link to an empty one.
+    full = client.get("/sessions", params={"size": len(seen)}).text
+    assert len(values(full, "data-session-id")) == len(seen)
+    assert inside(full, "data-page", "next", "href") == []
     # Past the end is an empty page rather than an error: a stale link is not a fault...
     beyond = client.get("/sessions", params={"page": 99}).text
     assert values(beyond, "data-session-id") == []
@@ -433,9 +438,10 @@ def test_the_pager_counts_a_store_deeper_than_a_page_with_separators(
 ) -> None:
     """The range the pager prints goes through the formatter every count on a page does.
 
-    Planted, because the fixture corpus holds sixteen sessions and the store this list is read
-    against holds thousands: under a thousand a formatted range and a bare one are the same
-    string. The clones are of a recorded session, so each one is a row the list really builds.
+    Planted, because the fixture corpus holds fewer sessions than a page and the store this
+    list is read against holds thousands: under a thousand a formatted range and a bare one
+    are the same string. The clones are of a recorded session, so each one is a row the list
+    really builds.
     """
     over = 1_200
     path = plant(
