@@ -168,15 +168,15 @@ def test_the_forbidden_contract_names_the_store_when_it_is_a_source(tmp_path: Pa
 
 
 @pytest.mark.reads_the_repo  # reads the two contracts in `pyproject.toml`
-def test_the_forbidden_contract_lists_every_layer_but_the_ones_that_speak_duckdb() -> None:
-    """A module the layers contract places is a forbidden source unless it may name `duckdb`.
+def test_the_forbidden_contract_lists_every_layer_but_the_store() -> None:
+    """A module the layers contract places is a forbidden source unless it is the store.
 
     The linter checks the sources it is given, so a layer left off the list is a package that
     may import the driver unnoticed. The layers list is exhaustive, so it is the roll call.
     """
     layers = {module for line in contract_layers() for module in line.split(" | ")}
     sources = {name.removeprefix("hyphae.") for name in contract("forbidden")["source_modules"]}
-    assert sources == layers - {"store", "view", "analyze"}
+    assert sources == layers - {"store"}
 
 
 @pytest.mark.reads_the_repo  # the same subprocess, over the contract as written
