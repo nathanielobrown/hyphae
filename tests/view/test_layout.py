@@ -20,11 +20,11 @@ from pathlib import Path
 import pytest
 
 import hyphae.view
-from hyphae.analyze import queries
+from hyphae.store import library
 from tests.view import test_components
 
 PACKAGE = "hyphae.view"
-QUERIES = "hyphae.analyze.queries"
+QUERIES = "hyphae.store.library"
 VIEW = Path(hyphae.view.__file__).parent
 PAGES = VIEW / "pages"
 TEXT = VIEW / "text"
@@ -196,7 +196,7 @@ def queried(path: Path) -> set[str]:
         for node in ast.walk(tree)
         if isinstance(node, ast.Attribute)
         and isinstance(node.value, ast.Name)
-        and node.value.id == "queries"
+        and node.value.id == "library"
     }
     return found | {
         alias.name
@@ -470,7 +470,7 @@ def test_no_routes_module_of_a_page_names_the_stores_vocabulary() -> None:
         # ...and none names a query the library declares.
         asked = queried(path)
         assert asked <= NOT_A_SIZE | BINDABLE, f"{dotted(path)} names the library's {sorted(asked)}"
-    # ...and the scan can see that vocabulary where it belongs: the reads run the queries.
+    # ...and the scan can see that vocabulary where it belongs: the reads run the library.
     ran = {name for path in read_modules() for name in taken(path, "store")}
     assert {"page_rows", "bound"} <= ran
 
@@ -547,7 +547,7 @@ def test_no_module_of_the_viewer_but_bounds_names_a_size_the_query_library_decla
     sizes = {
         (where, name)
         for where, name in taken
-        if name not in NOT_A_SIZE and isinstance(getattr(queries, name), int)
+        if name not in NOT_A_SIZE and isinstance(getattr(library, name), int)
     }
     # The scan reaches the library at all...
     assert ("bounds", "LOG_CHARS") in sizes

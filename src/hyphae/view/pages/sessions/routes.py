@@ -15,8 +15,8 @@ from typing import Annotated, assert_never
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
-from hyphae.analyze import queries
-from hyphae.analyze.queries import ParamValue
+from hyphae.store import library
+from hyphae.store.library import ParamValue
 from hyphae.view import bounds
 from hyphae.view.components import Html
 from hyphae.view.deps import ViewerDep
@@ -30,10 +30,10 @@ router = APIRouter()
 
 
 # The HTML input a filter's type gets on the form. One map rather than a field per filter.
-CONTROLS: dict[queries.ParamType, str] = {
-    queries.ParamType.TEXT: "text",
-    queries.ParamType.DATE: "date",
-    queries.ParamType.INTEGER: "number",
+CONTROLS: dict[library.ParamType, str] = {
+    library.ParamType.TEXT: "text",
+    library.ParamType.DATE: "date",
+    library.ParamType.INTEGER: "number",
 }
 
 
@@ -64,11 +64,11 @@ def _as_bound(key: str, text: str) -> ParamValue:
     kind = FILTERS[key].type
     try:
         match kind:
-            case queries.ParamType.TEXT:
+            case library.ParamType.TEXT:
                 return text
-            case queries.ParamType.INTEGER:
+            case library.ParamType.INTEGER:
                 return int(text)
-            case queries.ParamType.DATE:
+            case library.ParamType.DATE:
                 return dt.date.fromisoformat(text)
             case _:
                 assert_never(kind)

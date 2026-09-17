@@ -20,9 +20,9 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from hyphae.analyze import macros, queries
 from hyphae.analyze.manifest import catalog
-from hyphae.analyze.queries import VIEW_PREFIX
+from hyphae.store import library, macros
+from hyphae.store.library import VIEW_PREFIX
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.citation import QUERY_URL
@@ -239,7 +239,7 @@ def test_every_macro_the_scan_trusts_answers_one_character_past_the_width() -> N
 @pytest.mark.parametrize("name", sorted(Page) + sorted(Fragment))
 def test_no_page_or_fragment_query_selects_a_fat_column_whole(name: str) -> None:
     """Every query behind a page or a fragment is bounded in SQL, however large the record."""
-    assert unbounded(queries.load(name)) == set()
+    assert unbounded(library.load(name)) == set()
 
 
 @pytest.mark.parametrize("value", sorted(Value))
@@ -252,7 +252,7 @@ def test_a_per_value_query_returns_the_one_value_it_is_named_for(value: Value) -
     the planted leaf below holds it: what a fragment serves stays proportional to what the
     store holds, however the value nests.
     """
-    assert unbounded(queries.load(value)) != set()
+    assert unbounded(library.load(value)) != set()
 
 
 def test_every_viewer_query_is_declared_as_a_page_a_fragment_or_a_value() -> None:
@@ -382,7 +382,7 @@ def test_no_viewer_query_declares_a_default() -> None:
         for name, query in CATALOG.items()
         if name.startswith(VIEW_PREFIX)
         for parameter, spec in query.params.items()
-        if spec.default is not queries.REQUIRED
+        if spec.default is not library.REQUIRED
     }
     assert declared == set()
 
@@ -514,7 +514,7 @@ def test_every_page_size_in_a_viewer_query_is_a_bound_parameter(name: str) -> No
     literal `LIMIT 100` is a size nobody can bind down to reach its boundary in a test, and
     nobody can bind up when a real corpus needs more.
     """
-    for limit in limits(queries.load(name)):
+    for limit in limits(library.load(name)):
         assert limit.startswith("$"), f"{name} limits by a literal: {limit}"
         assert limit.lstrip("$") in CATALOG[name].params
 

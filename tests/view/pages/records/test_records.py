@@ -12,7 +12,7 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.analyze import queries
+from hyphae.store import library
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.store import Page
@@ -70,7 +70,7 @@ def test_the_browser_pages_by_line_number_without_repeating_or_skipping(
     assert len(archived) == 47, "the densest fixture thread moved: re-pick the session"
     # Walking from before the first line, taking the cursor each page hands back...
     seen: list[str] = []
-    after = queries.FIRST_PAGE
+    after = library.FIRST_PAGE
     for _ in range(4):
         page = client.get(
             f"/session/{ANCESTOR}/thread/{MAIN}/records", params={"after": after, "size": 20}
@@ -87,7 +87,7 @@ def test_the_browser_pages_by_line_number_without_repeating_or_skipping(
     # ...covers the thread exactly: no line twice, none missed, and none out of order.
     assert seen == archived
     # Keyset, not OFFSET: a page counted off from the start re-reads rows an extract appended.
-    assert "OFFSET" not in queries.load(Page.RECORDS).upper()
+    assert "OFFSET" not in library.load(Page.RECORDS).upper()
 
 
 def test_a_citation_tuple_maps_to_a_working_url(

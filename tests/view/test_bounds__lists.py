@@ -14,9 +14,9 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.analyze import queries
-from hyphae.analyze.queries import ParamValue
 from hyphae.models.enrichment import Category, Outcome
+from hyphae.store import library
+from hyphae.store.library import ParamValue
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.store import TURN_CURSOR, Page, cursorless_rows
@@ -305,6 +305,6 @@ def test_the_timeline_rows_no_window_reaches_are_capped_at_what_a_page_budgets(
     """
     bound: dict[str, ParamValue] = {"session_id": RESUME, "log_chars": bounds.LOG_WIDTHS.log_chars}
     rows = cursorless_rows(store, Page.TIMELINE, TURN_CURSOR, bounds.CURSORLESS_TURNS, **bound)
-    assert [row["turn_id"] for row in rows] == [queries.UNATTRIBUTED]
+    assert [row["turn_id"] for row in rows] == [library.UNATTRIBUTED]
     with pytest.raises(ValueError, match="more than 0"):
         cursorless_rows(store, Page.TIMELINE, TURN_CURSOR, 0, **bound)

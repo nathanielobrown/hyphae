@@ -32,7 +32,7 @@ the surface instead of the numbers (`view/store.py:bound`).
 
 from typing import NamedTuple
 
-from hyphae.analyze import queries
+from hyphae.store import library
 
 
 class Bound(NamedTuple):
@@ -325,7 +325,7 @@ HEADER_WIDTHS = Header(
     head_items=_HEADER_ITEMS,
     chip_chars=_HEADER_CHARS,
 )
-LOG_WIDTHS = Log(log_chars=queries.LOG_CHARS, chip_chars=queries.LOG_CHARS)
+LOG_WIDTHS = Log(log_chars=library.LOG_CHARS, chip_chars=library.LOG_CHARS)
 EXPANSION_WIDTHS = Expansion(head_chars=_HEADER_CHARS, detail_chars=_HEADER_CHARS)
 POPOVER_WIDTHS = Popover(
     # How much of a model name the popover prints, and the width its per-model token groups are

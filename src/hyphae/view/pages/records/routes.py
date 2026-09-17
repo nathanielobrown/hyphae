@@ -11,7 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from hyphae.analyze import queries
+from hyphae.store import library
 from hyphae.view import bounds
 from hyphae.view.components import Html
 from hyphae.view.deps import ViewerDep, checked
@@ -25,7 +25,7 @@ def records_read(
     session_id: str,
     source: str,
     viewer: ViewerDep,
-    after: int = queries.FIRST_PAGE,
+    after: int = library.FIRST_PAGE,
     size: int = bounds.RECORDS.default,
 ) -> RecordsPage:
     """One page of a thread's records, or the 404 that says the store holds none there."""

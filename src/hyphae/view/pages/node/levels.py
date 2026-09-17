@@ -8,7 +8,7 @@ so nothing memoized here outlives the connection it was read over.
 
 import duckdb
 
-from hyphae.analyze.queries import ParamValue
+from hyphae.store.library import ParamValue
 from hyphae.view.store import Library, Row, cursorless_rows, page_rows
 
 # What a read is answered by: the query, the cursor and cap a cursorless read adds, and

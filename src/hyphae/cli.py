@@ -12,7 +12,6 @@ from typing import Any, NamedTuple
 
 from hyphae import user_settings
 from hyphae.analyze.manifest import catalog
-from hyphae.analyze.queries import REQUIRED, QueryError
 from hyphae.analyze.runner import Result, run
 from hyphae.enrich.client import (
     DEFAULT_CONCURRENCY,
@@ -46,6 +45,7 @@ from hyphae.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.projects import encode_project_path, resolve_project
 from hyphae.store.delivery import DeliveryLedger
 from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.library import REQUIRED, QueryError
 from hyphae.store.trace_reader import StoreSource, UnknownProjectError
 from hyphae.store.trace_store import CLI_WAIT, DuckDbExporter, open_trace_store
 from hyphae.store_path import default_store

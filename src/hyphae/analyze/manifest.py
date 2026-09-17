@@ -13,8 +13,8 @@ The parameter vocabulary both halves are written in — the types and the widths
 `analyze/queries.py`.
 """
 
-from hyphae.analyze import queries
-from hyphae.analyze.queries import (
+from hyphae.store import library
+from hyphae.store.library import (
     COMMAND_HEAD_CHARS,
     CORPUS_RELATIONS,
     DRAW_SEED,
@@ -170,8 +170,8 @@ DEFAULTS: dict[str, dict[str, ParamValue]] = {
 
 
 def names() -> list[str]:
-    """Every query the library ships, by file stem: the directory is the registry."""
-    return sorted(path.stem for path in queries.QUERY_DIR.glob("*.sql"))
+    """Every query the library ships: `library.names()`, for the callers that ask the manifest."""
+    return library.names()
 
 
 def describe(name: str) -> Query:

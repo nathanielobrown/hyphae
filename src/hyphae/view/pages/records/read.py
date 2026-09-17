@@ -7,7 +7,7 @@ a store column.
 
 from pathlib import Path
 
-from hyphae.analyze.queries import ParamValue
+from hyphae.store.library import ParamValue
 from hyphae.view import bounds
 from hyphae.view.citation import cited
 from hyphae.view.pages.records.models import RecordRow, RecordsPage

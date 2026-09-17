@@ -15,8 +15,8 @@ from collections.abc import Mapping
 
 import duckdb
 
-from hyphae.analyze import queries
-from hyphae.analyze.queries import ParamValue
+from hyphae.store import library
+from hyphae.store.library import ParamValue
 from hyphae.view import bounds
 from hyphae.view.detail import Spec, Written, syntax_of
 from hyphae.view.enrichment import enriched
@@ -52,7 +52,7 @@ def counted(
             raise Missing(KINDS[kind].missing)
         return Measured(
             key=Ref(kind, source, node_id).key,
-            citation=queries.citation(Fragment.TOOL_NUMBERS, keyed),
+            citation=library.citation(Fragment.TOOL_NUMBERS, keyed),
             node=reads.tool_numbers(rows[0]),
         )
     binds = bound(
@@ -71,7 +71,7 @@ def counted(
     whole = read.session_usd
     return Popover(
         key=Ref(kind, source, node_id).key,
-        citation=queries.citation(Fragment.NUMBERS, binds),
+        citation=library.citation(Fragment.NUMBERS, binds),
         window=read.window,
         # The three lines between the window and the total, each priced and washed here
         # rather than in the component: what a charge is made of is arithmetic
@@ -104,7 +104,7 @@ def compacted(
         raise Missing(KINDS[Kind.COMPACTION].missing)
     return Measured(
         key=Ref(Kind.COMPACTION, source, compaction_id).key,
-        citation=queries.citation(Fragment.COMPACTION_NUMBERS, keyed),
+        citation=library.citation(Fragment.COMPACTION_NUMBERS, keyed),
         node=reads.compaction_numbers(rows[0]),
     )
 
@@ -114,7 +114,7 @@ def detailed(
 ) -> Detailed:
     """One Detail whole, and the syntax it is marked up as.
 
-    `keys` are the path's own, which the spec's route template minted and `queries.citation`
+    `keys` are the path's own, which the spec's route template minted and `library.citation`
     prints back into the line the fragment carries. A key the query does not bind is a crash
     here, which is a route registered against the wrong `whole`.
 
@@ -135,7 +135,7 @@ def detailed(
     keyed = bound(spec.whole, bounds.HEADER_WIDTHS, **keys)
     row = _one(connection, spec.whole, keyed, "value")
     return Detailed(
-        whole=Whole(row["value"], spec.name, queries.citation(spec.whole, keyed)),
+        whole=Whole(row["value"], spec.name, library.citation(spec.whole, keyed)),
         syntax=syntax_of(spec.written, row),
     )
 
@@ -147,7 +147,7 @@ def recorded(
     keyed = {"session_id": session_id, "source": source, "line_no": line_no}
     # The record itself, which the store holds NOT NULL.
     row = _one(connection, Value.RECORD, keyed, "raw")
-    return reads.record_value(row, queries.citation(Value.RECORD, keyed))
+    return reads.record_value(row, library.citation(Value.RECORD, keyed))
 
 
 def _one(

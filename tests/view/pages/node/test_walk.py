@@ -21,7 +21,7 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.analyze.queries import ParamValue
+from hyphae.store.library import ParamValue
 from hyphae.view import store
 from tests.conftest import DENSE_TOOL, FORK_ORIGIN, FORK_ORIGIN_RUN, MAIN, SPINE
 from tests.view.conftest import fields, inside, kin, one, plain, under, values

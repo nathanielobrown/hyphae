@@ -6,7 +6,8 @@ above this module names the manifest or the loader.
 
 from collections.abc import Mapping
 
-from hyphae.analyze import macros, manifest, queries
+from hyphae.analyze import manifest
+from hyphae.store import library, macros
 from hyphae.view.pages.query.models import QueryPage
 
 
@@ -18,7 +19,7 @@ def query(name: str, bindings: Mapping[str, str]) -> QueryPage | None:
     """
     if name not in manifest.names():
         return None
-    statement = queries.load(name)
+    statement = library.load(name)
     return QueryPage(
         name=name,
         sql=statement,

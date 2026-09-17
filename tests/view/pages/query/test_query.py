@@ -18,7 +18,8 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.analyze import macros, manifest, queries
+from hyphae.analyze import manifest
+from hyphae.store import library, macros
 from hyphae.view.citation import QUERY_URL
 from hyphae.view.nodes import BODY_URL
 from hyphae.view.text.highlight import Syntax, lit
@@ -149,12 +150,12 @@ def test_the_query_page_serves_the_statement_the_citation_named(client: TestClie
         name = urlsplit(href).path.removeprefix(f"{QUERY_URL}/")
         shown = client.get(href).text
         assert values(shown, "data-sql") == [name]
-        assert plain(block(shown, "sql")) == queries.load(name)
+        assert plain(block(shown, "sql")) == library.load(name)
         # And the bindings are echoed as the page ran them, so the statement reads in context.
         assert echoed(shown) == bound(lines[name])
 
 
-@pytest.mark.parametrize("name", manifest.names())
+@pytest.mark.parametrize("name", library.names())
 def test_every_statement_in_the_library_serves_as_a_query_page(
     client: TestClient, name: str
 ) -> None:
@@ -169,7 +170,7 @@ def test_every_statement_in_the_library_serves_as_a_query_page(
     assert page.status_code == 200
     assert values(page.text, "data-sql") == [name]
     # Against the file rather than the loader, so a loader that trimmed it would show here.
-    assert plain(block(page.text, "sql")) == (queries.QUERY_DIR / f"{name}.sql").read_text()
+    assert plain(block(page.text, "sql")) == (library.QUERY_DIR / f"{name}.sql").read_text()
 
 
 def test_a_query_page_carries_the_definitions_its_statement_runs_under(
@@ -184,7 +185,7 @@ def test_a_query_page_carries_the_definitions_its_statement_runs_under(
     """
     for name in manifest.names():
         page = client.get(f"{QUERY_URL}/{name}").text
-        calls = any(f"{macro}(" in queries.load(name) for macro in macros.DEFINITIONS)
+        calls = any(f"{macro}(" in library.load(name) for macro in macros.DEFINITIONS)
         assert ('data-field="macros"' in page) == calls, name
         if calls:
             assert plain(block(page, "macros")) == macros.SETUP, name
@@ -229,7 +230,7 @@ def test_a_query_asked_for_with_no_bindings_still_serves(client: TestClient) -> 
     """The page is a reader's entry point as much as a link target — the URL alone is enough."""
     page = client.get(f"{QUERY_URL}/view_sessions")
     assert page.status_code == 200
-    assert plain(block(page.text, "sql")) == queries.load("view_sessions")
+    assert plain(block(page.text, "sql")) == library.load("view_sessions")
     assert echoed(page.text) == {}
 
 
@@ -274,7 +275,7 @@ def test_the_sheet_paints_only_classes_the_highlighter_can_emit(
     painted = {found for rule in selectors for found in re.findall(r"\.([a-z]{1,3}\d?)\b", rule)}
     emitted: set[str] = set()
     for name in manifest.names():
-        emitted |= classed(lit(queries.load(name), Syntax.SQL).html)
+        emitted |= classed(lit(library.load(name), Syntax.SQL).html)
     for (value,) in store.execute(
         "SELECT input FROM live_tool_calls UNION ALL SELECT result FROM live_tool_calls"
         " UNION ALL SELECT raw FROM raw_records"

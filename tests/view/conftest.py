@@ -23,8 +23,8 @@ import pytest
 from fastapi.testclient import TestClient
 from markupsafe import escape
 
-from hyphae.analyze import macros
 from hyphae.pricing import MODELS
+from hyphae.store import macros
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.components import layout

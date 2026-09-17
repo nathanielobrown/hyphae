@@ -29,7 +29,7 @@ from markupsafe import Markup
 
 import hyphae.view
 import hyphae.view.components
-from hyphae.analyze import queries
+from hyphae.store import library
 from hyphae.view.components import layout, parts
 from hyphae.view.pages.node.markup import logs, nav_tree
 from hyphae.view.text.highlight import Syntax, lit
@@ -310,7 +310,7 @@ def test_a_markup_child_reaches_the_page_as_the_markup_its_producer_made() -> No
     file this build ships, marked up by the producer the query page hands to it. A hand-built
     `Markup` would prove that htpy honours the type; this proves the producer still makes one.
     """
-    statement = queries.load("view_sessions")
+    statement = library.load("view_sessions")
     shown = lit(statement, Syntax.SQL)
     # The producer really made markup out of it, so there is something here to escape...
     assert "<span" in shown.html

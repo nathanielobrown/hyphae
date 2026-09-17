@@ -15,15 +15,16 @@ from typing import Any
 
 import duckdb
 
-from hyphae.analyze import macros, manifest, queries
-from hyphae.analyze.queries import NoDefault, ParamType, ParamValue, QueryError, Scope
+from hyphae.analyze import manifest
 from hyphae.projects import project_predicate, resolve_project
+from hyphae.store import library, macros
+from hyphae.store.library import NoDefault, ParamType, ParamValue, QueryError, Scope
 from hyphae.store.schema import SchemaVersionError
 from hyphae.store.trace_store import CLI_WAIT, StoreLocked, open_trace_store
 
 # The sessions `--project` selects, and the window flag every corpus query reads. Written
 # here rather than in each query file so that a query cannot scope itself differently from
-# the corpus it reports against. These two relations are `queries.CORPUS_RELATIONS`, which is
+# the corpus it reports against. These two relations are `library.CORPUS_RELATIONS`, which is
 # what reading one makes a statement a corpus one.
 _PROJECT_SESSIONS = f"""
 CREATE OR REPLACE TEMP TABLE project_sessions AS
@@ -70,7 +71,7 @@ class Result:
     @property
     def citation(self) -> str:
         """Query file and resolved bindings, as a SQL comment: the claim's query."""
-        return queries.citation(self.name, self.bindings)
+        return library.citation(self.name, self.bindings)
 
 
 def run(
@@ -116,7 +117,7 @@ def run(
             assert project is not None  # noqa: S101
             cited = _build_project_sessions(connection, project, since, as_of)
             unplaceable = connection.execute(_UNPLACEABLE).fetchone()[0]  # type: ignore[index]
-        cursor = connection.execute(queries.load(name), dict(bindings))
+        cursor = connection.execute(library.load(name), dict(bindings))
         columns = tuple(column[0] for column in cursor.description or ())
         return Result(
             name=name,
@@ -136,7 +137,7 @@ def _build_project_sessions(
         "project": resolved,
         "since": since,
         "as_of": as_of,
-        "window_days": queries.WINDOW_DAYS,
+        "window_days": library.WINDOW_DAYS,
     }
     connection.execute(_PROJECT_SESSIONS, bindings)
     connection.execute(_SESSION_PERIODS)
@@ -144,7 +145,7 @@ def _build_project_sessions(
 
 
 def _resolve(
-    name: str, declared: Mapping[str, queries.Param], given: Mapping[str, str]
+    name: str, declared: Mapping[str, library.Param], given: Mapping[str, str]
 ) -> dict[str, ParamValue]:
     """Parse what the caller passed, fill in the production defaults, refuse the rest."""
     unknown = set(given) - set(declared)

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from hyphae.analyze import queries
+from hyphae.store import library
 from hyphae.view import bounds
 from hyphae.view.store import Page, bound
 from tests.conftest import MAIN, SLASH_TURN, SPINE
@@ -125,7 +125,7 @@ def test_a_key_the_statement_does_not_bind_is_refused_before_a_connection_is_ope
     No `duckdb` import and no store path is in reach of this test, which is the claim: the
     refusal happens while the mapping is being built.
     """
-    monkeypatch.setattr(queries, "QUERY_DIR", tmp_path)
+    monkeypatch.setattr(library, "QUERY_DIR", tmp_path)
     (tmp_path / f"{Page.RECORDS}.sql").write_text("SELECT $preview_chars AS preview_chars")
     with pytest.raises(ValueError, match=r"view_records binds no session_id, source:"):
         bound(Page.RECORDS, bounds.RECORDS_WIDTHS, session_id=SPINE, source=MAIN)

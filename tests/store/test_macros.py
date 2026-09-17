@@ -11,8 +11,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from hyphae.analyze import macros
 from hyphae.pricing import MODELS, SYNTHETIC_MODEL
+from hyphae.store import macros
 from tests.conftest import (
     FIXTURE_TAG_KEY,
     FIXTURE_TAG_VALUE,
@@ -65,12 +65,7 @@ def test_context_window_answers_null_for_a_model_it_cannot_size(
 
 @pytest.fixture
 def tagged_store(corpus_db: Path) -> Generator[duckdb.DuckDBPyConnection]:
-    """The fixture corpus, read-only, carrying the macros.
-
-    The store is reached through a fixture of its own rather than by the leaf, which is what
-    gets it built before the tier's clock patch: that patch replaces `datetime.datetime`, and
-    DuckDB cannot bind a real one while it stands (`tests/analyze/conftest.py`).
-    """
+    """The fixture corpus, read-only, carrying the macros."""
     with duckdb.connect(str(corpus_db), read_only=True) as connection:
         macros.install(connection)
         yield connection

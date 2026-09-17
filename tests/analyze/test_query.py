@@ -12,7 +12,8 @@ from typing import cast
 import duckdb
 import pytest
 
-from hyphae.analyze import manifest, queries
+from hyphae.analyze import manifest
+from hyphae.store import library
 from hyphae.store.schema import MIGRATE_REMEDY, SCHEMA_MISMATCH_REMEDY, SCHEMA_VERSION
 from tests.analyze.conftest import AS_OF_PARTIAL, MYCELIA_SESSIONS, Output, QueryRunner, query
 from tests.conftest import (
@@ -99,7 +100,7 @@ def test_the_citation_names_the_query_file_and_every_resolved_binding(
     citation = table.stdout.splitlines()[0]
     assert citation == (
         f"-- queries/sessions.sql project={MYCELIA} since=NULL"
-        f" as_of={AS_OF_PARTIAL} window_days={queries.WINDOW_DAYS}"
+        f" as_of={AS_OF_PARTIAL} window_days={library.WINDOW_DAYS}"
     )
     # ...and under `--csv` the same line moves to stderr, leaving stdout machine-readable.
     piped = run_query("sessions", "--project", MYCELIA, "--as-of", AS_OF_PARTIAL, "--csv")
@@ -143,7 +144,7 @@ def test_the_production_defaults_run_unless_a_param_overrides_one(run_query: Que
     # If a query declares a parameter with a production default and the caller binds none...
     bare = run_query("records_slice", *keys, "--csv")
     # ...the citation reports the manifest's value, which is what a committed report quotes...
-    assert _bindings(bare)["max_chars"] == str(queries.RAW_CHARS)
+    assert _bindings(bare)["max_chars"] == str(library.RAW_CHARS)
     # ...and an explicit override moves that one binding and no other...
     overridden = run_query("records_slice", *keys, "--param", "max_chars=50", "--csv")
     assert _bindings(overridden) == {**_bindings(bare), "max_chars": "50"}
@@ -222,8 +223,8 @@ def test_a_parameter_type_nothing_binds_is_refused_rather_than_bound_to_null(
     Planted rather than added to the enum, because what this holds is the arm that catches a
     member this build knows nothing about.
     """
-    monkeypatch.setattr(queries, "QUERY_DIR", tmp_path)
-    monkeypatch.setitem(queries.PARAM_TYPES, "flag", cast(queries.ParamType, "boolean"))
+    monkeypatch.setattr(library, "QUERY_DIR", tmp_path)
+    monkeypatch.setitem(library.PARAM_TYPES, "flag", cast(library.ParamType, "boolean"))
     (tmp_path / "planted.sql").write_text("SELECT $flag AS flag")
     # The refusal names the type it could not bind, so the fix is the binder and not the call.
     with pytest.raises(SystemExit, match="boolean"):
@@ -245,7 +246,7 @@ def test_a_parameter_the_library_types_nowhere_is_refused_rather_than_bound_blin
     Planted rather than shipped: the point is a shape no file in the library has.
     """
     # If a query binds a parameter the type table does not know...
-    monkeypatch.setattr(queries, "QUERY_DIR", tmp_path)
+    monkeypatch.setattr(library, "QUERY_DIR", tmp_path)
     (tmp_path / "planted.sql").write_text("SELECT $undeclared AS value")
     # ...the refusal names it, so the fix is one line in the table rather than a hunt.
     with pytest.raises(SystemExit, match="undeclared"):
@@ -261,15 +262,15 @@ def test_a_name_outside_the_query_directory_is_refused_like_an_unknown_one(
     its stems. Guarding with `Path.is_file()` instead would let `../` walk a name to any file
     on disk the process can read — outside the library `hp query` is supposed to be limited to.
     """
-    library = tmp_path / "library"
-    library.mkdir()
+    inside = tmp_path / "inside"
+    inside.mkdir()
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "evil.sql").write_text("SELECT 1")
-    monkeypatch.setattr(queries, "QUERY_DIR", library)
+    monkeypatch.setattr(library, "QUERY_DIR", inside)
     # The traversal reaches a real file, but it is not one of `names()` — refused the same way
     # a name that does not exist anywhere is.
-    with pytest.raises(queries.QueryError, match="no query named"):
+    with pytest.raises(library.QueryError, match="no query named"):
         manifest.describe("../outside/evil")
 
 
@@ -287,7 +288,7 @@ def test_a_default_the_statement_binds_nothing_to_is_refused(
     orphan is invisible in every other tier, which is why it crashes here.
     """
     # If the table carries a default for a name the statement never mentions...
-    monkeypatch.setattr(queries, "QUERY_DIR", tmp_path)
+    monkeypatch.setattr(library, "QUERY_DIR", tmp_path)
     (tmp_path / "planted.sql").write_text("SELECT $max_chars AS width")
     monkeypatch.setitem(manifest.DEFAULTS, "planted", {"max_chars": 80, "raw_chars": 100})
     # ...the run stops and names the orphan rather than the query.
@@ -344,7 +345,7 @@ def test_the_store_is_opened_read_only(
 ) -> None:
     """No query can write to the store, whatever its SQL says."""
     # If a query file asks for DDL (planted here — no shipped query does)...
-    monkeypatch.setattr(queries, "QUERY_DIR", tmp_path)
+    monkeypatch.setattr(library, "QUERY_DIR", tmp_path)
     (tmp_path / "ddl.sql").write_text("CREATE TABLE planted (a INTEGER);")
     before = _tables(corpus_db)
     # ...then running it raises...

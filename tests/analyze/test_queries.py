@@ -12,9 +12,10 @@ import re
 
 import pytest
 
-from hyphae.analyze import manifest, queries
-from hyphae.analyze.queries import PARAM_TYPES, Scope, parameters, relations, statement
+from hyphae.analyze import manifest
 from hyphae.models.enrichment import ROWS
+from hyphae.store import library
+from hyphae.store.library import PARAM_TYPES, Scope, parameters, relations, statement
 from hyphae.store.trace_store import TABLES
 from hyphae.view.detail import DETAILS, Spec, Written
 from hyphae.view.store import SHOWN
@@ -79,7 +80,7 @@ VIEW_SIZES = {
     "recent_days": "7",
     "window_days": "30",
     # Where a paged read starts, which is the first page in all three spellings.
-    "after": str(queries.FIRST_PAGE),
+    "after": str(library.FIRST_PAGE),
     "after_chars": "0",
     "skipped": "0",
 }
@@ -314,7 +315,7 @@ def arguments_for(name: str) -> list[str]:
     """
     query = manifest.describe(name)
     required = {
-        parameter for parameter, spec in query.params.items() if spec.default is queries.REQUIRED
+        parameter for parameter, spec in query.params.items() if spec.default is library.REQUIRED
     }
     bindings = {
         parameter: value for parameter, value in VIEW_SIZES.items() if parameter in required
@@ -443,7 +444,7 @@ def test_a_cross_session_query_counts_through_the_corpus_views(name: str) -> Non
         pytest.skip("keyed queries fetch one session's own rows")
     # The `live_*` family counts a resume's copied rows twice across sessions, and a base
     # table counts a fork's replays as well. A corpus query reads neither: it joins the
-    # `corpus_*` views to reach what the runner put in scope (`queries.CORPUS_RELATIONS`).
+    # `corpus_*` views to reach what the runner put in scope (`library.CORPUS_RELATIONS`).
     assert not {word for word in read if word.startswith("live_")}
     assert not (read & set(TABLES))
     # Both negatives pass vacuously for a query whose tables this scan cannot see: `relations`

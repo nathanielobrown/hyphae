@@ -24,9 +24,10 @@ from typing import Any, NamedTuple
 
 import duckdb
 
-from hyphae.analyze import macros, manifest, queries
-from hyphae.analyze.queries import ParamValue
+from hyphae.analyze import manifest
 from hyphae.projects import project_predicate
+from hyphae.store import library, macros
+from hyphae.store.library import ParamValue
 from hyphae.store.schema import SchemaVersionError
 from hyphae.store.trace_store import PAGE_WAIT, open_trace_store
 from hyphae.view import bounds
@@ -239,7 +240,7 @@ def page_rows(
     connection: duckdb.DuckDBPyConnection, page: Library, **bindings: ParamValue
 ) -> list[Row]:
     """The rows of one library query, bound as given."""
-    return fetch(connection, queries.load(page), bindings)
+    return fetch(connection, library.load(page), bindings)
 
 
 class Paged(NamedTuple):
@@ -277,7 +278,7 @@ MATCHED_ROWS = "matched_rows"
 
 def _core(page: Library) -> str:
     """One library query as a subquery: its own text, unchanged, ready to be wrapped."""
-    return queries.load(page).strip().rstrip(";")
+    return library.load(page).strip().rstrip(";")
 
 
 def window(
@@ -369,7 +370,7 @@ class Filter:
     predicate: str
     # What a request's value has to parse as before it can bind. A value that will not parse
     # is a 400, so the type is also the only vetting a filter value gets.
-    type: queries.ParamType
+    type: library.ParamType
 
 
 # What the session list can be narrowed by, per query-string key. Closed, like `SORTS`: a key
@@ -380,13 +381,13 @@ FILTERS: dict[str, Filter] = {
     # A path prefix, not a path: a worktree checkout sits under the repository it was cut
     # from, so filtering by a project has to hold its worktrees' sessions the way the CLI's
     # `--project` does. One statement of the rule, in `hyphae.projects`.
-    "project": Filter(project_predicate("project_dir", "$project"), queries.ParamType.TEXT),
-    "since": Filter("started_at >= $since", queries.ParamType.DATE),
+    "project": Filter(project_predicate("project_dir", "$project"), library.ParamType.TEXT),
+    "since": Filter("started_at >= $since", library.ParamType.DATE),
     # Inclusive of the day named: someone asking for sessions until the 7th means the 7th.
-    "until": Filter("started_at < $until + INTERVAL 1 DAY", queries.ParamType.DATE),
-    "skill": Filter("list_contains(skills, $skill)", queries.ParamType.TEXT),
+    "until": Filter("started_at < $until + INTERVAL 1 DAY", library.ParamType.DATE),
+    "skill": Filter("list_contains(skills, $skill)", library.ParamType.TEXT),
     # A floor rather than a flag, so `errors=1` reads "any" and a larger number "at least".
-    "errors": Filter("tool_errors >= $errors", queries.ParamType.INTEGER),
+    "errors": Filter("tool_errors >= $errors", library.ParamType.INTEGER),
 }
 
 # The two orderings a reader can ask for, as the SQL keyword each one puts in the ORDER BY.

@@ -21,7 +21,6 @@ from typing import Any
 import duckdb
 import pytest
 
-from hyphae.analyze import macros
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
 from hyphae.models.enrichment import (
@@ -34,6 +33,7 @@ from hyphae.models.enrichment import (
     Stamp,
 )
 from hyphae.models.trace import SessionTrace
+from hyphae.store import macros
 from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.schema import table_ddl
 from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA

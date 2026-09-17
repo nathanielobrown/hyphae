@@ -7,7 +7,7 @@ a store column.
 
 from pathlib import Path
 
-from hyphae.analyze.queries import ParamValue
+from hyphae.store.library import ParamValue
 from hyphae.view.citation import cited
 from hyphae.view.pages.offload.models import OffloadFile, OffloadPage
 from hyphae.view.store import Page, open_store, page_rows

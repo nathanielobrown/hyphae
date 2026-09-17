@@ -10,7 +10,7 @@ onerror=…>` inside one has to arrive at the browser as text whichever arm rend
 
 import json
 
-from hyphae.analyze import queries
+from hyphae.store import library
 from hyphae.view import bounds
 from hyphae.view.text.highlight import Syntax, by_suffix, lit
 from tests.view.conftest import classed, plain
@@ -94,7 +94,7 @@ def test_whitespace_is_written_bare_rather_than_wrapped_in_a_span_of_its_own() -
     lexers carry a filter that re-types whitespace as text — which the formatter writes bare.
     Read on SQL, which is indented enough for the spans to be most of it.
     """
-    shown = lit(queries.load("view_sessions"), Syntax.SQL)
+    shown = lit(library.load("view_sessions"), Syntax.SQL)
     assert '<span class="k">' in shown.html, "the tokens that are painted are still classed"
     assert 'class="w"' not in shown.html
 
@@ -161,7 +161,7 @@ def test_sql_is_marked_up_whole_and_loses_nothing() -> None:
     The value the `/query` page serves is a file this repo ships, so the strong check is
     available here and nowhere else: every character of it survives the markup.
     """
-    sql = queries.load("view_sessions")
+    sql = library.load("view_sessions")
     shown = lit(sql, Syntax.SQL)
     assert shown.syntax is Syntax.SQL
     assert plain(shown.html) == sql
@@ -251,7 +251,7 @@ def test_a_value_with_no_gutter_is_lexed_whole() -> None:
     Real, and the strongest check available — the value is a file this repo ships, so the
     round trip is exact. Line by line, a lexer forgets what the line before it opened.
     """
-    sql = queries.load("view_sessions")
+    sql = library.load("view_sessions")
     assert plain(lit(sql, Syntax.SQL).html) == sql
 
 

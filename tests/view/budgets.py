@@ -12,7 +12,7 @@ import re
 
 from markupsafe import escape
 
-from hyphae.analyze import queries
+from hyphae.store import library
 from hyphae.view import bounds, nodes
 from hyphae.view.pages.node.knobs import Knobs
 from hyphae.view.store import SHOWN, Page
@@ -379,13 +379,13 @@ def worst_session_row_bytes() -> int:
     list joins is a column of the row like the rest, and every row of a described store carries
     it — which is why the description takes a row's head and not the page's larger one.
     """
-    said = queries.load(Page.DESCRIBED_SESSIONS)
+    said = library.load(Page.DESCRIBED_SESSIONS)
     shown = heads(SHOWN, LIST_HEAD)
     written = heads(said, LIST_HEAD)
     strings = shown * bounds.LIST_WIDTHS.head_chars
     # The skill names are cut in the composition and the agent types in the query itself —
     # a type is grouped after its cut, so the cut has to be where the grouping can see it.
-    listed = heads(SHOWN, LIST_ITEM_HEAD) + heads(queries.load(Page.SESSIONS), LIST_ITEM_HEAD)
+    listed = heads(SHOWN, LIST_ITEM_HEAD) + heads(library.load(Page.SESSIONS), LIST_ITEM_HEAD)
     members = listed * bounds.LIST_WIDTHS.head_items
     names = members * bounds.LIST_WIDTHS.item_chars
     described = written * bounds.LIST_WIDTHS.head_chars

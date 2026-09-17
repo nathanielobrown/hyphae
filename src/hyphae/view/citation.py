@@ -9,8 +9,8 @@ from collections.abc import Mapping
 from typing import NamedTuple
 from urllib.parse import urlencode
 
-from hyphae.analyze import queries
-from hyphae.analyze.queries import ParamValue
+from hyphae.store import library
+from hyphae.store.library import ParamValue
 from hyphae.view.store import Library
 
 # Where the SQL behind a page is read. Every citation in a footer links here, so the path is
@@ -34,8 +34,8 @@ def cited(name: str, bindings: Mapping[str, ParamValue]) -> Cited:
     """What produced a page, both ways a reader follows it.
 
     The line is what a report quotes and a shell re-runs; the URL is the same query as a page,
-    bindings and all. Both spell a binding the one way `queries.shown` does, so the link a
+    bindings and all. Both spell a binding the one way `library.shown` does, so the link a
     footer carries and the comment beside it cannot disagree about what was bound.
     """
-    written = {key: queries.shown(value) for key, value in bindings.items()}
-    return Cited(queries.citation(name, bindings), f"{QUERY_URL}/{name}?{urlencode(written)}")
+    written = {key: library.shown(value) for key, value in bindings.items()}
+    return Cited(library.citation(name, bindings), f"{QUERY_URL}/{name}?{urlencode(written)}")

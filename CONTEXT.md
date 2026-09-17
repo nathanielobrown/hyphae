@@ -39,7 +39,7 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src
 - **Tag** — a `KEY=VALUE` pair the caller stamps on an extract, saying what the run was for; a property of the extraction, so a re-extract replaces the set (`docs/store.md`)
 - **Price table** — what each model charges per million tokens and the window it answers in; one table, `src/hyphae/pricing.py:MODELS`, read by the extract, the viewer, the analyze macros and the `hp enrich` quote
 - **Corpus** — the rows minus every replayed copy: the basis for any cross-session count
-- **Library** — the query files in `analyze/queries/`: each statement declares its own parameters and scope, and Python holds only what a statement cannot say about itself: a parameter's type in `src/hyphae/analyze/queries.py` and a production default in `src/hyphae/analyze/manifest.py`
+- **Library** — the query files in `store/queries/`: each statement declares its own parameters and scope, and Python holds only what a statement cannot say about itself: a parameter's type in `src/hyphae/store/library.py` and a production default in `src/hyphae/analyze/manifest.py`
 - **Scope** — corpus or keyed: whether a statement reads one of the relations the runner builds from `--project`, which is what decides the flags a query takes
 - **Live** — a row no fork copied, plus every agent run: what a sink counts or ships; the trace's `live()` and the store's `live_*` views name the same rows
 - **Rollup** — one row per session: counts, tokens, cost

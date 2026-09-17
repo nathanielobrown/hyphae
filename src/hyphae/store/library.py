@@ -241,6 +241,11 @@ UNATTRIBUTED = "(unattributed)"
 VIEW_PREFIX = "view_"
 
 
+def names() -> list[str]:
+    """Every query the library ships, by file stem: the directory is the registry."""
+    return sorted(path.stem for path in QUERY_DIR.glob("*.sql"))
+
+
 def load(name: str) -> str:
     """The SQL text of one library query, by file stem."""
     return (QUERY_DIR / f"{name}.sql").read_text()

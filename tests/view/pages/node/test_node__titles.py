@@ -12,7 +12,7 @@ from pathlib import Path
 import duckdb
 from fastapi.testclient import TestClient
 
-from hyphae.analyze import macros
+from hyphae.store import macros
 from hyphae.view import bounds, nodes
 from hyphae.view.app import build_app
 from hyphae.view.nodes import LEAD_SEPARATOR

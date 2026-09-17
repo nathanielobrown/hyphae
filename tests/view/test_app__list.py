@@ -15,7 +15,8 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.analyze import manifest, queries
+from hyphae.analyze import manifest
+from hyphae.store import library
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.links import DEFAULT_DIRECTION, DEFAULT_SORT
@@ -266,7 +267,7 @@ def test_every_sort_key_names_a_column_the_query_returns(
     store: duckdb.DuckDBPyConnection,
 ) -> None:
     """No sort key can reach past the library query into SQL of its own."""
-    listing = queries.load("view_sessions").strip().rstrip(";")
+    listing = library.load("view_sessions").strip().rstrip(";")
     # At the width the list runs its one parameter at, read off the manifest rather than
     # listed: what a sort key names is a column, and no binding changes which columns come
     # back.
@@ -288,7 +289,7 @@ def test_a_sort_and_its_reverse_are_exact_opposites(
     """
     # Which sessions carry no value in this column, asked of the query the list ranks rather
     # than of a table beside it: two of the eleven keys are the query's own arithmetic.
-    listing = queries.load("view_sessions").strip().rstrip(";")
+    listing = library.load("view_sessions").strip().rstrip(";")
     widths = dict.fromkeys(manifest.describe("view_sessions").params, bounds.LIST_WIDTHS.item_chars)
     empty = {
         row[0]
