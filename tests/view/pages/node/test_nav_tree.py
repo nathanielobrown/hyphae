@@ -18,7 +18,7 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.model import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.enrichment import Descriptions

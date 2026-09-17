@@ -8,7 +8,7 @@ An **extractor** reads each recorded **session** into the model, the **store** a
 
 ## Telemetry
 
-What one session recorded. Entities: `src/hyphae/model.py`; relationships: `docs/store.md`; Claude Code's own field names: `docs/schema.md`.
+What one session recorded. Entities: `src/hyphae/models/trace.py`; relationships: `docs/store.md`; Claude Code's own field names: `docs/schema.md`.
 
 - **Session** — one recorded Claude Code session: the main transcript plus everything its subagents wrote
 - **Project** — the absolute, symlink-free working directory a session ran in

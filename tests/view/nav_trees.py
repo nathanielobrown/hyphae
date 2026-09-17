@@ -21,7 +21,7 @@ from typing import NamedTuple
 
 import duckdb
 
-from hyphae.model import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE
 from hyphae.view.nodes import (
     BODY_URL,
     KIN_URL,

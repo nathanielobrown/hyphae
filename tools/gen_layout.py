@@ -69,6 +69,7 @@ ENTRIES = (
     Entry("src/hyphae/enrich/", Module("hyphae.enrich")),
     Entry("src/hyphae/analyze/", Module("hyphae.analyze")),
     Entry("src/hyphae/view/", Module("hyphae.view")),
+    Entry("src/hyphae/models/", Module("hyphae.models")),
     Entry("src/hyphae/pipeline.py", Module("hyphae.pipeline")),
     Entry("tests/", Module("tests")),
     Entry("tools/", Module("tools")),

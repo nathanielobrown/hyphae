@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from hyphae.extract.errors import SessionLayoutError
-from hyphae.model import OffloadFile
+from hyphae.models.trace import OffloadFile
 
 # Where Claude Code keeps transcripts. The tree is shared across accounts —
 # ~/.claude-black/projects is a symlink to this one — so a transcript's path says

@@ -22,7 +22,7 @@ from opentelemetry.proto.common.v1 import common_pb2
 from opentelemetry.proto.resource.v1 import resource_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2
 
-from hyphae.model import (
+from hyphae.models.trace import (
     MAIN_SOURCE,
     AgentRun,
     ApiCall,

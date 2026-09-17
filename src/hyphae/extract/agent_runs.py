@@ -10,7 +10,7 @@ from typing import Any
 
 from hyphae.extract.layout import AgentFiles
 from hyphae.extract.transcript import Line, fork_context, timestamp_of
-from hyphae.model import AgentRun
+from hyphae.models.trace import AgentRun
 
 logger = logging.getLogger(__name__)
 

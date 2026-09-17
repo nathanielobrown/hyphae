@@ -32,7 +32,7 @@ from hyphae.export.schema import (
     check_version,
     migrate,
 )
-from hyphae.model import (
+from hyphae.models.trace import (
     AgentRun,
     ApiCall,
     Compaction,

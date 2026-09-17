@@ -33,7 +33,7 @@ from hyphae.export.duckdb import DuckDbExporter, open_trace_store
 from hyphae.export.schema import table_ddl
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
-from hyphae.model import SessionTrace
+from hyphae.models.trace import SessionTrace
 from hyphae.store_path import HP_DB
 
 FIXTURES = Path(__file__).parent / "fixtures"

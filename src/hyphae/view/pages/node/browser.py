@@ -15,7 +15,7 @@ from math import ceil
 from pathlib import Path
 
 from hyphae.analyze.queries import ParamValue
-from hyphae.model import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE
 from hyphae.view import bounds, builders, failures, links, nodes
 from hyphae.view.citation import Ran, cited
 from hyphae.view.detail import enrichment_lines

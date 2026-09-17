@@ -15,7 +15,7 @@ from hyphae.export.duckdb import DuckDbExporter, StoreLocked
 from hyphae.extract import claude_code
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.errors import SessionLayoutError
-from hyphae.model import SessionTrace
+from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import Exporter, ExtractionError, Failure, RefreshResult, refresh
 from hyphae.projects import encode_project_path
 from tests.conftest import FIXTURES, NO_WAIT, locked, opens_elsewhere, stored_rows

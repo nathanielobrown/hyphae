@@ -13,7 +13,7 @@ import pytest
 
 from hyphae.extract.claude_code import ClaudeCodeExtractor
 from hyphae.extract.errors import TranscriptSchemaError
-from hyphae.model import SessionTrace
+from hyphae.models.trace import SessionTrace
 from tests.conftest import FIXTURES, PlantedFactory, SourceFactory
 from tests.extract.test_claude_code import at
 

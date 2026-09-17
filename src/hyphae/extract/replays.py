@@ -13,7 +13,7 @@ from typing import Any
 from hyphae.extract.agent_runs import is_fork
 from hyphae.extract.errors import TranscriptSchemaError
 from hyphae.extract.transcript import Line, timestamp_of
-from hyphae.model import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE
 
 # Where a run whose meta names no spawn depth sorts among its siblings: after every run
 # that does, since the depths Claude Code writes are small.

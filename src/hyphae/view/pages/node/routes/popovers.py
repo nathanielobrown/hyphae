@@ -14,7 +14,7 @@ from typing import Annotated, assert_never
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from hyphae.model import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE
 from hyphae.view import nodes
 from hyphae.view.components import Html
 from hyphae.view.deps import Db, ViewerDep

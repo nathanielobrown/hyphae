@@ -14,7 +14,7 @@ import pytest
 
 from hyphae.export.duckdb import CLI_WAIT, DuckDbExporter, StoreLocked, open_trace_store
 from hyphae.export.schema import SchemaVersionError
-from hyphae.model import SessionTrace
+from hyphae.models.trace import SessionTrace
 from tests.conftest import (
     LOCK_TIMEOUT,
     NO_WAIT,

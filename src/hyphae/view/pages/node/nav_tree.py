@@ -22,7 +22,7 @@ from typing import NamedTuple
 import duckdb
 
 from hyphae.analyze.queries import ParamValue
-from hyphae.model import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE
 from hyphae.view import bounds
 from hyphae.view.builders import (
     call_node,

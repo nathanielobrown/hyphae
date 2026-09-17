@@ -252,7 +252,7 @@ layers = [
   "export",
   "pipeline",
   "user_settings",
-  "model | projects | pricing | settings | store_path",
+  "models | projects | pricing | settings | store_path",
 ]
 
 [tool.mutmut]

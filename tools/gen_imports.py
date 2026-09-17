@@ -14,7 +14,7 @@ ROOT_PACKAGE = "hyphae"
 # Left off the graph: `cli`, which imports every package, and the leaves any package may import
 # — the layers contract's top line and bottom two. A test holds this set to those lines.
 OMITTED = frozenset(
-    {"cli", "user_settings", "model", "projects", "pricing", "settings", "store_path"}
+    {"cli", "user_settings", "models", "projects", "pricing", "settings", "store_path"}
 )
 
 

@@ -22,7 +22,7 @@ from hyphae.export.otlp_delivery import (
     OtlpExporter,
 )
 from hyphae.extract.store import StoreSource
-from hyphae.model import SessionTrace
+from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import RefreshResult, refresh
 from tests.conftest import FORK_COMPACTION, FORK_RUN, MYCELIA, NO_WAIT, SPINE, SPINE_RUN
 from tests.export.conftest import (

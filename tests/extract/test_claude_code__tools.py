@@ -5,7 +5,7 @@ The fixtures are the same redacted mycelia sessions the rest of the extractor te
 """
 
 from hyphae.extract.claude_code import ClaudeCodeExtractor
-from hyphae.model import MAIN_SOURCE, ToolCall
+from hyphae.models.trace import MAIN_SOURCE, ToolCall
 from tests.conftest import PARALLEL, SourceFactory
 from tests.extract.test_claude_code import SPINE, at
 

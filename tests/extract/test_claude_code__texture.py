@@ -13,7 +13,7 @@ import pytest
 
 from hyphae.extract.claude_code import ClaudeCodeExtractor
 from hyphae.extract.errors import TranscriptSchemaError
-from hyphae.model import MAIN_SOURCE, Compaction
+from hyphae.models.trace import MAIN_SOURCE, Compaction
 from tests.conftest import SourceFactory
 from tests.extract.test_claude_code import at
 

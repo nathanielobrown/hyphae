@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import NamedTuple, Protocol
 
-from hyphae.model import SessionTrace
+from hyphae.models.trace import SessionTrace
 
 
 class ExtractionError(Exception):

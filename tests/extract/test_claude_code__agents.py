@@ -11,7 +11,7 @@ import logging
 import pytest
 
 from hyphae.extract.claude_code import ClaudeCodeExtractor
-from hyphae.model import MAIN_SOURCE, AgentRun, SessionTrace
+from hyphae.models.trace import MAIN_SOURCE, AgentRun, SessionTrace
 from tests.conftest import FIXTURES, PlantedFactory, SourceFactory
 from tests.extract.test_claude_code import SPINE, at
 

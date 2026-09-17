@@ -39,7 +39,7 @@ from hyphae.extract.records.registry import (
 )
 from hyphae.extract.records.system import CompactBoundaryRecord
 from hyphae.extract.transcript import Line, required, required_timestamp, timestamp_of
-from hyphae.model import MAIN_SOURCE, ApiCall, Compaction, ToolCall, Turn
+from hyphae.models.trace import MAIN_SOURCE, ApiCall, Compaction, ToolCall, Turn
 from hyphae.pricing import SYNTHETIC_MODEL, TokenUsage, compute_cost
 
 # A leading tag, with or without attributes: `<teammate-message teammate_id="...">` names

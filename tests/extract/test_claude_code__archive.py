@@ -14,7 +14,7 @@ import pytest
 from hyphae import settings
 from hyphae.extract.claude_code import ClaudeCodeExtractor
 from hyphae.extract.errors import SessionLayoutError, TranscriptSchemaError
-from hyphae.model import MAIN_SOURCE, OffloadFile, SessionTrace
+from hyphae.models.trace import MAIN_SOURCE, OffloadFile, SessionTrace
 from hyphae.pipeline import ExtractionError
 from tests.conftest import FIXTURES, PlantedFactory, SourceFactory
 from tests.extract.test_claude_code import SPINE

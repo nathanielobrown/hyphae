@@ -19,7 +19,7 @@ from hyphae.export.schema import (
     missing_steps,
     table_ddl,
 )
-from hyphae.model import SessionTrace
+from hyphae.models.trace import SessionTrace
 from tests.conftest import (
     FORK_ORIGIN,
     FORK_ORIGIN_RUN,

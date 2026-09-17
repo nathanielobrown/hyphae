@@ -35,7 +35,7 @@ from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.validation import Enrichment
 from hyphae.export.duckdb import CLI_WAIT, open_trace_store
 from hyphae.export.schema import check_shape
-from hyphae.model import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE
 from hyphae.projects import project_predicate
 
 # What one enrichment row is, past its primary key: the model's answer, the stamp it was

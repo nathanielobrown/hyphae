@@ -27,7 +27,7 @@ from hyphae.export.schema import (
     declared_shape,
     table_ddl,
 )
-from hyphae.model import LiveRows
+from hyphae.models.trace import LiveRows
 from tests.conftest import NO_WAIT, opens_elsewhere
 
 

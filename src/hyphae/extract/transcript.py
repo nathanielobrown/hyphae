@@ -37,7 +37,7 @@ from hyphae.extract.records.messages import ToolUseResult
 from hyphae.extract.records.shapes import ArchivedRecord, kind_of, model_for
 from hyphae.extract.records.system import TurnDurationRecord
 from hyphae.extract.records.unknown import Unknowns
-from hyphae.model import PrLink, RawRecord, Session
+from hyphae.models.trace import PrLink, RawRecord, Session
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,7 @@ from typing import NamedTuple
 import duckdb
 
 from hyphae.analyze.queries import ParamValue
-from hyphae.model import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE
 from hyphae.view import bounds, builders, detail, nodes
 from hyphae.view.citation import Ran
 from hyphae.view.detail import Detail, details, preview

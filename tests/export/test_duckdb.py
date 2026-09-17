@@ -18,7 +18,7 @@ from hyphae.export.duckdb import (
     DuckDbExporter,
     open_trace_store,
 )
-from hyphae.model import LiveRows, SessionTag, SessionTrace
+from hyphae.models.trace import LiveRows, SessionTag, SessionTrace
 from tests.conftest import MODEL_ONLY, NO_WAIT, TraceFactory, stored_rows
 
 SPINE = "4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b"

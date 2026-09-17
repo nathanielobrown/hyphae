@@ -21,7 +21,7 @@ from hyphae.extract.store import (
     UnknownProjectError,
     UnplaceableSessionError,
 )
-from hyphae.model import SessionTrace
+from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import SessionSource
 from tests.conftest import (
     FIXTURE_TAG,

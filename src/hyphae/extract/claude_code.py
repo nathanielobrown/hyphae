@@ -38,7 +38,7 @@ from hyphae.extract.transcript import (
     session_of,
     workflow_launches,
 )
-from hyphae.model import MAIN_SOURCE, SessionTag, SessionTrace
+from hyphae.models.trace import MAIN_SOURCE, SessionTag, SessionTrace
 from hyphae.pipeline import SessionSource
 from hyphae.projects import encode_project_path
 

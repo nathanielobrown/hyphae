@@ -19,7 +19,7 @@ from typing import Any
 import duckdb
 
 from hyphae.export.duckdb import TABLES
-from hyphae.model import SessionTrace
+from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import SessionSource
 from hyphae.projects import project_predicate, resolve_project
 
