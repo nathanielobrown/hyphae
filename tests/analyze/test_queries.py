@@ -264,10 +264,12 @@ def cut_at_width(sql: str) -> set[str]:
 
 
 # Every statement the cut protocol governs: the library's files, and the one SQL the viewer
-# composes in Python. `view/store.py:SHOWN` cuts the strings a session-list row shows, and it
+# composes in Python. `store/pages.py:SHOWN` cuts the strings a session-list row shows, and it
 # lives outside `queries/*.sql` — so a scan that globs the query directory is blind to exactly
 # the place a hand-spelled cut is easiest to write and hardest to notice.
-CUT_SQL: dict[str, str] = {name: statement(name) for name in NAMES} | {"view/store.py:SHOWN": SHOWN}
+CUT_SQL: dict[str, str] = {name: statement(name) for name in NAMES} | {
+    "store/pages.py:SHOWN": SHOWN
+}
 
 
 # Every hand-spelled `substr(value, 1, $width)` the library still holds, keyed by its query.

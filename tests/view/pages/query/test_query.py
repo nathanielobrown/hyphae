@@ -126,7 +126,7 @@ def test_a_citation_quotes_every_binding_its_query_takes(
 
     Every parameter the manifest declares and not exactly them: a page may bind more than the
     file takes — the sessions list composes its own sort, page and widths around a query that
-    declares one (`view/store.py`) — and what it composed is part of what it ran. Those widths
+    declares one (`store/pages.py`) — and what it composed is part of what it ran. Those widths
     are the one binding no seam fills off a surface (`pages/sessions/read.py:_list_bound`), so
     the values are read back against the surface too and not the names alone.
 

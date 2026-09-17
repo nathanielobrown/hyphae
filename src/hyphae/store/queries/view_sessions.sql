@@ -1,7 +1,7 @@
 -- Every session in the store, one row: what the viewer's list ranks and drills from.
 -- Reads `session_rollups`, so each row says what that session's own files hold — the numbers
 -- a reader opening the session will see, resume copies included.
--- The viewer wraps this SELECT to sort and filter it (`view/store.py`): the file stays the
+-- The viewer wraps this SELECT to sort and filter it (`store/pages.py`): the file stays the
 -- citable core, and no user-supplied value is ever interpolated into it.
 -- `$item_chars` bounds how much of each agent definition's name a row's list carries, and is
 -- cut in the file rather than around it because nothing filters on that name: the rest of a

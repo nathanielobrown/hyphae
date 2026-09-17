@@ -312,7 +312,7 @@ def detail(*, item: Detail) -> Html:
     """One of a node's own values as the pane shows it: the head, and the way to the rest.
 
     The link fetches the whole value and replaces this block, which is the one place a fat
-    column crosses the wire whole (`view/store.py`'s per-value queries). A head whose row said
+    column crosses the wire whole (`store/pages.py`'s per-value queries). A head whose row said
     what it was written in is marked up in that syntax; the rest is prose.
 
     Prose is walled as the quotation it is — someone's words inside our page — and a payload is

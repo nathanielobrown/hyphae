@@ -10,7 +10,7 @@ Which package under `src/hyphae` may import which, held by a gate and drawn from
 
 ## The forbidden contract
 
-A second contract in the same table says which packages may name `duckdb`: today only `store`, `view` and `analyze`, and once the rest of phase 3 of the store-layering plan moves the viewer's and the runner's reads behind the store — the SQL files already sit there — only `store`. It lists every other layer as a source and `duckdb` as forbidden, with `allow_indirect_imports` on: the contract is about who imports the driver, not who reaches it, since whatever a source needs from the database it gets through `store`. The same run reports both contracts, and a red one names the module and the line of the import.
+A second contract in the same table says which packages may name `duckdb`: today only `store`, `view` and `analyze`, and once the rest of phase 3 of the store-layering plan hides the connection behind the store — the SQL files and the viewer's page reads already sit there — only `store`. It lists every other layer as a source and `duckdb` as forbidden, with `allow_indirect_imports` on: the contract is about who imports the driver, not who reaches it, since whatever a source needs from the database it gets through `store`. The same run reports both contracts, and a red one names the module and the line of the import.
 
 ## The graph
 

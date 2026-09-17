@@ -357,7 +357,7 @@ _HOLDER = (
     " time.sleep(float(sys.argv[3]))"
 )
 
-# What a viewer page does to the store: the read-only open `view/store.py:open_store` makes,
+# What a viewer page does to the store: the read-only open `store/pages.py:open_store` makes,
 # through hyphae's own opener rather than a bare `duckdb.connect`, so what the holder takes is
 # what a page takes — version check, temp views and all. It holds for the seconds it was told
 # to instead of the length of one request, which is the only difference from a page load.

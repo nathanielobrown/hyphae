@@ -6,7 +6,7 @@ for the dependencies in `view/deps.py`, and extends one page package's routes on
 turn — the two lists, the node page, then the four pages that are not a node's.
 
 Nothing the viewer serves writes: every request opens its own read-only connection
-(`view/store.py`), checks the store's schema version, renders, and closes. That is what lets an
+(`store/pages.py`), checks the store's schema version, renders, and closes. That is what lets an
 extract run while a page is open, and what makes a locked store a 503 rather than a crash.
 
 Route order is a contract: `tools/gen_routes.py` reads `app.routes` in registration order into

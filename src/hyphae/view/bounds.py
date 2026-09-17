@@ -20,7 +20,7 @@ would pin a preference to an arithmetic that never chose it.
 
 Three responses sit outside the page bound on purpose, each priced where it is named: a fetch
 of one whole value, bound by the largest single value in the store rather than by a page of
-them (`view/store.py:Value`); the tail row's fetch, bound by the level it stands in (`KIN`);
+them (`store/pages.py:Value`); the tail row's fetch, bound by the level it stands in (`KIN`);
 and a query's citation page, which is the size of a file we ship rather than of anything a
 corpus or a reader moves (`tests/view/test_bounds.py`).
 
@@ -344,9 +344,9 @@ POPOVER_WIDTHS = Popover(
     head_items=_HEADER_ITEMS,
 )
 
-# What one row of the session list shows of each long string, which the viewer composes rather
-# than the query (`view/store.py:SHOWN`): the list's filters read the whole values. 100 covers the
-# longest title the canonical store holds (81) and its longest project path (58). The landing
+# What one row of the session list shows of each long string, which the store composes rather
+# than a query file (`store/pages.py:SHOWN`): the list's filters read the whole values. 100 covers
+# the longest title the canonical store holds (81) and its longest project path (58). The landing
 # page ranks paths at the same width, one row per project rather than per session.
 _LIST_CHARS = 100
 # How much of a taxonomy value one tag carries. The taxonomy is closed and its longest member is

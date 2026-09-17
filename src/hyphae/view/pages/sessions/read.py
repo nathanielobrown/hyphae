@@ -71,7 +71,7 @@ def _list_bound(page: int, size: int, filters: Mapping[str, ParamValue]) -> dict
     """What one page of the session list binds: its window, its row cut, and its filters.
 
     The one difference between this and what the query runs is the store's `PAGER_PROBE`,
-    added where it is spent (`view/store.py:sorted_sessions`).
+    added where it is spent (`store/pages.py:sorted_sessions`).
     """
     return {
         "limit": size,

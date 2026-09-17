@@ -6,7 +6,7 @@ What lives here is the shared half — a definition several queries call by name
 temp macro, created on whatever connection is about to run a query.
 
 Both consumers install the same set: `analyze/runner.py` before the query `hp query`
-was asked for, and `view/store.py` on the connection a page reads through. That is the trade a
+was asked for, and `store/pages.py` on the connection a page reads through. That is the trade a
 shared definition costs: a query file naming one of these runs under a consumer that installed
 them, and under a bare `duckdb` shell it does not.
 """

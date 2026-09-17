@@ -2,7 +2,7 @@
 
 A table of one row per thing, like the projects landing beside it — a typed row in, a `<tr>`
 out. What a row prints is what its type carries; the links it mints are `view/links.py`'s, and
-the SQL behind them `view/store.py`'s.
+the SQL behind them `store/pages.py`'s.
 """
 
 from collections.abc import Sequence

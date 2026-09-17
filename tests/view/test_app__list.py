@@ -399,7 +399,7 @@ def test_the_list_is_served_a_page_at_a_time(
     The footer is read on every page for the same reason: the query reads one row past the
     page so the pager can learn there is another, and the citation quotes the size the reader
     asked for rather than that probe. A footer citing the probe would offer a row the page
-    never showed (`view/store.py:PAGER_PROBE`).
+    never showed (`store/pages.py:PAGER_PROBE`).
     """
     size = 5
     seen: list[str] = []

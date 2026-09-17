@@ -32,7 +32,7 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src
 
 - **Extractor** — reads one agent's sessions into the model
 - **Exporter** — writes the model to a sink; the store and OTLP are sinks
-- **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache; its schema, every table's writer and the reader are `src/hyphae/store/`
+- **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache; its schema, every table's writer, the reader and the reads a viewer page runs are `src/hyphae/store/`
 - **Fingerprint** — changes when any of a session's files do; the only thing deciding re-extraction
 - **Picker** — the multi-select a bare `hp extract` opens: one row per base project, sorted by recent activity, pre-checked with the last pick; the only thing that writes the settings file (`src/hyphae/extract/picker.py`)
 - **Settings file** — `settings.json` beside the store in `~/.hyphae`: what `hp` remembers for a person between runs, one JSON object namespaced by command; a preference rather than archive, so `--db` never moves it (`docs/store.md`)

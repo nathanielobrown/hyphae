@@ -3,7 +3,7 @@
 Which sort and filter keys the list offers, what a query-string value has to parse as, and the
 graph those choices compose: the parameters are checked into a `ListParams`, the read turns
 that into a page and closes the store, and the markup dependency mints the links and the form
-around both. The SQL is `view/store.py`'s, beside every other page's composition; this module
+around both. The SQL is `store/pages.py`'s, beside every other page's composition; this module
 hands the read a key out of a closed dictionary and a value already parsed, which is what makes
 a key outside them a 400 here rather than a fragment of SQL there.
 """
