@@ -1,18 +1,17 @@
 """The staleness rule: what an enrichment row was written under, and what makes it stale.
 
 Four values decide it — the hash of the rendered content, the level's prompt version, the
-taxonomy version, and the model that answered. They are minted, compared and judged here, so
-a pass and a reader cannot hold two versions of the rule. The two versions are declared
-elsewhere and read here alone: `LevelSpec.prompt_version` in `levels.py`, `TAXONOMY_VERSION`
-in `models/enrichment.py`.
+taxonomy version, and the model that answered. `mint` stamps them and `stale` compares two
+stamps; the two versions are declared in `models/enrichment.py` and carried here as a
+`Versions`, whose `moved_past` judges the half of the rule a reader with only a stored row can
+apply. One `Versions` feeds both, so a pass and a page cannot hold two versions of the rule.
 """
 
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass, fields
 
-from hyphae.enrich.levels import LEVELS
-from hyphae.models.enrichment import TAXONOMY_VERSION, Level
+from hyphae.models.enrichment import Level, Versions
 
 
 @dataclass(frozen=True)
@@ -41,43 +40,15 @@ def input_hash(rendered: str) -> str:
     return hashlib.sha256(rendered.encode()).hexdigest()
 
 
-@dataclass(frozen=True)
-class Versions:
-    """The half of the stamp the code decides.
-
-    A pass adds the hash and the model; a reader with no pass in hand can still judge a row
-    against this half. Passed rather than read, so a test bumps a version by handing over a
-    different value instead of patching the declaration.
-    """
-
-    prompt: Mapping[Level, int]
-    taxonomy: int
-
-    @classmethod
-    def current(cls) -> "Versions":
-        """What the declarations say today — the whole of what `hp enrich` runs under."""
-        return cls(
-            prompt={level: spec.prompt_version for level, spec in LEVELS.items()},
-            taxonomy=TAXONOMY_VERSION,
-        )
-
-    def stamp(self, level: Level, rendered: str, model: str) -> Stamp:
-        """What a row for `level` would be stamped now, given its render and the answering
-        model."""
-        return Stamp(
-            input_hash=input_hash(rendered),
-            prompt_version=self.prompt[level],
-            taxonomy_version=self.taxonomy,
-            model=model,
-        )
-
-    def moved_past(self, level: Level, *, prompt_version: int, taxonomy_version: int) -> bool:
-        """Whether this build has moved past a row's versions.
-
-        Two of the four axes: the hash needs a render and the model needs a pass, so a reader
-        holding only a stored row gets the verdict those two can support and no more.
-        """
-        return prompt_version != self.prompt[level] or taxonomy_version != self.taxonomy
+def mint(versions: Versions, level: Level, rendered: str, model: str) -> Stamp:
+    """What a row for `level` would be stamped now under `versions`, given its render and the
+    answering model."""
+    return Stamp(
+        input_hash=input_hash(rendered),
+        prompt_version=versions.prompt[level],
+        taxonomy_version=versions.taxonomy,
+        model=model,
+    )
 
 
 def stale(planned: Mapping[str, Stamp], held: Mapping[str, Stamp]) -> list[str]:

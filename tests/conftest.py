@@ -22,7 +22,6 @@ import duckdb
 import pytest
 
 from hyphae.analyze import macros
-from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.store import EnrichmentStore
 from hyphae.enrich.validation import Enrichment
@@ -31,7 +30,7 @@ from hyphae.export.duckdb import DuckDbExporter, open_trace_store
 from hyphae.export.schema import table_ddl
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
-from hyphae.models.enrichment import TAXONOMY_VERSION, Category, Level, Outcome
+from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Category, Level, Outcome
 from hyphae.models.trace import SessionTrace
 from hyphae.store_path import HP_DB
 
@@ -597,7 +596,7 @@ def planted_stamp(level: Level, index: int) -> Stamp:
         # A version behind on every fifth row: the stamp breakdown splits on the model and on
         # the prompt version, axes that moved together could not say which, and the viewer's
         # stale tag needs a row on each side of the current version.
-        prompt_version=LEVELS[level].prompt_version - (1 if index % 5 == 0 else 0),
+        prompt_version=ROWS[level].prompt_version - (1 if index % 5 == 0 else 0),
         # And a version behind on every seventh, coprime with the cycle above so that rows
         # behind on the taxonomy alone exist: the two halves of the staleness rule are only
         # told apart by a row that moved on one of them.

@@ -34,7 +34,7 @@ from hyphae.enrich.stamp import Stamp
 from hyphae.enrich.validation import Enrichment
 from hyphae.export.duckdb import CLI_WAIT, open_trace_store
 from hyphae.export.schema import check_shape
-from hyphae.models.enrichment import Level
+from hyphae.models.enrichment import ROWS, Level
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.projects import project_predicate
 
@@ -598,19 +598,19 @@ class EnrichmentStore:
         its parents' rendered input, and only a fresh read sees that. What the caller does
         with them is `enrich/stamp.py:stale`.
         """
-        spec = LEVELS[level]
-        columns = ", ".join((*spec.keys, *STAMP_COLUMNS))
-        rows = self.connection.execute(f"SELECT {columns} FROM {spec.table}").fetchall()
-        width = len(spec.keys)
-        return {item_key(level, *row[:width]): Stamp(*row[width:]) for row in rows}
+        rows = ROWS[level]
+        columns = ", ".join((*rows.keys, *STAMP_COLUMNS))
+        held = self.connection.execute(f"SELECT {columns} FROM {rows.table}").fetchall()
+        width = len(rows.keys)
+        return {item_key(level, *row[:width]): Stamp(*row[width:]) for row in held}
 
     def upsert(self, item: Item, enrichment: Enrichment, stamp: Stamp) -> None:
         """Write one item's enrichment, replacing whatever the key held before."""
-        spec = LEVELS[item.level]
-        columns = ", ".join((*spec.keys, *PAYLOAD_COLUMNS))
-        placeholders = ", ".join("?" for _ in range(len(spec.keys) + len(PAYLOAD_COLUMNS)))
+        rows = ROWS[item.level]
+        columns = ", ".join((*rows.keys, *PAYLOAD_COLUMNS))
+        placeholders = ", ".join("?" for _ in range(len(rows.keys) + len(PAYLOAD_COLUMNS)))
         self.connection.execute(
-            f"INSERT OR REPLACE INTO {spec.table} ({columns}) VALUES ({placeholders})",
+            f"INSERT OR REPLACE INTO {rows.table} ({columns}) VALUES ({placeholders})",
             [
                 *item.key_values,
                 # Field order, both dataclasses, because that is where `PAYLOAD_COLUMNS` gets
@@ -630,13 +630,13 @@ class EnrichmentStore:
         views hide the leftovers completely — nothing else in the system would report them.
         """
         swept = 0
-        for spec in LEVELS.values():
+        for rows in ROWS.values():
             match = " AND ".join(
-                f"b.{base} = e.{key}" for base, key in zip(spec.base_keys, spec.keys, strict=True)
+                f"b.{base} = e.{key}" for base, key in zip(rows.base_keys, rows.keys, strict=True)
             )
             deleted = self.connection.execute(
-                f"DELETE FROM {spec.table} e"
-                f" WHERE NOT EXISTS (SELECT 1 FROM {spec.base} b WHERE {match})"
+                f"DELETE FROM {rows.table} e"
+                f" WHERE NOT EXISTS (SELECT 1 FROM {rows.base} b WHERE {match})"
             ).fetchone()
             swept += deleted[0] if deleted else 0
         return swept

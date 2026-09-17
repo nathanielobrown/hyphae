@@ -33,6 +33,20 @@ def without_user_settings(layers: list[str]) -> list[str]:
     return [layer for layer in layers if layer != "user_settings"]
 
 
+def enrich_above_view(layers: list[str]) -> list[str]:
+    """`enrich` lifted onto its own line above `view`: strictly tighter than `view | enrich`.
+
+    The shipped line says neither imports the other; this says `view` may not import `enrich`
+    while `enrich` could import `view`. Kept green, it is the lasting proof that the viewer
+    reads the enrichment vocabulary from `models` and nothing from `enrich`.
+    """
+    assert "view | enrich" in layers, (
+        "`view` and `enrich` no longer share a line; retarget this case"
+    )
+    at = layers.index("view | enrich")
+    return [*layers[:at], "enrich", "view", *layers[at + 1 :]]
+
+
 def run_contract(layers: list[str], tmp_path: Path) -> subprocess.CompletedProcess[str]:
     """`lint-imports` over the real package, under a contract rewritten to these layers.
 
@@ -78,6 +92,15 @@ def test_a_loosened_contract_goes_red_and_names_what_broke(
     # ...and the report names the packages whose edge now points up, or the module no line
     # claims.
     assert named in done.stdout, done.stdout
+
+
+@pytest.mark.reads_the_repo  # the same subprocess, over a contract tighter than the one written
+def test_the_viewer_imports_nothing_from_enrich(tmp_path: Path) -> None:
+    # If `enrich` is lifted above `view`, so that only `view -> enrich` would break it...
+    done = run_contract(enrich_above_view(contract_layers()), tmp_path)
+    # ...the contract is still kept: no page, part or fetch reaches into the enrichment pass.
+    assert done.returncode == 0, done.stdout
+    assert "Contracts: 1 kept, 0 broken" in done.stdout
 
 
 @pytest.mark.reads_the_repo  # the same subprocess, over the contract as written

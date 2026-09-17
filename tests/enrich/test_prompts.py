@@ -7,12 +7,13 @@ the render — is in `test_prompts__budget.py`.
 
 from pathlib import Path
 
-from hyphae.enrich.levels import LEVELS, instructions, render
+from hyphae.enrich.levels import instructions, render
 from hyphae.enrich.prompts import OUTPUT_SCHEMA
 from hyphae.enrich.store import EnrichmentStore
 from hyphae.models.enrichment import (
     CATEGORY_DEFINITIONS,
     OUTCOME_DEFINITIONS,
+    ROWS,
     TAXONOMY_VERSION,
     Category,
     Level,
@@ -75,7 +76,7 @@ def test_every_level_asks_for_json_at_the_same_version() -> None:
     cannot see, so the bump is the whole mechanism by which the corpus gets re-described under
     new guidance.
     """
-    assert {level: spec.prompt_version for level, spec in LEVELS.items()} == {
+    assert {level: rows.prompt_version for level, rows in ROWS.items()} == {
         Level.turn: 4,
         Level.agent_run: 4,
         Level.session: 4,

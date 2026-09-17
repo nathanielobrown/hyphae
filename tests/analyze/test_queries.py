@@ -14,8 +14,8 @@ import pytest
 
 from hyphae.analyze import manifest, queries
 from hyphae.analyze.queries import PARAM_TYPES, Scope, parameters, relations, statement
-from hyphae.enrich.levels import LEVELS
 from hyphae.export.duckdb import TABLES
+from hyphae.models.enrichment import ROWS
 from hyphae.view.detail import DETAILS, Spec, Written
 from hyphae.view.store import SHOWN
 from tests.analyze.conftest import AS_OF_WHOLE, QueryRunner
@@ -231,7 +231,7 @@ FIXTURE_BINDINGS: dict[str, dict[str, str]] = {
 # The relations only a store an enrichment pass has written to holds: the pipeline creates
 # none of them, so a query reading one runs against the planted store instead of the bare
 # corpus. Derived from the level table map rather than listed, so a fourth level is covered.
-ENRICHMENT_TABLES = {spec.table for spec in LEVELS.values()}
+ENRICHMENT_TABLES = {rows.table for rows in ROWS.values()}
 ENRICHMENT_VIEWS = "enriched_"
 
 # The clock a query file may not read: a `current_date` filter goes green on a frozen

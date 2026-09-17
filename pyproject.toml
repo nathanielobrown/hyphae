@@ -245,8 +245,8 @@ containers = ["hyphae"]
 exhaustive = true
 layers = [
   "cli",
-  "view",
-  "analyze | enrich",
+  "view | enrich",
+  "analyze",
   # Above `export` only for the `TABLES` import, which phase 2 of the store-layering plan removes.
   "extract",
   "export",

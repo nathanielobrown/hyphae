@@ -16,8 +16,7 @@ import re
 import htpy
 import pytest
 
-from hyphae.enrich.levels import LEVELS
-from hyphae.models.enrichment import TAXONOMY_VERSION, Level
+from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
 from hyphae.view import bounds
 from hyphae.view.citation import cited
 from hyphae.view.components import citation, parts
@@ -42,7 +41,7 @@ def described() -> Enrichment:
         friction_chars=None,
         model="claude-opus-4",
         enriched_at=dt.datetime(2026, 3, 1, tzinfo=dt.UTC),
-        prompt_version=LEVELS[Level.turn].prompt_version,
+        prompt_version=ROWS[Level.turn].prompt_version,
         taxonomy_version=TAXONOMY_VERSION,
     )
 

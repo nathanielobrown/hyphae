@@ -11,10 +11,10 @@ from dataclasses import dataclass
 from hyphae.enrich.client import BatchClient, EnrichRequest, Failed, Succeeded
 from hyphae.enrich.items import Item, level_of
 from hyphae.enrich.levels import ROUND_ORDER, instructions, render
-from hyphae.enrich.stamp import Stamp, Versions, stale
+from hyphae.enrich.stamp import Stamp, mint, stale
 from hyphae.enrich.store import EnrichmentStore
 from hyphae.enrich.validation import InvalidOutput, ItemFailure, validate
-from hyphae.models.enrichment import Level
+from hyphae.models.enrichment import Level, Versions
 
 
 @dataclass(frozen=True)
@@ -184,7 +184,7 @@ def _plan_level(
         item.key: PlannedItem(
             item=item,
             rendered=(rendered := render(item)),
-            stamp=versions.stamp(level, rendered, model),
+            stamp=mint(versions, level, rendered, model),
         )
         for item in store.items(level, project)
     }

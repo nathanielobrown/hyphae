@@ -64,7 +64,7 @@ The prompt names all three output states: recorded output, "the command printed 
 - The taxonomy version
 - The model that answered
 
-A pass compares the stamp it would write against the one the store holds. The viewer's stale tag asks the same module the version half of that question, so a page and the next pass agree about which rows have aged.
+A pass compares the stamp it would write against the one the store holds. The viewer's stale tag asks the version half of that question of `Versions.moved_past` in `src/hyphae/models/enrichment.py`, the same `Versions` the pass stamps with, so a page and the next pass agree about which rows have aged.
 
 The hash covers rendered content, not extraction metadata. Re-extracting unchanged text therefore costs nothing. A changed child description changes its parent's rendered prompt, which makes the parent stale in the same invocation. If the new child description matches the old one, the cascade stops there.
 
@@ -131,7 +131,7 @@ Prices and models change. `--model` accepts only the names the price table price
 
 Both changes deliberately make stored rows stale:
 
-- After changing a level's instructions, bump that level's `prompt_version` in `src/hyphae/enrich/levels.py`. The content hash cannot see the instructions
+- After changing a level's instructions, bump that level's `prompt_version` in `src/hyphae/models/enrichment.py`. The content hash cannot see the instructions
 - After adding, renaming, or redefining a taxonomy member, bump `TAXONOMY_VERSION`. The model classifies from these definitions, so the change re-describes every level
 
 A run-level prompt bump cascades through later rounds. Price it with `--dry-run` before starting the pass.

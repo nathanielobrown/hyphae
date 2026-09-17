@@ -11,11 +11,10 @@ import duckdb
 import pytest
 
 from hyphae.enrich.items import TurnItem, item_key, level_of
-from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.stamp import stale
 from hyphae.enrich.store import _SCHEMA, PAYLOAD_COLUMNS, EnrichmentStore
 from hyphae.export.schema import SchemaVersionError, declared_shape
-from hyphae.models.enrichment import Level
+from hyphae.models.enrichment import ROWS, Level
 from hyphae.models.trace import MAIN_SOURCE
 from tests.conftest import MODEL_ONLY, MYCELIA, build_store, fixture_transcripts
 from tests.enrich.conftest import (
@@ -658,6 +657,6 @@ def test_every_table_declares_its_keys_and_the_payload_columns() -> None:
     this is what holds it to the tuple everything else derives from.
     """
     shape = declared_shape(_SCHEMA)
-    assert {spec.table: shape[spec.table] for spec in LEVELS.values()} == {
-        spec.table: set(spec.keys) | set(PAYLOAD_COLUMNS) for spec in LEVELS.values()
+    assert {rows.table: shape[rows.table] for rows in ROWS.values()} == {
+        rows.table: set(rows.keys) | set(PAYLOAD_COLUMNS) for rows in ROWS.values()
     }

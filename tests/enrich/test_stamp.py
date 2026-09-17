@@ -2,7 +2,7 @@
 
 Plain maps and strings in, verdicts out — no store and no client, because the rule is about
 four values and nothing else. The stamps here are invented, as every stamp in the suite is:
-a stamp is ours, so no recorded session holds one. The oracles read `levels.py` and
+a stamp is ours, so no recorded session holds one. The oracles read the declarations in
 `models/enrichment.py` directly; one that asked `Versions` what the versions are would test
 the code against itself.
 """
@@ -13,15 +13,14 @@ from typing import Any
 
 import pytest
 
-from hyphae.enrich.levels import LEVELS
-from hyphae.enrich.stamp import Stamp, Versions, input_hash, stale
-from hyphae.models.enrichment import TAXONOMY_VERSION, Level
+from hyphae.enrich.stamp import Stamp, input_hash, mint, stale
+from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level, Versions
 
 # What a row this file plants was written under. The versions are today's, so a leaf that
 # wants drift asks for it by name.
 PLANNED = Stamp(
     input_hash="hash-1",
-    prompt_version=LEVELS[Level.turn].prompt_version,
+    prompt_version=ROWS[Level.turn].prompt_version,
     taxonomy_version=TAXONOMY_VERSION,
     model="claude-haiku-4-5-20251001",
 )
@@ -80,13 +79,13 @@ def test_an_identical_stamp_is_fresh_and_a_held_key_nothing_planned_is_not_repor
 
 
 def test_current_reads_the_two_declarations() -> None:
-    """`Versions.current()` is exactly what `levels.py` and `models/enrichment.py` declare today.
+    """`Versions.current()` is exactly what `models/enrichment.py` declares today.
 
     The one equality behind the whole module: the viewer and the enricher can no longer
     disagree about a row's versions because both ask this, and this is the declarations.
     """
     current = Versions.current()
-    assert current.prompt == {level: LEVELS[level].prompt_version for level in Level}
+    assert current.prompt == {level: ROWS[level].prompt_version for level in Level}
     assert current.taxonomy == TAXONOMY_VERSION
 
 
@@ -97,16 +96,16 @@ def test_current_reads_each_levels_own_prompt_version(monkeypatch: pytest.Monkey
     coincident values and cannot tell a per-level read from a constant. Patching the
     declaration is the only falsifier — and it is a different animal from the monkeypatches
     this module exists to delete: those faked a bump to drive behaviour through the seam,
-    this moves the one input of a function whose whole job is to read `levels.py`.
+    this moves the one input of a function whose whole job is to read `ROWS`.
     """
     # If the turn level alone moves to a version no other level is on — the state
     # `docs/enrichment.md` tells a maintainer to create...
-    monkeypatch.setitem(LEVELS, Level.turn, replace(LEVELS[Level.turn], prompt_version=99))
+    monkeypatch.setitem(ROWS, Level.turn, replace(ROWS[Level.turn], prompt_version=99))
     current = Versions.current()
     # ...then that is the version `current()` reports for turns...
     assert current.prompt[Level.turn] == 99
     # ...and the other two are still their own.
-    assert current.prompt == {level: LEVELS[level].prompt_version for level in Level}
+    assert current.prompt == {level: ROWS[level].prompt_version for level in Level}
 
 
 @pytest.mark.parametrize(
@@ -117,7 +116,7 @@ def test_current_reads_each_levels_own_prompt_version(monkeypatch: pytest.Monkey
 def test_stamp_puts_the_four_together(level: Level, prompt_version: int) -> None:
     """A minted stamp carries the hash of what it was handed, its own level's prompt
     version, the taxonomy version, and the model on the call."""
-    minted = SPREAD.stamp(level, "some rendered content", "claude-sonnet-4-5")
+    minted = mint(SPREAD, level, "some rendered content", "claude-sonnet-4-5")
     assert minted == Stamp(
         input_hash=input_hash("some rendered content"),
         prompt_version=prompt_version,
@@ -139,11 +138,11 @@ def test_input_hash_is_sha256_of_the_rendered_content() -> None:
     ("prompt_version", "taxonomy_version", "expected"),
     [
         # A row written under today's declarations is current...
-        (LEVELS[Level.turn].prompt_version, TAXONOMY_VERSION, False),
+        (ROWS[Level.turn].prompt_version, TAXONOMY_VERSION, False),
         # ...one written under an older prompt version has been left behind...
-        (LEVELS[Level.turn].prompt_version - 1, TAXONOMY_VERSION, True),
+        (ROWS[Level.turn].prompt_version - 1, TAXONOMY_VERSION, True),
         # ...and so has one written under an older taxonomy.
-        (LEVELS[Level.turn].prompt_version, TAXONOMY_VERSION - 1, True),
+        (ROWS[Level.turn].prompt_version, TAXONOMY_VERSION - 1, True),
     ],
 )
 def test_moved_past_judges_a_rows_two_versions(

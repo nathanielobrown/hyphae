@@ -25,7 +25,7 @@ from hyphae.enrich.levels import LEVELS, ROUND_ORDER, render
 from hyphae.enrich.stamp import input_hash
 from hyphae.enrich.store import EnrichmentStore
 from hyphae.enrich.validation import FailureKind
-from hyphae.models.enrichment import TAXONOMY_VERSION, Level
+from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
 from tests.conftest import MODEL_ONLY, build_store, fixture_transcripts
 from tests.enrich.conftest import (
     AUDITOR_RUN,
@@ -81,10 +81,11 @@ def forest(forest_store: Path, tmp_path: Path) -> Iterator[EnrichmentStore]:
 def test_every_level_is_declared_whole_and_described_bottom_up(store: EnrichmentStore) -> None:
     """Each level's entry names a reader that exists, a renderer that takes its items, a table.
 
-    One registry declares all of it (`enrich/levels.py`), so this is what stands in for the
-    checks the seven separate maps used to owe each other: a level naming a reader no store
-    has, or a renderer belonging to another level, would be found here rather than partway
-    through a paid pass.
+    Two registries keyed by one `Level` declare all of it — the prompt half in
+    `enrich/levels.py`, the rows half in `models/enrichment.py` — so this is what stands in
+    for the checks the seven separate maps used to owe each other: a level naming a reader no
+    store has, or a renderer belonging to another level, would be found here rather than
+    partway through a paid pass.
     """
     # If every level the store can write is read through its own entry...
     for level, spec in LEVELS.items():
@@ -95,8 +96,8 @@ def test_every_level_is_declared_whole_and_described_bottom_up(store: Enrichment
         # ...each of which renders through the entry's renderer, at the entry's budgets...
         for item in items:
             assert render(item) == spec.renderer(item, spec.budgets)
-        # ...and the table it names is one the store created.
-        assert store.connection.execute(f"SELECT count(*) FROM {spec.table}").fetchone()
+        # ...and the table its rows half names is one the store created.
+        assert store.connection.execute(f"SELECT count(*) FROM {ROWS[level].table}").fetchone()
     # The order is the whole cascade: a run's description reaches the turn that spawned it,
     # and both reach the session, because the rounds run in this order and no other.
     assert (Level.agent_run, Level.turn, Level.session) == ROUND_ORDER
@@ -132,7 +133,7 @@ def test_a_run_writes_a_row_for_every_stale_item(store: EnrichmentStore) -> None
             "completed",
             None,
             input_hash(render(item)),
-            LEVELS[Level.turn].prompt_version,
+            ROWS[Level.turn].prompt_version,
             TAXONOMY_VERSION,
             MODEL,
         )

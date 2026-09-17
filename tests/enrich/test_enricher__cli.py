@@ -20,9 +20,8 @@ from hyphae.enrich.enricher import (
     enrich,
     plan,
 )
-from hyphae.enrich.levels import LEVELS
 from hyphae.enrich.store import EnrichmentStore
-from hyphae.models.enrichment import TAXONOMY_VERSION
+from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION
 from hyphae.pricing import SYNTHETIC_MODEL
 from tests.conftest import MYCELIA
 from tests.enrich.conftest import (
@@ -262,10 +261,10 @@ def test_the_cli_writes_what_the_library_writes(
         # ...and every row the command wrote was stamped with today's declarations, because
         # `_enrich` builds them itself. Nothing else would catch a CLI that handed the
         # library an empty or hand-built `Versions`: every other leaf supplies its own.
-        for spec in LEVELS.values():
+        for rows in ROWS.values():
             assert store.connection.execute(
-                f"SELECT DISTINCT prompt_version, taxonomy_version FROM {spec.table}"
-            ).fetchall() == [(spec.prompt_version, TAXONOMY_VERSION)]
+                f"SELECT DISTINCT prompt_version, taxonomy_version FROM {rows.table}"
+            ).fetchall() == [(rows.prompt_version, TAXONOMY_VERSION)]
 
 
 def test_the_cli_limits_what_it_sends(

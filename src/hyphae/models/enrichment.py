@@ -1,4 +1,5 @@
-"""The enrichment vocabulary: what gets described, and the closed words it is described in.
+"""The enrichment vocabulary: what gets described, the closed words it is described in, where
+each level's rows live, and the versions this build writes them under.
 
 `Level` names the three things that get an enrichment row. `Category` and `Outcome` are the
 taxonomy every level is written in — closed and code-resident on purpose: `GROUP BY category`
@@ -7,10 +8,13 @@ code a reviewer reads. A member added here is a taxonomy change — bump `TAXONO
 with it, which makes every existing row stale without invalidating it, so the viewer can
 render version-N rows while version-N+1 backfills.
 
-Here rather than in `enrich` because the viewer reads these words too, and `view` imports
-nothing from `enrich`.
+Here rather than in `enrich` because a reader with no prompt in hand — the viewer judging a
+row `stale` — needs the words, the table and today's versions, and `view` imports nothing
+from `enrich`. The prompts themselves stay there (`enrich/levels.py:LEVELS`).
 """
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 from enum import StrEnum
 
 
@@ -88,3 +92,85 @@ OUTCOME_DEFINITIONS: dict[Outcome, str] = {
 # Bumped whenever a member above changes meaning, arrives, or leaves. Rows record the
 # version they were written under, so a bump re-enriches rather than corrupting a mixed set.
 TAXONOMY_VERSION = 2
+
+
+@dataclass(frozen=True)
+class LevelRows:
+    """Where one level's rows live, and the prompt version this build writes them under.
+
+    The half of a level a reader or writer needs with no prompt in hand. The prompt itself,
+    its budgets and its render are `enrich/levels.py:LEVELS`, keyed by the same `Level`.
+    """
+
+    # Covers what a row's input hash cannot see: the level's instructions and output schema
+    # in `enrich/prompts.py`. Bump it with them and the level re-enriches; its parents follow
+    # through the hash.
+    prompt_version: int
+    table: str
+    # The enrichment table's primary key columns, in order.
+    keys: tuple[str, ...]
+    # The view holding the rows enrichment describes, and the columns matching `keys`.
+    base: str
+    base_keys: tuple[str, ...]
+
+
+# Closed set, in the order a pass describes the levels: a level here with no table in
+# `enrich/store.py`'s DDL cannot be written, and a table there with no level here would never
+# be swept.
+ROWS: dict[Level, LevelRows] = {
+    Level.agent_run: LevelRows(
+        prompt_version=4,
+        table="agent_run_enrichments",
+        keys=("session_id", "agent_run_id"),
+        base="live_agent_runs",
+        base_keys=("session_id", "id"),
+    ),
+    Level.turn: LevelRows(
+        prompt_version=4,
+        table="turn_enrichments",
+        keys=("session_id", "source", "turn_id"),
+        # `live_turns`, not `turns`: a fork's replay of another transcript's turn is a copy,
+        # and the turn it copied is enriched under the transcript that ran it.
+        base="live_turns",
+        base_keys=("session_id", "source", "id"),
+    ),
+    Level.session: LevelRows(
+        prompt_version=4,
+        table="session_enrichments",
+        keys=("session_id",),
+        # `describable_sessions`, not `sessions`: a row for a session the pass will never
+        # refresh again is a zombie by the same definition as one whose session is gone, and
+        # 45 such rows are already on disk from before the gate existed.
+        base="describable_sessions",
+        base_keys=("session_id",),
+    ),
+}
+
+
+@dataclass(frozen=True)
+class Versions:
+    """The half of the stamp the code decides.
+
+    A pass adds the hash and the model; a reader with no pass in hand can still judge a row
+    against this half. Passed rather than read, so a test bumps a version by handing over a
+    different value instead of patching the declaration.
+    """
+
+    prompt: Mapping[Level, int]
+    taxonomy: int
+
+    @classmethod
+    def current(cls) -> "Versions":
+        """What the declarations say today — the whole of what `hp enrich` runs under."""
+        return cls(
+            prompt={level: rows.prompt_version for level, rows in ROWS.items()},
+            taxonomy=TAXONOMY_VERSION,
+        )
+
+    def moved_past(self, level: Level, *, prompt_version: int, taxonomy_version: int) -> bool:
+        """Whether this build has moved past a row's versions.
+
+        Two of the four axes: the hash needs a render and the model needs a pass, so a reader
+        holding only a stored row gets the verdict those two can support and no more.
+        """
+        return prompt_version != self.prompt[level] or taxonomy_version != self.taxonomy

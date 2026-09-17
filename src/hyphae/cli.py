@@ -24,7 +24,6 @@ from hyphae.enrich.client import (
 from hyphae.enrich.cost import Prompt, estimate
 from hyphae.enrich.enricher import PlannedItem, enrich, plan
 from hyphae.enrich.levels import ROUND_ORDER
-from hyphae.enrich.stamp import Versions
 from hyphae.enrich.store import EnrichmentStore
 from hyphae.export.duckdb import CLI_WAIT, DuckDbExporter, open_trace_store
 from hyphae.export.otlp import DEFAULT_MAX_CHARS, Census, TextPolicy
@@ -45,6 +44,7 @@ from hyphae.extract.claude_code import ClaudeCodeExtractor
 from hyphae.extract.discover import discover
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_project_dirs, find_sessions
 from hyphae.extract.store import StoreSource, UnknownProjectError
+from hyphae.models.enrichment import Versions
 from hyphae.pipeline import Failure, refresh
 from hyphae.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.projects import encode_project_path, resolve_project

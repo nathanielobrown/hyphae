@@ -20,7 +20,6 @@ graph TD
   extract --> export
   extract --> pipeline
   view --> analyze
-  view --> enrich
   view --> export
 ```
 <!-- aigarden:end -->

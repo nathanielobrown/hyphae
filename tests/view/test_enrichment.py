@@ -19,8 +19,7 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.enrich.levels import LEVELS
-from hyphae.models.enrichment import TAXONOMY_VERSION, Level
+from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.enrichment import GLYPH, GLYPH_CLASS
@@ -33,7 +32,7 @@ from tests.view.pages.query.test_query import FRAGMENT_MOUNT, PAGE_MOUNT, bound
 from tests.view.scenarios import SCENARIOS
 
 # Every enrichment table, and the statement that empties one — the second absent-safety case.
-EMPTIED = tuple((f"DELETE FROM {spec.table}", ()) for spec in LEVELS.values())
+EMPTIED = tuple((f"DELETE FROM {rows.table}", ()) for rows in ROWS.values())
 
 # The fetches behind what a pass wrote, read off the route sweep rather than listed, so a
 # fourth level's pair lands in the absence check with the rest.
@@ -59,13 +58,13 @@ def enrichment_of(
     Read off the enrichment tables rather than the page, so what the page shows is checked
     against the rows a pass actually wrote.
     """
-    spec = LEVELS[level]
-    key = spec.keys[-1] if level is not Level.session else "session_id"
+    rows = ROWS[level]
+    key = rows.keys[-1] if level is not Level.session else "session_id"
     source = " AND source = 'main'" if level is Level.turn else ""
     return {
         row[0]: (row[1], row[2], row[3])
         for row in store.execute(
-            f"SELECT {key}, description, category, outcome FROM {spec.table}"
+            f"SELECT {key}, description, category, outcome FROM {rows.table}"
             f" WHERE session_id = ?{source}",
             [session_id],
         ).fetchall()
@@ -370,7 +369,7 @@ def test_a_store_no_enrichment_pass_has_touched_renders_every_page(
     assert Page.DESCRIBED_SESSIONS.value not in listed
     # And the store really is the bare one, so the sweep above proves what it claims.
     tables = {row[0] for row in store.execute("SELECT table_name FROM duckdb_tables()").fetchall()}
-    assert not tables & {spec.table for spec in LEVELS.values()}
+    assert not tables & {rows.table for rows in ROWS.values()}
 
 
 def test_a_store_whose_enrichment_tables_are_empty_renders_every_page(
@@ -430,7 +429,7 @@ def wrote(store: duckdb.DuckDBPyConnection, turn_id: str) -> str:
         " WHERE turn_id = ?",
         [turn_id],
     )
-    aged = prompt_version != LEVELS[Level.turn].prompt_version or taxonomy != TAXONOMY_VERSION
+    aged = prompt_version != ROWS[Level.turn].prompt_version or taxonomy != TAXONOMY_VERSION
     return (
         f"{model} · {when(at)} · prompt v{prompt_version} · taxonomy v{taxonomy}"
         f" · {'stale' if aged else 'fresh'}"
@@ -460,21 +459,21 @@ def test_an_item_described_under_an_older_version_is_marked_stale(
         "SELECT session_id, turn_id FROM turn_enrichments"
         " WHERE source = 'main' AND prompt_version < ? AND taxonomy_version = ?"
         " ORDER BY turn_id",
-        [LEVELS[Level.turn].prompt_version, TAXONOMY_VERSION],
+        [ROWS[Level.turn].prompt_version, TAXONOMY_VERSION],
     )
     aged_taxonomy = one(
         enriched_store,
         "SELECT session_id, turn_id FROM turn_enrichments"
         " WHERE source = 'main' AND prompt_version = ? AND taxonomy_version < ?"
         " ORDER BY turn_id",
-        [LEVELS[Level.turn].prompt_version, TAXONOMY_VERSION],
+        [ROWS[Level.turn].prompt_version, TAXONOMY_VERSION],
     )
     fresh = one(
         enriched_store,
         "SELECT session_id, turn_id FROM turn_enrichments"
         " WHERE source = 'main' AND prompt_version = ? AND taxonomy_version = ?"
         " ORDER BY turn_id",
-        [LEVELS[Level.turn].prompt_version, TAXONOMY_VERSION],
+        [ROWS[Level.turn].prompt_version, TAXONOMY_VERSION],
     )
     # The turn described under the older prompt version is tagged...
     stale_page = enriched_client.get(f"/session/{session_id}/thread/main/turn/{turn_id}").text
