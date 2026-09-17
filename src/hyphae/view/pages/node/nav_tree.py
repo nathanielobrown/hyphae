@@ -19,9 +19,8 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
-import duckdb
-
 from hyphae.models.trace import MAIN_SOURCE
+from hyphae.store.handle import Store
 from hyphae.store.library import ParamValue
 from hyphae.store.pages import TURN_CURSOR, Library, Page, Row
 from hyphae.view import bounds
@@ -198,22 +197,18 @@ def _timeline(session_id: str, source: str) -> tuple[Library, dict[str, ParamVal
     )
 
 
-def unattributed(
-    connection: duckdb.DuckDBPyConnection, corpus: Corpus, source: str
-) -> Standing | None:
+def unattributed(store: Store, corpus: Corpus, source: str) -> Standing | None:
     """One thread's calls that answer no turn, as its timeline's own cursorless row reads them.
 
     None where every call on the thread answers a turn — and where the thread is not one this
     session holds, which is the same answer: there is no bucket at that URL either way.
     """
     timeline, binds = _timeline(corpus.session_id, source)
-    rows = corpus.levels.cursorless(
-        connection, timeline, TURN_CURSOR, bounds.CURSORLESS_TURNS, **binds
-    )
+    rows = corpus.levels.cursorless(store, timeline, TURN_CURSOR, bounds.CURSORLESS_TURNS, **binds)
     return Standing(rows[0], (timeline, binds)) if rows else None
 
 
-def _thread_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _thread_level(store: Store, corpus: Corpus, at: Ref) -> Level:
     """One thread's own children: its turns and the compactions between them, then its buckets.
 
     A session and a run read alike — the difference is the thread, and that only the session
@@ -230,11 +225,11 @@ def _thread_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref
     keys = {"session_id": corpus.session_id, "source": source}
     listed = bound(Page.NAV_TREE_TURNS, bounds.NAV_TREE_WIDTHS, **keys)
     chipped = bound(Page.COMPACTIONS, bounds.NAV_TREE_WIDTHS, **keys)
-    turns = corpus.levels.rows(connection, Page.NAV_TREE_TURNS, **listed)
-    marks = corpus.levels.rows(connection, Page.COMPACTIONS, **chipped)
+    turns = corpus.levels.rows(store, Page.NAV_TREE_TURNS, **listed)
+    marks = corpus.levels.rows(store, Page.COMPACTIONS, **chipped)
     # The thread's calls that answer no turn, as one group — the bucket's own row, read the
     # same way the bucket's own page reads it.
-    standing = unattributed(connection, corpus, source)
+    standing = unattributed(store, corpus, source)
     timeline, binds = _timeline(corpus.session_id, source)
     placed = _interleave(
         [
@@ -290,7 +285,7 @@ def _interleave[T](
 
 
 def _marks(
-    connection: duckdb.DuckDBPyConnection, corpus: Corpus, source: str, turn_id: str | None
+    store: Store, corpus: Corpus, source: str, turn_id: str | None
 ) -> tuple[list[tuple[Node, dt.datetime]], Ran]:
     """One turn's compactions, paired with their ids the way a level's own rows are.
 
@@ -303,7 +298,7 @@ def _marks(
     keyed = bound(
         Page.COMPACTIONS, bounds.NAV_TREE_WIDTHS, session_id=corpus.session_id, source=source
     )
-    rows = corpus.levels.rows(connection, Page.COMPACTIONS, **keyed)
+    rows = corpus.levels.rows(store, Page.COMPACTIONS, **keyed)
     return [
         (compaction_node(corpus.session_id, source, row), row["timestamp"])
         for row in rows
@@ -372,7 +367,7 @@ def spread(corpus: Corpus, node: Node, depth: int) -> list[NavTreeRow]:
     return rows
 
 
-def _calls_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _calls_level(store: Store, corpus: Corpus, at: Ref) -> Level:
     """The api calls under one turn, with its compactions among them.
 
     At a bucket the turn is NULL — the calls that answer no turn. One function for both
@@ -389,8 +384,8 @@ def _calls_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref)
         source=source,
         turn_id=turn_id,
     )
-    calls = corpus.levels.rows(connection, Page.NAV_TREE_CALLS, **keyed)
-    marks, mark_ran = _marks(connection, corpus, source, turn_id)
+    calls = corpus.levels.rows(store, Page.NAV_TREE_CALLS, **keyed)
+    marks, mark_ran = _marks(store, corpus, source, turn_id)
     level = _interleave(
         [
             (call_node(corpus.session_id, source, row, corpus.held), row["started_at"])
@@ -401,7 +396,7 @@ def _calls_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref)
     return Level(level, [(Page.NAV_TREE_CALLS, keyed), *mark_ran])
 
 
-def _tools_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _tools_level(store: Store, corpus: Corpus, at: Ref) -> Level:
     """The tool calls under one api call, or — at a turn or a bucket — under that instead.
 
     The second is `noapi`'s level: the api calls are folded away, so their tool calls stand
@@ -420,9 +415,9 @@ def _tools_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref)
         api_call_id=api_call_id,
         turn_id=turn_id,
     )
-    rows = corpus.levels.rows(connection, Page.NAV_TREE_TOOLS, **keyed)
+    rows = corpus.levels.rows(store, Page.NAV_TREE_TOOLS, **keyed)
     under = None if api_call_id is not None else turn_id
-    marks, mark_ran = _marks(connection, corpus, source, under)
+    marks, mark_ran = _marks(store, corpus, source, under)
     level = _interleave(
         [
             (tool_node(corpus.session_id, source, row, corpus.held), row["started_at"])
@@ -433,7 +428,7 @@ def _tools_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref)
     return Level(level, [(Page.NAV_TREE_TOOLS, keyed), *mark_ran])
 
 
-def _unattached_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _unattached_level(store: Store, corpus: Corpus, at: Ref) -> Level:
     """The runs nothing placed. Already read with the session's runs, so this reads nothing."""
     nodes = [
         run_node(corpus.session_id, run, corpus.held, corpus.run_text(run["run_id"]))
@@ -443,7 +438,7 @@ def _unattached_level(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at:
     return Level(nodes, [])
 
 
-def _leaf(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _leaf(store: Store, corpus: Corpus, at: Ref) -> Level:
     """A node nothing hangs under: a tool call, and a compaction."""
     return Level([], [])
 
@@ -457,7 +452,7 @@ def _tool_spawned(corpus: Corpus, at: Ref) -> list[Row]:
     ]
 
 
-def _tool_runs(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _tool_runs(store: Store, corpus: Corpus, at: Ref) -> Level:
     """What hangs under a ⚒ tool call in every preset: the run it asked for.
 
     The one level no preset filters. A run is nested under the tool call that spawned it, so
@@ -469,7 +464,7 @@ def _tool_runs(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -
 
 # The `agents` preset's levels, which read nothing: a run is placed by an edge `view_runs`
 # already answered, so the whole spawn tree is arithmetic over the runs read for the request.
-def _agent_session(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _agent_session(store: Store, corpus: Corpus, at: Ref) -> Level:
     """The runs the main thread spawned, then the runs nothing placed."""
     placed = _runs(corpus, [run for run in corpus.runs if run["spawn_source"] == MAIN_SOURCE])
     loose = [run for run in corpus.runs if run["spawn_source"] is None]
@@ -478,7 +473,7 @@ def _agent_session(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Re
     return Level(placed, [])
 
 
-def _agent_children(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _agent_children(store: Store, corpus: Corpus, at: Ref) -> Level:
     """The runs a run spawned, by what the transcript says their parent was.
 
     `parent_agent_id` rather than the spawning call, because this is the one level the preset
@@ -487,13 +482,13 @@ def _agent_children(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: R
     return Level(_runs(corpus, [r for r in corpus.runs if r["parent_agent_id"] == at.node_id]), [])
 
 
-def _agent_thread(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _agent_thread(store: Store, corpus: Corpus, at: Ref) -> Level:
     """The runs one turn — or, at a bucket, one thread's turnless calls — spawned."""
     turn_id = None if at.kind is Kind.UNATTRIBUTED else at.node_id
     return Level(_runs(corpus, _spawned(corpus, str(at.source), turn_id)), [])
 
 
-def _agent_call(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) -> Level:
+def _agent_call(store: Store, corpus: Corpus, at: Ref) -> Level:
     """The runs one api call spawned. Matched on the thread too: a fork's transcript replays
     its parent's calls, so an id alone would hang the run under the replayed copy as well."""
     placed = [
@@ -504,15 +499,15 @@ def _agent_call(connection: duckdb.DuckDBPyConnection, corpus: Corpus, at: Ref) 
     return Level(_runs(corpus, placed), [])
 
 
-Builder = Callable[[duckdb.DuckDBPyConnection, Corpus, Ref], Level]
+Builder = Callable[[Store, Corpus, Ref], Level]
 
 
 class Under(NamedTuple):
     """What one kind of node holds, one builder per preset.
 
     A row of the kind × preset table. Every builder takes the same three arguments — the
-    connection, the session's corpus and the node's own ref — so a cell is picked by kind and
-    reads its ids off the ref. Builders that read nothing keep the connection: a uniform
+    store, the session's corpus and the node's own ref — so a cell is picked by kind and
+    reads its ids off the ref. Builders that read nothing keep the store: a uniform
     signature is what lets the table be read without a wrapper per cell.
     """
 
@@ -548,7 +543,7 @@ LEVELS: dict[Kind, Under] = {
 
 
 def children(
-    connection: duckdb.DuckDBPyConnection,
+    store: Store,
     corpus: Corpus,
     at: Ref,
     preset: Preset,
@@ -568,14 +563,14 @@ def children(
     would render its own copy of a row already sitting a level higher.
     """
     row = LEVELS[at.kind]
-    level = row.under(preset)(connection, corpus, at)
+    level = row.under(preset)(store, corpus, at)
     if descends is not None and all(child.key != descends for child in level.nodes):
-        return row.full(connection, corpus, at)
+        return row.full(store, corpus, at)
     return level
 
 
 def nav_tree(
-    connection: duckdb.DuckDBPyConnection,
+    store: Store,
     corpus: Corpus,
     root: Node,
     trail: Sequence[Ref],
@@ -615,7 +610,7 @@ def nav_tree(
         chain.append(node)
         at = open_keys.index(node.key) + 1
         descends = open_keys[at] if at < len(open_keys) else None
-        level = children(connection, corpus, node.ref, preset, descends)
+        level = children(store, corpus, node.ref, preset, descends)
         ran.extend(level.ran)
         shown = windowed(level.nodes, cap, open_keys)
         for child in shown.kept:

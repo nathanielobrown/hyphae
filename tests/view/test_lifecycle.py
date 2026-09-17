@@ -19,9 +19,13 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.store import pages
-from hyphae.store.pages import SchemaMoved
-from hyphae.store.schema import MIGRATE_REMEDY, SCHEMA_MISMATCH_REMEDY, SCHEMA_VERSION
+from hyphae.store import handle
+from hyphae.store.schema import (
+    MIGRATE_REMEDY,
+    SCHEMA_MISMATCH_REMEDY,
+    SCHEMA_VERSION,
+    SchemaVersionError,
+)
 from hyphae.store.trace_store import StoreLocked
 from hyphae.view.app import CSP, build_app, serve
 from hyphae.view.components import parts
@@ -35,7 +39,7 @@ HALF = "<!--rendered-before-the-component-exploded-->"
 
 # The two ways a request reaches the store, because the refusal has to come back the same page
 # either way. A page opens it inside the handler and closes it before rendering; a fragment
-# takes the connection as a dependency (`view/deps.py`), so the open happens before the handler
+# takes the store as a dependency (`view/deps.py`), so the open happens before the handler
 # runs at all and the exception is raised inside FastAPI's dependency resolution rather than in
 # the route body.
 REACHES = {"page": "/", "fragment": f"{NUMBERS_URL}/session/{SPINE}"}
@@ -145,14 +149,14 @@ def test_a_full_document_opens_the_store_once_and_the_query_page_not_at_all(
     through, so the count holds however a page imported the opener.
     """
     opens = 0
-    opener = pages.open_trace_store
+    opener = handle.open_trace_store
 
     def counted(*args: object, **kwargs: object) -> object:
         nonlocal opens
         opens += 1
         return opener(*args, **kwargs)  # pyrefly: ignore
 
-    monkeypatch.setattr(pages, "open_trace_store", counted)
+    monkeypatch.setattr(handle, "open_trace_store", counted)
     assert enriched_client.get(SCENARIOS[route].url).status_code == 200
     assert opens == DOCUMENTS[route]
 
@@ -179,7 +183,7 @@ def test_a_store_this_build_cannot_read_is_refused_at_launch(copy: Path) -> None
     connection = duckdb.connect(str(copy))
     connection.execute("UPDATE meta SET schema_version = ?", [SCHEMA_VERSION - 1])
     connection.close()
-    with pytest.raises(SchemaMoved):
+    with pytest.raises(SchemaVersionError):
         build_app(copy)
 
 

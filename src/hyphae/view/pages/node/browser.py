@@ -15,8 +15,10 @@ from math import ceil
 from pathlib import Path
 
 from hyphae.models.trace import MAIN_SOURCE
+from hyphae.store.handle import open_store
 from hyphae.store.library import ParamValue
-from hyphae.store.pages import Page, open_store, page_rows
+from hyphae.store.pages import Page, page_rows
+from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds, builders, failures, links, nodes
 from hyphae.view.bounds import bound
 from hyphae.view.citation import Ran, cited
@@ -57,36 +59,34 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
     # Held from the first read rather than left to the corpus, so the two kinds whose header
     # *is* the session's read it back out of the memo instead of running it twice.
     levels = Levels()
-    with open_store(db) as connection:
-        head = levels.rows(connection, Page.SESSION_HEADER, **header_bound)
+    with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
+        head = levels.rows(store, Page.SESSION_HEADER, **header_bound)
         if not head:
             raise Missing("No session with that id is in this store.")
         # The session's runs whole, once: a run is placed by the call that spawned it
         # rather than by the thread it ran on, so any level of the NavTree may need any of
         # them, and both buckets are defined against the same set.
-        runs = page_rows(connection, Page.RUNS, **runs_bound)
+        runs = page_rows(store, Page.RUNS, **runs_bound)
         corpus = nav_tree.Corpus(
             session_id=session_id,
             # The rollup once per page: every row the NavTree draws reads its subtree total
             # out of this one climb over the runs.
             held=nodes.ledger(session_id, head[0]["cost_usd"] or 0, runs),
             runs=runs,
-            described=described(connection, session_id, source),
+            described=described(store, session_id, source),
             source=source,
             levels=levels,
         )
-        found = spec.header(connection, corpus, at, paged(knobs.detail))
+        found = spec.header(store, corpus, at, paged(knobs.detail))
         if found is None:
             raise Missing(spec.missing)
         under = (
-            spec.log(connection, corpus, at, page, knobs.log)
-            if spec.log is not None
-            else Log([], 0, [])
+            spec.log(store, corpus, at, page, knobs.log) if spec.log is not None else Log([], 0, [])
         )
         no_record: tuple[int | None, Ran] = (None, [])
-        record, recorded = spec.record(connection, corpus, at) if spec.record else no_record
+        record, recorded = spec.record(store, corpus, at) if spec.record else no_record
         built = nav_tree.nav_tree(
-            connection,
+            store,
             corpus,
             builders.session_node(head[0], corpus.held, corpus.described),
             nav_tree.ancestry(corpus, spec.trail(at, found.row)),
@@ -94,14 +94,14 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
             knobs.kin,
         )
         # What the reader reads before and after this node, off the same open path. Read
-        # inside the request's own connection because it asks the store for levels the
+        # inside the request's own store because it asks the store for levels the
         # NavTree did not open.
-        walked = walk.neighbours(connection, corpus, built.chain)
+        walked = walk.neighbours(store, corpus, built.chain)
         # The failures either side of this one, read only where the pane is standing on a
         # failure. A session-wide list is a query per page load and the step it answers
         # does not exist anywhere else, so every other node page asks the store nothing.
         failed = (
-            failures.failures(connection, session_id)
+            failures.failures(store, session_id)
             if built.chain[-1].kind is Kind.TOOL and built.chain[-1].is_error
             else None
         )
@@ -199,7 +199,7 @@ def opened(db: Path, session_id: str, at: Ref, log: int) -> Expansion:
         raise Missing("No expansion is served for that kind of node.")
     source = str(at.source)
     keyed: dict[str, ParamValue] = {"session_id": session_id, "source": source}
-    with open_store(db) as connection:
+    with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
         # An expansion prices nothing and lists no runs: every node it builds carries the empty
         # ledger, and what it wants of a corpus is the session it is in and the words a pass
         # wrote. Read for the thread in the URL — which for a run is the run's own id, the
@@ -209,20 +209,20 @@ def opened(db: Path, session_id: str, at: Ref, log: int) -> Expansion:
             held=nodes.NO_LEDGER,
             runs=[],
             described=(
-                described(connection, session_id, source)
+                described(store, session_id, source)
                 if spec.describe is not None
                 else Descriptions()
             ),
             source=source,
         )
-        found = spec.header(connection, corpus, at, EXPANDED)
+        found = spec.header(store, corpus, at, EXPANDED)
         if found is None:
             raise Missing(spec.missing)
         # The level the expansion lists, where its kind lists one: the first page of it, at the
         # size the reader is reading logs under. Which page is not a question an expansion
         # asks — the way past the first is the link to the node's own page.
         under = (
-            spec.log(connection, corpus, at, 1, log)
+            spec.log(store, corpus, at, 1, log)
             if spec.opens and spec.log is not None
             else Log([], 0, [])
         )
@@ -265,9 +265,9 @@ def spilled(
     thousand children answers with ten thousand rows.
     """
     keyed: dict[str, ParamValue] = {"session_id": session_id}
-    with open_store(db) as connection:
+    with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
         head = page_rows(
-            connection,
+            store,
             Page.SESSION_HEADER,
             **bound(Page.SESSION_HEADER, bounds.HEADER_WIDTHS, session_id=session_id),
         )
@@ -278,15 +278,15 @@ def spilled(
         # would fetch three times the string for a surface printing a third of it. Nothing
         # rendered says which was chosen — the row cuts to its own width whatever arrives —
         # so `tests/view/test_bounds__widths.py` is what holds it.
-        runs = page_rows(connection, Page.RUNS, **bound(Page.RUNS, bounds.NAV_TREE_WIDTHS, **keyed))
+        runs = page_rows(store, Page.RUNS, **bound(Page.RUNS, bounds.NAV_TREE_WIDTHS, **keyed))
         corpus = nav_tree.Corpus(
             session_id=session_id,
             held=nodes.ledger(session_id, head[0]["cost_usd"] or 0, runs),
             runs=runs,
-            described=described(connection, session_id, thread),
+            described=described(store, session_id, thread),
             source=thread,
         )
-        level = nav_tree.children(connection, corpus, at, knobs.nav, held or None)
+        level = nav_tree.children(store, corpus, at, knobs.nav, held or None)
     # Each row shut, and under it whatever a shut row stands: the runs it hides come back
     # with it, the way the page's own rows carry them. None of them is a step of the open
     # path — the cap keeps the child the path descends through inside the window, and this

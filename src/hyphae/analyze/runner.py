@@ -13,14 +13,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import duckdb
-
 from hyphae.analyze import manifest
 from hyphae.projects import project_predicate, resolve_project
-from hyphae.store import library, macros
+from hyphae.store import library
+from hyphae.store.handle import Store, open_store
 from hyphae.store.library import NoDefault, ParamType, ParamValue, QueryError, Scope
 from hyphae.store.schema import SchemaVersionError
-from hyphae.store.trace_store import CLI_WAIT, StoreLocked, open_trace_store
+from hyphae.store.trace_store import CLI_WAIT, StoreLocked
 
 # The sessions `--project` selects, and the window flag every corpus query reads. Written
 # here rather than in each query file so that a query cannot scope itself differently from
@@ -105,31 +104,29 @@ def run(
     # arrives as a `QueryError`, whichever part of the request it came from.
     opened = ExitStack()
     try:
-        connection = opened.enter_context(open_trace_store(db, read_only=True, wait=CLI_WAIT))
+        store = opened.enter_context(open_store(db, read_only=True, wait=CLI_WAIT))
     except (FileNotFoundError, SchemaVersionError, StoreLocked) as error:
         raise QueryError(str(error)) from error
     with opened:
-        macros.install(connection)
         cited: dict[str, ParamValue] = {}
         unplaceable = None
         if corpus:
             # Narrowing for the type checker; `corpus and project is None` raised above.
             assert project is not None  # noqa: S101
-            cited = _build_project_sessions(connection, project, since, as_of)
-            unplaceable = connection.execute(_UNPLACEABLE).fetchone()[0]  # type: ignore[index]
-        cursor = connection.execute(library.load(name), dict(bindings))
-        columns = tuple(column[0] for column in cursor.description or ())
+            cited = _build_project_sessions(store, project, since, as_of)
+            ((unplaceable,),) = store.rows(_UNPLACEABLE, {}).rows
+        columns, rows = store.rows(library.load(name), bindings)
         return Result(
             name=name,
             bindings=cited | bindings,
             columns=columns,
-            rows=cursor.fetchall(),
+            rows=rows,
             unplaceable_sessions=unplaceable,
         )
 
 
 def _build_project_sessions(
-    connection: duckdb.DuckDBPyConnection, project: Path, since: dt.date | None, as_of: dt.date
+    store: Store, project: Path, since: dt.date | None, as_of: dt.date
 ) -> dict[str, ParamValue]:
     """Materialize the corpus for `project`, and return the bindings that defined it."""
     resolved = str(resolve_project(project))
@@ -139,8 +136,8 @@ def _build_project_sessions(
         "as_of": as_of,
         "window_days": library.WINDOW_DAYS,
     }
-    connection.execute(_PROJECT_SESSIONS, bindings)
-    connection.execute(_SESSION_PERIODS)
+    store.rows(_PROJECT_SESSIONS, bindings)
+    store.rows(_SESSION_PERIODS, {})
     return bindings
 
 

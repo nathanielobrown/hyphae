@@ -23,7 +23,8 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
-from hyphae.store.pages import open_store
+from hyphae.store.handle import open_store
+from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view.app import DEV_SHUTDOWN_SECONDS, HOST, build_app, claim
 from hyphae.view.components import Html, layout
 from hyphae.view.text import format as fmt
@@ -60,9 +61,9 @@ def corpus_now(store: Path) -> dt.datetime:
     with it. The corpus's own present rather than a round date, because a page's trailing
     windows are measured back from here — the wall clock leaves every one of them empty.
     """
-    with open_store(store) as connection:
-        latest = connection.execute("SELECT max(ended_at) FROM sessions").fetchone()
-    if latest is None or latest[0] is None:
+    with open_store(store, read_only=True, wait=PAGE_WAIT) as reading:
+        (latest,) = reading.rows("SELECT max(ended_at) FROM sessions", {}).rows
+    if latest[0] is None:
         raise ValueError(f"no session in {store} records when it ended, so there is no clock")
     return latest[0]
 

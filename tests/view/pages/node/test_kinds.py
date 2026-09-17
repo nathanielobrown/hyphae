@@ -38,7 +38,7 @@ def test_every_kind_of_node_says_what_hangs_under_it_in_every_preset() -> None:
         for preset in Preset:
             builder = under.under(preset)
             assert callable(builder), (kind, preset)
-            assert list(signature(builder).parameters) == ["connection", "corpus", "at"], (
+            assert list(signature(builder).parameters) == ["store", "corpus", "at"], (
                 kind,
                 preset,
             )

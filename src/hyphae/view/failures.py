@@ -19,8 +19,7 @@ import datetime as dt
 from collections.abc import Sequence
 from typing import NamedTuple
 
-import duckdb
-
+from hyphae.store.handle import Store
 from hyphae.store.pages import Page, dropped, page_rows
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
@@ -45,14 +44,14 @@ class Failures(NamedTuple):
     ran: Ran
 
 
-def failures(connection: duckdb.DuckDBPyConnection, session_id: str) -> Failures:
+def failures(store: Store, session_id: str) -> Failures:
     """Every failed tool call of one session, capped at what a page of them shows.
 
     Read at the NavTree's title width rather than a log's: a row here leads to a node, so it
     is named the way that node is named everywhere else it appears.
     """
     binds = bound(Page.SESSION_ERRORS, bounds.ERRORS_WIDTHS, session_id=session_id)
-    rows = page_rows(connection, Page.SESSION_ERRORS, **binds)
+    rows = page_rows(store, Page.SESSION_ERRORS, **binds)
     listed = [
         Failure(tool_node(session_id, row["source"], row, NO_LEDGER), row["started_at"])
         for row in rows

@@ -94,7 +94,7 @@ BINDABLE = frozenset({"ParamType", "ParamValue"})
 LAYERED = {
     "app": SERVER,
     "dev": SERVER,
-    # Under every page rather than one page's: the `Viewer`, a request's read-only connection,
+    # Under every page rather than one page's: the `Viewer`, a request's read-only store,
     # and `checked`. Shared is also what makes an import of a page from here point up and red.
     "deps": SHARED,
     "nodes": SHARED,
@@ -470,7 +470,7 @@ def test_no_routes_module_of_a_page_names_the_stores_vocabulary(tmp_path: Path) 
     which is the window `deps.py` exists to close.
 
     `Db` stays legal, because a fragment's lock window is deliberate (`view/deps.py`): what is
-    banned is the query member, the bindings and the raw row, not the connection they run on.
+    banned is the query member, the bindings and the raw row, not the store they run on.
     """
     found = [
         path

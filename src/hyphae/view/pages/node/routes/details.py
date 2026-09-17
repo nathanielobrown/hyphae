@@ -30,14 +30,14 @@ from hyphae.view.pages.node.markup import values
 router = APIRouter()
 
 
-def fetch(spec: Spec, keys: Mapping[str, str], connection: Db) -> Html:
+def fetch(spec: Spec, keys: Mapping[str, str], store: Db) -> Html:
     """One Detail whole, in the block its head was previewed in.
 
     `Written` decides which of the three blocks the value comes back in; the read decides
     what a value that is not there means, and says the same nothing a missing row does.
     """
     try:
-        read = fragments.detailed(connection, spec, keys)
+        read = fragments.detailed(store, spec, keys)
     except Missing as gone:
         raise HTTPException(404, str(gone)) from gone
     match spec.written:
@@ -61,8 +61,8 @@ def serving(spec: Spec) -> Callable[..., Response]:
     route template is what minted the URL.
     """
 
-    def fetched(request: Request, connection: Db) -> Html:
-        return fetch(spec, request.path_params, connection)
+    def fetched(request: Request, store: Db) -> Html:
+        return fetch(spec, request.path_params, store)
 
     def serve(value: Annotated[Html, Depends(fetched)], viewer: ViewerDep) -> Response:
         return viewer.html(value)
@@ -84,7 +84,7 @@ def register(on: APIRouter) -> None:
 register(router)
 
 
-def recorded(session_id: str, source: str, line_no: int, connection: Db) -> Html:
+def recorded(session_id: str, source: str, line_no: int, store: Db) -> Html:
     """One raw transcript record whole, as the browser's preview was cut from.
 
     Its own renderer rather than a value fragment: a record arrives with a header line of
@@ -92,7 +92,7 @@ def recorded(session_id: str, source: str, line_no: int, connection: Db) -> Html
     so nothing on a pane files it under a name and nothing swaps it into a detail.
     """
     try:
-        return values.record(node=fragments.recorded(connection, session_id, source, line_no))
+        return values.record(node=fragments.recorded(store, session_id, source, line_no))
     except Missing as gone:
         raise HTTPException(404, str(gone)) from gone
 

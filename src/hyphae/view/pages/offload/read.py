@@ -7,8 +7,10 @@ a store column.
 
 from pathlib import Path
 
+from hyphae.store.handle import open_store
 from hyphae.store.library import ParamValue
-from hyphae.store.pages import Page, open_store, page_rows
+from hyphae.store.pages import Page, page_rows
+from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view.citation import cited
 from hyphae.view.pages.offload.models import OffloadFile, OffloadPage
 
@@ -25,8 +27,8 @@ def offload(db: Path, session_id: str, name: str, after: int, size: int) -> Offl
         "after_chars": after,
         "chunk_chars": size,
     }
-    with open_store(db) as connection:
-        rows = page_rows(connection, Page.OFFLOAD, **binds)
+    with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
+        rows = page_rows(store, Page.OFFLOAD, **binds)
     if not rows:
         return None
     row = rows[0]

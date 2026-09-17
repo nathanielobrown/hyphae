@@ -5,10 +5,10 @@ live in either of them: the copies drift, and then one query denies what the oth
 What lives here is the shared half — a definition several queries call by name — as a DuckDB
 temp macro, created on whatever connection is about to run a query.
 
-Both consumers install the same set: `analyze/runner.py` before the query `hp query`
-was asked for, and `store/pages.py` on the connection a page reads through. That is the trade a
-shared definition costs: a query file naming one of these runs under a consumer that installed
-them, and under a bare `duckdb` shell it does not.
+`store/handle.py:open_store` installs the set on every `Store` it hands out, so `hp query`
+and a page read under the same definitions. That is the trade a shared definition costs: a
+query file naming one of these runs under a `Store`, and under a bare `duckdb` shell it does
+not.
 """
 
 import duckdb
@@ -213,7 +213,7 @@ def needed_by(sql: str) -> str:
 def install(connection: duckdb.DuckDBPyConnection) -> None:
     """Create the library's macros on `connection`, before any query file runs against it.
 
-    Temp macros, so this works on the read-only connection both consumers open: what it
+    Temp macros, so this works on the read-only connection a page or `hp query` opens: what it
     creates lives in the session's own catalog rather than in the store.
 
     Needs a connection that already has the store's tables: `tagged` reads `session_tags`, and

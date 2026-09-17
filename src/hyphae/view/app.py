@@ -5,8 +5,8 @@ locked or moved store with a page rather than a stack trace, puts the `Viewer` o
 for the dependencies in `view/deps.py`, and extends one page package's routes onto the app in
 turn — the two lists, the node page, then the four pages that are not a node's.
 
-Nothing the viewer serves writes: every request opens its own read-only connection
-(`store/pages.py`), checks the store's schema version, renders, and closes. That is what lets an
+Nothing the viewer serves writes: every request opens its own read-only store
+(`store/handle.py`), checks the store's schema version, renders, and closes. That is what lets an
 extract run while a page is open, and what makes a locked store a 503 rather than a crash.
 
 Route order is a contract: `tools/gen_routes.py` reads `app.routes` in registration order into
@@ -28,11 +28,9 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from hyphae.store.pages import (
-    SchemaMoved,
-    open_store,
-)
-from hyphae.store.trace_store import StoreLocked
+from hyphae.store.handle import open_store
+from hyphae.store.schema import SchemaVersionError
+from hyphae.store.trace_store import PAGE_WAIT, StoreLocked
 from hyphae.view.deps import Viewer
 from hyphae.view.pages.errors import routes as errors
 from hyphae.view.pages.node import routes as node
@@ -74,7 +72,7 @@ def build_app(db_path: Path, *, dev: bool = False) -> FastAPI:
     resolved = db_path.resolve()
     # Fail at startup rather than on the first page: a typo in `--db` should not open a
     # browser onto an error page.
-    with open_store(resolved):
+    with open_store(resolved, read_only=True, wait=PAGE_WAIT):
         pass
 
     app = FastAPI(title="hyphae", docs_url=None, redoc_url=None)
@@ -106,10 +104,12 @@ def build_app(db_path: Path, *, dev: bool = False) -> FastAPI:
             "The page will load once it finishes.",
         )
 
-    @app.exception_handler(SchemaMoved)
+    @app.exception_handler(SchemaVersionError)
     def _moved(request: Request, exception: Exception) -> Response:
-        # The opener's own sentence: it names both versions and the remedy that fits the
-        # store on disk. All the viewer adds is what to do once the store is right.
+        # The store moved under the running viewer: an extract landed between two page loads,
+        # which is why the open checks per request rather than once at startup. The opener's
+        # own sentence names both versions and the remedy that fits the store on disk; all
+        # the viewer adds is what to do once the store is right.
         return viewer.error(503, f"{exception} Restart the viewer.")
 
     @app.exception_handler(StarletteHTTPException)

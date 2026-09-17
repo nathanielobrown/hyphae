@@ -15,9 +15,8 @@ the route beside it turns that into the 404 the row's `missing` spells. Every ce
 from collections.abc import Callable, Mapping
 from typing import NamedTuple
 
-import duckdb
-
 from hyphae.models.trace import MAIN_SOURCE
+from hyphae.store.handle import Store
 from hyphae.store.library import ParamValue
 from hyphae.store.pages import TURN_CURSOR, Fragment, Page, Row, listed, page_rows, window
 from hyphae.view import bounds, builders, detail, nodes
@@ -72,11 +71,11 @@ class Log(NamedTuple):
     ran: Ran
 
 
-Header = Callable[[duckdb.DuckDBPyConnection, nav_tree.Corpus, Ref, Read], Found | None]
+Header = Callable[[Store, nav_tree.Corpus, Ref, Read], Found | None]
 Trail = Callable[[Ref, Row], list[Ref]]
-Logs = Callable[[duckdb.DuckDBPyConnection, nav_tree.Corpus, Ref, int, int], Log]
+Logs = Callable[[Store, nav_tree.Corpus, Ref, int, int], Log]
 Details = Callable[[nav_tree.Corpus, Ref, Row, int], list[Detail]]
-Record = Callable[[duckdb.DuckDBPyConnection, nav_tree.Corpus, Ref], tuple[int | None, Ran]]
+Record = Callable[[Store, nav_tree.Corpus, Ref], tuple[int | None, Ran]]
 Titled = Callable[[nav_tree.Corpus, Ref, Row], Node]
 Describe = Callable[[Descriptions, Ref], Enrichment | None]
 
@@ -136,19 +135,15 @@ def keyed(page: Page, binds: str, *, threaded: bool = True) -> Header:
     and the query takes no source.
     """
 
-    def read(
-        connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, reading: Read
-    ) -> Found | None:
+    def read(store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Read) -> Found | None:
         bindings = bound(page, reading.widths, reading.sizes, **_keys(corpus, at, binds, threaded))
-        rows = page_rows(connection, page, **bindings)
+        rows = page_rows(store, page, **bindings)
         return Found(rows[0], [(page, bindings)]) if rows else None
 
     return read
 
 
-def _session_header(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, reading: Read
-) -> Found | None:
+def _session_header(store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Read) -> Found | None:
     """The session's own header, which the page around this has read already.
 
     Read back through the request's `Levels` rather than passed in: the page needs the row
@@ -157,7 +152,7 @@ def _session_header(
     query declares no detail to cut.
     """
     bindings = bound(Page.SESSION_HEADER, reading.widths, session_id=corpus.session_id)
-    rows = corpus.levels.rows(connection, Page.SESSION_HEADER, **bindings)
+    rows = corpus.levels.rows(store, Page.SESSION_HEADER, **bindings)
     return Found(rows[0], [(Page.SESSION_HEADER, bindings)]) if rows else None
 
 
@@ -167,26 +162,26 @@ def _loose(corpus: nav_tree.Corpus) -> list[Row]:
 
 
 def _unattached_header(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, reading: Read
+    store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Read
 ) -> Found | None:
     """The session's own header, where the session holds a run nothing placed.
 
     The bucket stands for no store row, so what it reads is the session it hangs off; what
     decides whether it exists at all is the runs, which every level of the NavTree needs anyway.
     """
-    return _session_header(connection, corpus, at, reading) if _loose(corpus) else None
+    return _session_header(store, corpus, at, reading) if _loose(corpus) else None
 
 
 def _unattributed_header(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, reading: Read
+    store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Read
 ) -> Found | None:
     """One thread's calls that answer no turn, as its timeline's own cursorless row reads them."""
-    standing = nav_tree.unattributed(connection, corpus, str(at.source))
+    standing = nav_tree.unattributed(store, corpus, str(at.source))
     return Found(standing.row, [standing.ran]) if standing else None
 
 
 def _compaction_header(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, reading: Read
+    store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Read
 ) -> Found | None:
     """One compaction, out of its thread's markers rather than by id.
 
@@ -198,7 +193,7 @@ def _compaction_header(
     )
     found = [
         row
-        for row in page_rows(connection, Page.COMPACTIONS, **bindings)
+        for row in page_rows(store, Page.COMPACTIONS, **bindings)
         if row["compaction_id"] == at.node_id
     ]
     return Found(found[0], [(Page.COMPACTIONS, bindings)]) if found else None
@@ -250,13 +245,11 @@ def _turn_rows(corpus: nav_tree.Corpus, source: str, rows: list[Row]) -> list[Lo
     ]
 
 
-def _timeline_log(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, page: int, size: int
-) -> Log:
+def _timeline_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: int) -> Log:
     """The main thread's turns, which is what a session's own children log lists."""
     offset = skipped(page, size)
     binds = bound(Page.TIMELINE, bounds.LOG_WIDTHS, session_id=corpus.session_id)
-    turns = window(connection, Page.TIMELINE, TURN_CURSOR, offset, size, **binds)
+    turns = window(store, Page.TIMELINE, TURN_CURSOR, offset, size, **binds)
     return Log(
         _turn_rows(corpus, MAIN_SOURCE, turns.rows),
         turns.total,
@@ -264,15 +257,13 @@ def _timeline_log(
     )
 
 
-def _run_timeline_log(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, page: int, size: int
-) -> Log:
+def _run_timeline_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: int) -> Log:
     """An agent run's own thread of turns, keyed by the run id its rows carry as their source."""
     offset = skipped(page, size)
     binds = bound(
         Page.RUN_TIMELINE, bounds.LOG_WIDTHS, session_id=corpus.session_id, source=at.node_id
     )
-    turns = window(connection, Page.RUN_TIMELINE, TURN_CURSOR, offset, size, **binds)
+    turns = window(store, Page.RUN_TIMELINE, TURN_CURSOR, offset, size, **binds)
     return Log(
         _turn_rows(corpus, at.node_id, turns.rows),
         turns.total,
@@ -280,9 +271,7 @@ def _run_timeline_log(
     )
 
 
-def _calls_log(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, page: int, size: int
-) -> Log:
+def _calls_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: int) -> Log:
     """The api calls under a turn — or, at `turn_id` NULL, under a thread's bucket.
 
     One cell for both because the two differ by that binding alone, which is the same rule the
@@ -298,7 +287,7 @@ def _calls_log(
         skipped=skipped(page, size),
         page_calls=size,
     )
-    calls = listed(page_rows(connection, Fragment.TURN_CALLS, **binds))
+    calls = listed(page_rows(store, Fragment.TURN_CALLS, **binds))
     return Log(
         [
             reads.logged(
@@ -311,9 +300,7 @@ def _calls_log(
     )
 
 
-def _tools_log(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, page: int, size: int
-) -> Log:
+def _tools_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: int) -> Log:
     """The tool calls one api call made.
 
     Priced at nothing on purpose: what a tool call cost is the call's, and a row here that
@@ -329,7 +316,7 @@ def _tools_log(
         skipped=skipped(page, size),
         page_tools=size,
     )
-    called = listed(page_rows(connection, Fragment.CALL_TOOLS, **binds))
+    called = listed(page_rows(store, Fragment.CALL_TOOLS, **binds))
     return Log(
         [
             reads.logged(
@@ -344,9 +331,7 @@ def _tools_log(
     )
 
 
-def _unattached_log(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref, page: int, size: int
-) -> Log:
+def _unattached_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: int) -> Log:
     """The runs nothing placed, paged out of the set the corpus already holds — so this is a
     slice rather than a read, and the level cites nothing of its own."""
     runs = sliced(_loose(corpus), page, size)
@@ -405,9 +390,7 @@ def _tool_details(corpus: nav_tree.Corpus, at: Ref, row: Row, size: int) -> list
     )
 
 
-def _turn_record(
-    connection: duckdb.DuckDBPyConnection, corpus: nav_tree.Corpus, at: Ref
-) -> tuple[int | None, Ran]:
+def _turn_record(store: Store, corpus: nav_tree.Corpus, at: Ref) -> tuple[int | None, Ran]:
     """Which line of the transcript the turn was read from.
 
     Read for the whole thread because that is what the query answers; two identifier columns
@@ -416,7 +399,7 @@ def _turn_record(
     """
     thread: dict[str, ParamValue] = {"session_id": corpus.session_id, "source": str(at.source)}
     archived = {
-        row["turn_id"]: row["line_no"] for row in page_rows(connection, Page.TURN_RECORDS, **thread)
+        row["turn_id"]: row["line_no"] for row in page_rows(store, Page.TURN_RECORDS, **thread)
     }
     return archived.get(at.node_id), [(Page.TURN_RECORDS, thread)]
 

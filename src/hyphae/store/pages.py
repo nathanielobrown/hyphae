@@ -1,8 +1,7 @@
-"""Reading the trace store for one request: the connection, the queries, and a page of rows.
+"""Reading the trace store for one request: the queries, and a page of rows.
 
-Every request opens its own read-only connection, checks the schema version, reads, and
-closes — that is what lets an extract run while a page is open, and what makes a store under
-someone else's write lock a 503 rather than a crash.
+Every read here runs through the `Store` a request holds (`store/handle.py`): the page's own
+open is the route's, and what this module owns is what it asks once it has one.
 
 The three enums are the viewer's whole query catalog, split by what a query is allowed to
 select: a page or a fragment truncates every fat column in SQL, and a per-value query is the
@@ -14,20 +13,15 @@ for a numbered page of a query that limits nothing itself, and the session list'
 and cut below it. A route reads rows; it does not build SQL.
 """
 
-from collections.abc import Generator, Mapping
-from contextlib import ExitStack, contextmanager
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path
 from typing import Any, NamedTuple
 
-import duckdb
-
 from hyphae.projects import project_predicate
-from hyphae.store import library, macros
+from hyphae.store import library
+from hyphae.store.handle import Store
 from hyphae.store.library import ParamValue
-from hyphae.store.schema import SchemaVersionError
-from hyphae.store.trace_store import PAGE_WAIT, open_trace_store
 
 Row = dict[str, Any]
 
@@ -140,48 +134,15 @@ class Value(StrEnum):
 Library = Page | Fragment | Value
 
 
-class SchemaMoved(Exception):
-    """The store's schema version is not the one this build reads."""
-
-
-@contextmanager
-def open_store(db_path: Path) -> Generator[duckdb.DuckDBPyConnection]:
-    """A read-only connection for one request, checked and closed.
-
-    The store's one opener (`store/trace_store.py`), told how long a page may hang, with the
-    viewer's own refusal over it: `SchemaMoved` when the store moved under the running
-    viewer. That is checked per request rather than at startup because an extract can land
-    between two page loads, and so is the opener's own `StoreLocked`, which the request
-    reaches only after waiting `PAGE_WAIT` for the writer. Only the open is translated — an
-    error a page raises while reading is the page's own.
-    """
-    opened = ExitStack()
-    try:
-        connection = opened.enter_context(open_trace_store(db_path, read_only=True, wait=PAGE_WAIT))
-    except SchemaVersionError as error:
-        # Carried whole: the opener already picked the remedy that fits this store, and a
-        # reader sent to a fresh one where a migration would have done can lose a session.
-        raise SchemaMoved(str(error)) from error
-    with opened:
-        # The library's shared SQL functions, which several of the queries below call by name.
-        macros.install(connection)
-        yield connection
-
-
-def fetch(
-    connection: duckdb.DuckDBPyConnection, sql: str, bindings: Mapping[str, ParamValue]
-) -> list[Row]:
+def fetch(store: Store, sql: str, bindings: Mapping[str, ParamValue]) -> list[Row]:
     """Run one statement and hand back its rows as dicts, keyed by column name."""
-    cursor = connection.execute(sql, dict(bindings))
-    columns = tuple(column[0] for column in cursor.description or ())
-    return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
+    columns, rows = store.rows(sql, bindings)
+    return [dict(zip(columns, row, strict=True)) for row in rows]
 
 
-def page_rows(
-    connection: duckdb.DuckDBPyConnection, page: Library, **bindings: ParamValue
-) -> list[Row]:
+def page_rows(store: Store, page: Library, **bindings: ParamValue) -> list[Row]:
     """The rows of one library query, bound as given."""
-    return fetch(connection, library.load(page), bindings)
+    return fetch(store, library.load(page), bindings)
 
 
 class Paged(NamedTuple):
@@ -223,7 +184,7 @@ def _core(page: Library) -> str:
 
 
 def window(
-    connection: duckdb.DuckDBPyConnection,
+    store: Store,
     page: Library,
     cursor: str,
     skipped: int,
@@ -239,7 +200,7 @@ def window(
     outside every page and outside the count (`cursorless_rows`).
     """
     rows = fetch(
-        connection,
+        store,
         f"SELECT *, count(*) OVER () AS {MATCHED_ROWS} FROM ({_core(page)})"
         f" WHERE {cursor} IS NOT NULL ORDER BY {cursor} LIMIT $size OFFSET $skipped",
         {"skipped": skipped, "size": size, **bindings},
@@ -248,7 +209,7 @@ def window(
 
 
 def cursorless_rows(
-    connection: duckdb.DuckDBPyConnection,
+    store: Store,
     page: Library,
     cursor: str,
     limit: int,
@@ -263,7 +224,7 @@ def cursorless_rows(
     ceiling was computed against something else.
     """
     rows = fetch(
-        connection,
+        store,
         f"SELECT * FROM ({_core(page)}) WHERE {cursor} IS NULL LIMIT $cursorless",
         {"cursorless": limit + 1, **bindings},
     )
@@ -345,7 +306,7 @@ DIRECTIONS: dict[str, str] = {"asc": "ASC", "desc": "DESC"}
 # The `cut` macro takes one character more than the row prints, which is how the component
 # knows a value was stopped rather than ended and marks it (`view/text/format.py:cut`). It is a
 # macro of the library, so this runs only on a connection `macros.install` has seen — which
-# `open_store` above is, and so is every fixture that reaches here.
+# every `Store` is (`store/handle.py:open_store`), and so is every fixture that reaches here.
 SHOWN = """SELECT * EXCLUDE (pr_urls) REPLACE (
     cut(title, $head_chars) AS title,
     cut(project_dir, $head_chars) AS project_dir,
@@ -370,7 +331,7 @@ class Listing(NamedTuple):
 
 
 def sorted_sessions(
-    connection: duckdb.DuckDBPyConnection,
+    store: Store,
     sort: str,
     direction: str,
     size: int,
@@ -416,7 +377,7 @@ def sorted_sessions(
     # another one, while a footer quoting that limit would offer a row the page never showed.
     binds = {**bindings, "limit": size + PAGER_PROBE}
     rows = fetch(
-        connection,
+        store,
         f"{SHOWN} (SELECT * FROM ({_core(Page.SESSIONS)}){joined}{where}"
         f" ORDER BY {sort} {keyword} NULLS LAST, session_id {keyword}"
         " LIMIT $limit OFFSET $offset)",

@@ -56,30 +56,30 @@ def drawn(read: Popover | Measured) -> Html:
 
 
 def compaction_read(
-    session_id: str, source: str, compaction_id: str, connection: Db
+    session_id: str, source: str, compaction_id: str, store: Db
 ) -> Popover | Measured:
     """One compaction's numbers, read on the thread its row carries."""
-    return refused(lambda: fragments.compacted(connection, session_id, source, compaction_id))
+    return refused(lambda: fragments.compacted(store, session_id, source, compaction_id))
 
 
 def node_read(
-    kind: str, session_id: str, source: str, node_id: str, connection: Db
+    kind: str, session_id: str, source: str, node_id: str, store: Db
 ) -> Popover | Measured:
     """The numbers behind a turn, an api call, or a tool call recorded on a thread."""
     if kind not in nodes.NUMBERED:
         raise HTTPException(404, "No numbers are served for that kind of node.")
-    return refused(lambda: fragments.counted(connection, Kind(kind), session_id, source, node_id))
+    return refused(lambda: fragments.counted(store, Kind(kind), session_id, source, node_id))
 
 
-def run_read(session_id: str, run_id: str, connection: Db) -> Popover | Measured:
+def run_read(session_id: str, run_id: str, store: Db) -> Popover | Measured:
     """One agent run's numbers, read on the thread the run's id also names."""
-    return refused(lambda: fragments.counted(connection, Kind.RUN, session_id, run_id, run_id))
+    return refused(lambda: fragments.counted(store, Kind.RUN, session_id, run_id, run_id))
 
 
-def session_read(session_id: str, connection: Db) -> Popover | Measured:
+def session_read(session_id: str, store: Db) -> Popover | Measured:
     """A whole session's numbers: the main thread's window, and every thread's spend."""
     return refused(
-        lambda: fragments.counted(connection, Kind.SESSION, session_id, MAIN_SOURCE, session_id)
+        lambda: fragments.counted(store, Kind.SESSION, session_id, MAIN_SOURCE, session_id)
     )
 
 

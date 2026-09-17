@@ -1,6 +1,6 @@
 """What the small fetches read: a popover's numbers, a fat value whole, one archived record.
 
-A fragment reads through the connection its route holds open rather than a window of its own —
+A fragment reads through the store its route holds open rather than a window of its own —
 it is one row, and closing the store between the row and the markup would cost more than the
 lock it gives back (`view/deps.py`). What it does not leave to the route is the query it ran,
 the values it bound, or the row that came back: those stop here, and what crosses is typed.
@@ -13,9 +13,8 @@ sentence, so a popover and the page for the same node refuse in the same words
 
 from collections.abc import Mapping
 
-import duckdb
-
 from hyphae.store import library
+from hyphae.store.handle import Store
 from hyphae.store.library import ParamValue
 from hyphae.store.pages import Fragment, Row, Value, page_rows
 from hyphae.view import bounds
@@ -31,7 +30,7 @@ from hyphae.view.pages.node.numbers import breakout, charges, spend, wash
 
 
 def counted(
-    connection: duckdb.DuckDBPyConnection, kind: Kind, session_id: str, source: str, node_id: str
+    store: Store, kind: Kind, session_id: str, source: str, node_id: str
 ) -> Popover | Measured:
     """One node's numbers, for the popover its NavTree row fetches.
 
@@ -48,7 +47,7 @@ def counted(
             source=source,
             tool_call_id=node_id,
         )
-        rows = page_rows(connection, Fragment.TOOL_NUMBERS, **keyed)
+        rows = page_rows(store, Fragment.TOOL_NUMBERS, **keyed)
         if not rows:
             raise Missing(KINDS[kind].missing)
         return Measured(
@@ -64,7 +63,7 @@ def counted(
         node_id=node_id,
         kind=kind,
     )
-    rows = page_rows(connection, Fragment.NUMBERS, **binds)
+    rows = page_rows(store, Fragment.NUMBERS, **binds)
     # The query aggregates, so it answers a row for a node that is not there as readily as
     # for one that is — a node with no api calls under it is a real reading, and the popover
     # prints it as the dashes it is.
@@ -85,9 +84,7 @@ def counted(
     )
 
 
-def compacted(
-    connection: duckdb.DuckDBPyConnection, session_id: str, source: str, compaction_id: str
-) -> Measured:
+def compacted(store: Store, session_id: str, source: str, compaction_id: str) -> Measured:
     """One compaction's numbers: the window it dropped, and the word recorded for why.
 
     Its own read rather than a branch of `counted`, because a compaction shares nothing with
@@ -100,7 +97,7 @@ def compacted(
         source=source,
         compaction_id=compaction_id,
     )
-    rows = page_rows(connection, Fragment.COMPACTION_NUMBERS, **keyed)
+    rows = page_rows(store, Fragment.COMPACTION_NUMBERS, **keyed)
     if not rows:
         raise Missing(KINDS[Kind.COMPACTION].missing)
     return Measured(
@@ -110,9 +107,7 @@ def compacted(
     )
 
 
-def detailed(
-    connection: duckdb.DuckDBPyConnection, spec: Spec, keys: Mapping[str, str]
-) -> Detailed:
+def detailed(store: Store, spec: Spec, keys: Mapping[str, str]) -> Detailed:
     """One Detail whole, and the syntax it is marked up as.
 
     `keys` are the path's own, which the spec's route template minted and `library.citation`
@@ -122,7 +117,7 @@ def detailed(
     Nothing asks the row what it is holding except through `syntax_of`, so a pane and its
     fetch cannot mark the same value up two ways.
     """
-    if spec.written is Written.LINE and not enriched(connection):
+    if spec.written is Written.LINE and not enriched(store):
         # A pass creates the enrichment tables rather than the exporter, so a store none has
         # touched holds no such line — the same nothing a missing row is, and the same answer
         # (`view/enrichment.py`). Asked per request and not at startup, because a pass can run
@@ -134,25 +129,23 @@ def detailed(
     # rides whole — but the bound on the file suffix beside it, which says how the answer is
     # marked up. A fetch prints at the pane's widths, so it names the pane's surface.
     keyed = bound(spec.whole, bounds.HEADER_WIDTHS, **keys)
-    row = _one(connection, spec.whole, keyed, "value")
+    row = _one(store, spec.whole, keyed, "value")
     return Detailed(
         whole=Whole(row["value"], spec.name, library.citation(spec.whole, keyed)),
         syntax=syntax_of(spec.written, row),
     )
 
 
-def recorded(
-    connection: duckdb.DuckDBPyConnection, session_id: str, source: str, line_no: int
-) -> Record:
+def recorded(store: Store, session_id: str, source: str, line_no: int) -> Record:
     """One archived record whole, as the browser's preview was cut from."""
     keyed = {"session_id": session_id, "source": source, "line_no": line_no}
     # The record itself, which the store holds NOT NULL.
-    row = _one(connection, Value.RECORD, keyed, "raw")
+    row = _one(store, Value.RECORD, keyed, "raw")
     return reads.record_value(row, library.citation(Value.RECORD, keyed))
 
 
 def _one(
-    connection: duckdb.DuckDBPyConnection,
+    store: Store,
     value: Value,
     keyed: Mapping[str, ParamValue],
     column: str,
@@ -164,7 +157,7 @@ def _one(
     an empty page: nothing on a pane links here unless there is a value to fetch, so a request
     for one that is not there is a URL somebody typed or a link somebody kept.
     """
-    rows = page_rows(connection, value, **keyed)
+    rows = page_rows(store, value, **keyed)
     if not rows or rows[0][column] is None:
         raise Missing("Nothing in this store is stored under that id.")
     return rows[0]

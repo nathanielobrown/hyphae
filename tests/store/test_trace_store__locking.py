@@ -119,7 +119,7 @@ def test_an_extract_lands_once_an_open_page_lets_go(db: Path, fixture_trace: Tra
     # If the store exists — a page can only read one an extract already wrote...
     stored(db)
 
-    # ...and a page holds it read-only the way `store/pages.py:open_store` does, letting go
+    # ...and a page holds it read-only the way `store/handle.py:open_store` does, letting go
     # partway through the block...
     with locked(db, hold=BRIEF_HOLD, read_only=True):
         started = time.monotonic()

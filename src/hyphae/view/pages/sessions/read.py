@@ -8,8 +8,10 @@ The whole document from one open of the store, closed before anything renders
 from collections.abc import Mapping
 from pathlib import Path
 
+from hyphae.store.handle import open_store
 from hyphae.store.library import ParamValue
-from hyphae.store.pages import Page, Row, open_store, page_rows, sorted_sessions
+from hyphae.store.pages import Page, Row, page_rows, sorted_sessions
+from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
@@ -20,10 +22,10 @@ from hyphae.view.pages.sessions.models import Described, ListParams, SessionRow,
 
 def sessions(db: Path, params: ListParams) -> SessionsPage:
     """One page of sessions, under the filter, sort and size the URL carried."""
-    with open_store(db) as connection:
+    with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
         # Whether the store holds the enrichment tables at all, which decides both what the
         # list joins and what it cites: a page cites what it ran.
-        describes = enriched(connection)
+        describes = enriched(store)
         # What the list binds, composed once and read twice — by the query, and by the
         # citation under it — because a citation that drifted from its query is a false one.
         listed = _list_bound(params.page, params.size, params.filters)
@@ -31,7 +33,7 @@ def sessions(db: Path, params: ListParams) -> SessionsPage:
         # do — one surface prints the row. Cited on its own below, out of this same mapping.
         joined = bound(Page.DESCRIBED_SESSIONS, bounds.LIST_WIDTHS) if describes else {}
         rows, more = sorted_sessions(
-            connection,
+            store,
             params.sort,
             params.direction,
             params.size,
@@ -39,7 +41,7 @@ def sessions(db: Path, params: ListParams) -> SessionsPage:
             {**listed, **joined},
             described=describes,
         )
-        projects = page_rows(connection, Page.PROJECTS, **bound(Page.PROJECTS, bounds.LIST_WIDTHS))
+        projects = page_rows(store, Page.PROJECTS, **bound(Page.PROJECTS, bounds.LIST_WIDTHS))
     return SessionsPage(
         rows=[_session_row(row) for row in rows],
         # Suggestions for the filter form, not a closed set: the form runs whatever is typed.

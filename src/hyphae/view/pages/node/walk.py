@@ -16,8 +16,7 @@ on top of the chain the page already resolved.
 from collections.abc import Sequence
 from typing import NamedTuple
 
-import duckdb
-
+from hyphae.store.handle import Store
 from hyphae.view.citation import Ran
 from hyphae.view.nodes import Node, Preset
 from hyphae.view.pages.node.models import Walked
@@ -27,8 +26,8 @@ from hyphae.view.pages.node.nav_tree import Corpus, children
 class _Reader:
     """One request's level reads, kept with the queries they ran so the page can cite them."""
 
-    def __init__(self, connection: duckdb.DuckDBPyConnection, corpus: Corpus) -> None:
-        self.connection = connection
+    def __init__(self, store: Store, corpus: Corpus) -> None:
+        self.store = store
         self.corpus = corpus
         self.ran: Ran = []
 
@@ -38,7 +37,7 @@ class _Reader:
         Always full: a filter preset is a view of the session, not a reading order, and three
         orders would be three reading needs to test for the one a reader has.
         """
-        level = children(self.connection, self.corpus, node.ref, Preset.FULL, None)
+        level = children(self.store, self.corpus, node.ref, Preset.FULL, None)
         self.ran.extend(level.ran)
         return level.nodes
 
@@ -58,15 +57,13 @@ class Walk(NamedTuple):
     ran: Ran
 
 
-def neighbours(
-    connection: duckdb.DuckDBPyConnection, corpus: Corpus, chain: Sequence[Node]
-) -> Walk:
+def neighbours(store: Store, corpus: Corpus, chain: Sequence[Node]) -> Walk:
     """The nodes read before and after `chain[-1]`, either None at an end of the session.
 
     `chain` is the open path the page already resolved, outermost first and ending at the
     selection — the walk climbs it rather than resolving ancestors again.
     """
-    reader = _Reader(connection, corpus)
+    reader = _Reader(store, corpus)
     return Walk(_previous(reader, chain), _next(reader, chain), reader.ran)
 
 

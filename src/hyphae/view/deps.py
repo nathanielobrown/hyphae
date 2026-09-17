@@ -1,10 +1,10 @@
-"""What a route asks FastAPI for instead of closing over it: the viewer, a connection, knobs.
+"""What a route asks FastAPI for instead of closing over it: the viewer, a store, knobs.
 
 Every route is a module-level function, so what used to arrive by closure arrives by
 `Depends`. `ViewerDep` is the app's one `Viewer`, put on `app.state` by `build_app`; `Db` is
-one request's read-only connection, opened and closed around the route.
+one request's read-only store, opened and closed around the route.
 
-`Db` holds that connection until the response is built, which is longer than an explicit
+`Db` holds that store until the response is built, which is longer than an explicit
 `with open_store(...)` inside the route. Short windows are what let `hp extract` write while a
 page is open, so `Db` is for the fragment routes, whose markup is a line or two. A document is
 read by a dependency of its own, which opens the store and closes it before any markup runs
@@ -21,11 +21,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
-import duckdb
 from fastapi import Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hyphae.store.pages import open_store
+from hyphae.store.handle import Store, open_store
+from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view.components import Html
 from hyphae.view.components import error as error_markup
 
@@ -65,16 +65,16 @@ def app_viewer(request: Request) -> Viewer:
 ViewerDep = Annotated[Viewer, Depends(app_viewer)]
 
 
-def request_store(viewer: ViewerDep) -> Generator[duckdb.DuckDBPyConnection]:
-    """One request's read-only connection, closed when the response is done.
+def request_store(viewer: ViewerDep) -> Generator[Store]:
+    """One request's read-only store, closed when the response is done.
 
     Read the window trade-off above before binding this in a route that renders a page.
     """
-    with open_store(viewer.db) as connection:
-        yield connection
+    with open_store(viewer.db, read_only=True, wait=PAGE_WAIT) as store:
+        yield store
 
 
-Db = Annotated[duckdb.DuckDBPyConnection, Depends(request_store)]
+Db = Annotated[Store, Depends(request_store)]
 
 
 def checked(size: int, ceiling: int) -> int:

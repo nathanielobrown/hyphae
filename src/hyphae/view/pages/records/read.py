@@ -7,8 +7,10 @@ a store column.
 
 from pathlib import Path
 
+from hyphae.store.handle import open_store
 from hyphae.store.library import ParamValue
-from hyphae.store.pages import MATCHED_ROWS, Page, open_store, page_rows, paged
+from hyphae.store.pages import MATCHED_ROWS, Page, page_rows, paged
+from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
@@ -23,8 +25,8 @@ def records(db: Path, session_id: str, source: str, after: int, size: int) -> Re
     """
     keyed: dict[str, ParamValue] = {"session_id": session_id, "source": source}
     binds = bound(Page.RECORDS, bounds.RECORDS_WIDTHS, **keyed, after=after, page_records=size)
-    with open_store(db) as connection:
-        page = paged(page_rows(connection, Page.RECORDS, **binds), "line_no")
+    with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
+        page = paged(page_rows(store, Page.RECORDS, **binds), "line_no")
     if not page.rows:
         return None
     # The one record the page fetches unasked: the first row, which is the one a citation

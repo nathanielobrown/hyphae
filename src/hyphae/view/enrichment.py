@@ -12,9 +12,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
-import duckdb
-
 from hyphae.models.enrichment import ROWS, Level, Versions
+from hyphae.store.handle import Store
 from hyphae.store.pages import Page, page_rows
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
@@ -97,32 +96,32 @@ class Descriptions:
     runs: Mapping[str, Enrichment] = field(default_factory=dict)
 
 
-def enriched(connection: duckdb.DuckDBPyConnection) -> bool:
+def enriched(store: Store) -> bool:
     """Whether this store holds the enrichment tables at all — a pass creates them, not the
     exporter, so a store nothing has enriched holds none of them."""
     held = {
         row[0]
-        for row in connection.execute(
-            "SELECT table_name FROM duckdb_tables() WHERE schema_name = 'main'"
-        ).fetchall()
+        for row in store.rows(
+            "SELECT table_name FROM duckdb_tables() WHERE schema_name = 'main'", {}
+        ).rows
     }
     return set(TABLES.values()) <= held
 
 
-def described(connection: duckdb.DuckDBPyConnection, session_id: str, source: str) -> Descriptions:
+def described(store: Store, session_id: str, source: str) -> Descriptions:
     """What the store says about one session, one thread's turns, and the session's runs.
 
     `source` is the thread the page renders — `main` on a session page, the run's id on a run
     page. An item with no row is absent from the mapping rather than present and empty, so a
     component asks `.get(id)` and gets a description or nothing.
     """
-    if not enriched(connection):
+    if not enriched(store):
         return Descriptions()
     bindings = bound(
         Page.ENRICHMENT, bounds.ENRICHMENT_WIDTHS, session_id=session_id, source=source
     )
     by_level: dict[Level, dict[str, Enrichment]] = {level: {} for level in Level}
-    for row in page_rows(connection, Page.ENRICHMENT, **bindings):
+    for row in page_rows(store, Page.ENRICHMENT, **bindings):
         level = Level(row["level"])
         by_level[level][row["item_id"]] = Enrichment(
             level=level,

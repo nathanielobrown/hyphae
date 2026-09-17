@@ -7,7 +7,9 @@ or a store column.
 
 from pathlib import Path
 
-from hyphae.store.pages import Page, Row, dropped, open_store, page_rows
+from hyphae.store.handle import open_store
+from hyphae.store.pages import Page, Row, dropped, page_rows
+from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
@@ -23,8 +25,8 @@ def projects(db: Path) -> ProjectsPage:
     # 7 days" from SQL's `now()` would cite a line that answers something else tomorrow,
     # and the footer's whole promise is that a reader can re-run what the page ran.
     binds = bound(Page.PROJECT_ROLLUPS, bounds.PROJECTS_WIDTHS, as_of=fmt.utcnow().date())
-    with open_store(db) as connection:
-        rows = page_rows(connection, Page.PROJECT_ROLLUPS, **binds)
+    with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
+        rows = page_rows(store, Page.PROJECT_ROLLUPS, **binds)
     return ProjectsPage(
         rows=[_project_row(row) for row in rows],
         # The bindings the two window headings print, so a heading and its column read the

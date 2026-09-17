@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from hyphae.models.enrichment import Category, Outcome
 from hyphae.store import library
+from hyphae.store.handle import Store
 from hyphae.store.library import ParamValue
 from hyphae.store.pages import TURN_CURSOR, Page, cursorless_rows
 from hyphae.view import bounds
@@ -304,7 +305,9 @@ def test_the_timeline_rows_no_window_reaches_are_capped_at_what_a_page_budgets(
     riding a page nothing counted them on.
     """
     bound: dict[str, ParamValue] = {"session_id": RESUME, "log_chars": bounds.LOG_WIDTHS.log_chars}
-    rows = cursorless_rows(store, Page.TIMELINE, TURN_CURSOR, bounds.CURSORLESS_TURNS, **bound)
+    rows = cursorless_rows(
+        Store(store), Page.TIMELINE, TURN_CURSOR, bounds.CURSORLESS_TURNS, **bound
+    )
     assert [row["turn_id"] for row in rows] == [library.UNATTRIBUTED]
     with pytest.raises(ValueError, match="more than 0"):
-        cursorless_rows(store, Page.TIMELINE, TURN_CURSOR, 0, **bound)
+        cursorless_rows(Store(store), Page.TIMELINE, TURN_CURSOR, 0, **bound)

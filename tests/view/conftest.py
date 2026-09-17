@@ -122,7 +122,7 @@ def pages(store: duckdb.DuckDBPyConnection) -> list[str]:
 def reading(path: Path) -> Generator[duckdb.DuckDBPyConnection]:
     """A read-only connection to one store, opened the way a request opens one.
 
-    Macros and all (`store/pages.py:open_store`): a library query calls them by name, so a bare
+    Macros and all (`store/handle.py:open_store`): a library query calls them by name, so a bare
     connection answers a catalog error rather than rows.
     """
     connection = duckdb.connect(str(path), read_only=True)
