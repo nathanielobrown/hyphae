@@ -116,8 +116,11 @@ run = "tools/gate.py uv run pyrefly check"
 [tasks.lint-imports]
 description = "Check the package's import layers with import-linter"
 # Which package may import which: `docs/layering.md`. The contract has no fixing twin — a red
-# run names an edge that points up, and moving the code is the fix.
-run = "tools/gate.py uv run lint-imports"
+# run names an edge that points up, and moving the code is the fix. Uncached: grimp keys its
+# cache by `include_external_packages` but shares one table of mtimes across the variants, so
+# a variant last built before a module changed answers with the module's old imports. The
+# cache saves nothing at this package's size.
+run = "tools/gate.py uv run lint-imports --no-cache"
 
 [tasks.lint-docs]
 description = "Lint the docs with aigarden — links, size budgets, prose style — applying fixes"

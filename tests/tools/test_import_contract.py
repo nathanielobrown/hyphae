@@ -83,7 +83,8 @@ def run_contract(layers: list[str], tmp_path: Path) -> subprocess.CompletedProce
         "exhaustive = true\nlayers =\n" + "".join(f"    {layer}\n" for layer in layers)
     )
     return subprocess.run(
-        ["uv", "run", "lint-imports", "--config", str(path)],
+        # Uncached for the reason `mise.toml` gives: a stale variant would red the wrong edge.
+        ["uv", "run", "lint-imports", "--no-cache", "--config", str(path)],
         cwd=ROOT,
         capture_output=True,
         text=True,
