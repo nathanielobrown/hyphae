@@ -82,13 +82,16 @@ def test_the_omitted_modules_are_the_contracts_top_line_and_bottom_two() -> None
 
 def test_the_layers_the_plan_drew_are_the_ones_the_graph_shows(graph: str) -> None:
     """The store is what every package reaches, and the parser reaches no store: `extract` and
-    `store` each import only the pipeline seam, nothing imports either of them or `export`, and
-    the viewer reads the enrichment vocabulary from `models` rather than from the pass."""
+    `store` each import only the pipeline seam, nothing imports either of them or `export`, the
+    pass reads and writes its tables through `store`, and the viewer reads the enrichment
+    vocabulary from `models` rather than from the pass."""
     edges = drawn_edges(graph)
     # The reader rebuilds a trace from rows as a `SessionSource`, so the store's one edge is
     # the seam, and the parser's is the same one: neither reaches the other...
     assert {edge for edge in edges if edge[0] == "store"} == {("store", "pipeline")}
     assert {edge for edge in edges if edge[0] == "extract"} == {("extract", "pipeline")}
+    # ...the enrichment tables' writer sits in `store`, so the pass points down at it...
+    assert ("enrich", "store") in edges
     # ...no package imports the exporter or the parser to reach the store...
     assert not [edge for edge in edges if edge[1] in ("export", "extract")]
     # ...and the edge phase 1 removed stays gone: `view` and `enrich` share a layer line.
