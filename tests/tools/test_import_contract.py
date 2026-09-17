@@ -154,17 +154,17 @@ def test_the_parser_imports_nothing_from_store(tmp_path: Path) -> None:
 
 
 @pytest.mark.reads_the_repo  # the same subprocess, over a forbidden contract wider than written
-def test_the_forbidden_contract_names_the_viewer_when_it_is_a_source(tmp_path: Path) -> None:
-    # If the viewer joins the packages that may not name the driver...
+def test_the_forbidden_contract_names_the_store_when_it_is_a_source(tmp_path: Path) -> None:
+    # If the store joins the packages that may not name the driver...
     sources = contract("forbidden")["source_modules"]
-    assert "hyphae.view" not in sources, "the viewer is a source now; retarget this case"
-    done = run_contract(contract_layers(), tmp_path, forbidden_sources=[*sources, "hyphae.view"])
-    # ...the run is red for that reason: the report names the viewer and each module of it
-    # that imports `duckdb`, rather than the config crash an `.ini` without
+    assert "hyphae.store" not in sources, "the store is a source now; retarget this case"
+    done = run_contract(contract_layers(), tmp_path, forbidden_sources=[*sources, "hyphae.store"])
+    # ...the run is red for that reason: the report names the store and the module of it that
+    # opens the file, rather than the config crash an `.ini` without
     # `include_external_packages` dies with, which also exits 1.
     assert done.returncode != 0, done.stdout
-    assert "hyphae.view is not allowed to import duckdb:" in done.stdout, done.stdout
-    assert "hyphae.view.deps -> duckdb" in done.stdout, done.stdout
+    assert "hyphae.store is not allowed to import duckdb:" in done.stdout, done.stdout
+    assert "hyphae.store.trace_store -> duckdb" in done.stdout, done.stdout
 
 
 @pytest.mark.reads_the_repo  # reads the two contracts in `pyproject.toml`

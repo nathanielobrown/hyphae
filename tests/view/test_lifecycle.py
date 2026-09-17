@@ -127,6 +127,9 @@ def test_a_store_replaced_under_the_viewer_is_caught_per_request(
     message = fields(response.text, "id", "error")["message"]
     assert str(SCHEMA_VERSION) in message and str(held) in message
     assert remedy in message
+    # ...and what to do once the store is right, which is the one sentence the viewer adds
+    # to the opener's own.
+    assert "Restart the viewer." in message
 
 
 @pytest.mark.parametrize("route", sorted(DOCUMENTS))
