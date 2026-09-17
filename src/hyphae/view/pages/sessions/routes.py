@@ -23,7 +23,7 @@ from hyphae.view.deps import ViewerDep
 from hyphae.view.links import DEFAULT_DIRECTION, DEFAULT_SORT, LIST_URL, list_url
 from hyphae.view.pages.sessions import markup, read
 from hyphae.view.pages.sessions.markup import Control
-from hyphae.view.pages.sessions.models import ListParams, SessionsPage
+from hyphae.view.pages.sessions.models import HEADINGS, ListParams, SessionsPage
 from hyphae.view.store import DIRECTIONS, FILTERS, SORTS
 
 router = APIRouter()
@@ -132,7 +132,7 @@ def sessions_markup(ask: ListAsk, page: SessionsRead, viewer: ViewerDep) -> Html
         page=page,
         # One heading per sortable column, in `SORTS` order, each carrying the link that
         # re-sorts by it.
-        headings=[markup.Heading(key, label, links[key]) for key, label in SORTS.items()],
+        headings=[markup.Heading(key, HEADINGS[key], links[key]) for key in SORTS],
         sort=ask.sort,
         direction=ask.direction,
         # The same ordering in ARIA's vocabulary, for the heading that marks it: the form and

@@ -13,6 +13,23 @@ from hyphae.store.library import ParamValue
 from hyphae.view.citation import Cited
 from hyphae.view.models import Count
 
+# What the page heads each sortable column with, keyed by the column (`view/store.py:SORTS`).
+# Held to that tuple from both sides by `tests/view/test_app__list.py`; the order is the
+# store's, the words are the page's.
+HEADINGS: Mapping[str, str] = {
+    "started_at": "Started",
+    "title": "Session",
+    "project_dir": "Project",
+    "turns": "Turns",
+    "api_calls": "Calls",
+    "tool_calls": "Tools",
+    "compactions": "Compactions",
+    "tool_errors": "Errors",
+    "cost_usd": "Cost",
+    "wall_ms": "Wall",
+    "agent_runs": "Subagents",
+}
+
 
 class ListParams(NamedTuple):
     """What a request asked the list for, each value already checked against its closed set.

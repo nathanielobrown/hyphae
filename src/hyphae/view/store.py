@@ -279,27 +279,28 @@ def cursorless_rows(
 # a fragment of SQL — every value a request supplied binds as a parameter, and no request text
 # reaches DuckDB as text.
 
-# What the session list can be sorted by: a column of `view_sessions`, mapped to its header
-# label. A closed dictionary, and the only place a request's `sort` value is ever looked up —
-# an unknown key is a 400, never a fragment of SQL. `tests/view/test_app__list.py` checks every
-# key against the columns the query returns. Output tokens and active time are not here: they
+# What the session list can be sorted by: columns of `view_sessions`, in the order the page
+# heads them. Closed, and the only place a request's `sort` value is ever looked up — an
+# unknown key is a 400, never a fragment of SQL. `tests/view/test_app__list.py` checks every
+# one against the columns the query returns, and the page's labels against this list
+# (`view/pages/sessions/models.py:HEADINGS`). Output tokens and active time are not here: they
 # ride the row as the second line of the cost and wall cells, and a column nobody ranks a
 # corpus by is texture rather than a heading.
-SORTS: dict[str, str] = {
-    "started_at": "Started",
-    "title": "Session",
-    "project_dir": "Project",
-    "turns": "Turns",
-    "api_calls": "Calls",
-    "tool_calls": "Tools",
-    "compactions": "Compactions",
+SORTS: tuple[str, ...] = (
+    "started_at",
+    "title",
+    "project_dir",
+    "turns",
+    "api_calls",
+    "tool_calls",
+    "compactions",
     # By the count, though the cell shows the rate: one tool call that failed is a session at
     # 100%, and not the session a reader sorting by errors is looking for.
-    "tool_errors": "Errors",
-    "cost_usd": "Cost",
-    "wall_ms": "Wall",
-    "agent_runs": "Subagents",
-}
+    "tool_errors",
+    "cost_usd",
+    "wall_ms",
+    "agent_runs",
+)
 
 
 @dataclass(frozen=True)
@@ -381,9 +382,9 @@ def sorted_sessions(
     """One page of the session list, ordered by one of `SORTS` — the design's composition.
 
     The library query stays the citable core: it goes in a subquery untouched, and what is
-    wrapped around it is a WHERE of `FILTERS` predicates, an ORDER BY built from two
-    dictionary lookups, a LIMIT, and `SHOWN` over the rows that survive all three — every
-    value a request supplied bound as a parameter. `session_id` breaks ties in the same
+    wrapped around it is a WHERE of `FILTERS` predicates, an ORDER BY from a checked sort and
+    direction, a LIMIT, and `SHOWN` over the rows that survive all three — every value a
+    request supplied bound as a parameter. `session_id` breaks ties in the same
     direction, which makes every sort a total order, its reverse exact, and the page
     boundaries stable between requests. The rows carrying no value sort last either way:
     "the store does not know" is not the largest reading of a column, or the smallest.

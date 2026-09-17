@@ -20,6 +20,7 @@ from hyphae.store import library
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.links import DEFAULT_DIRECTION, DEFAULT_SORT
+from hyphae.view.pages.sessions.models import HEADINGS
 from hyphae.view.pages.sessions.routes import ARIA_SORT
 from hyphae.view.store import DIRECTIONS, SORTS, Page
 from hyphae.view.text import format as fmt
@@ -274,6 +275,9 @@ def test_every_sort_key_names_a_column_the_query_returns(
     widths = dict.fromkeys(manifest.describe("view_sessions").params, bounds.LIST_WIDTHS.item_chars)
     returned = {row[0] for row in store.execute(f"DESCRIBE ({listing})", widths).fetchall()}
     assert set(SORTS) <= returned
+    # ...and the page has a heading for each and for nothing else: a label is the page's,
+    # a sortable column the store's, and the two are held to one set from either side.
+    assert set(HEADINGS) == set(SORTS)
 
 
 @pytest.mark.parametrize("sort", sorted(SORTS))
