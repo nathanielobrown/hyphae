@@ -32,8 +32,8 @@ The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src
 
 - **Extractor** — reads one agent's sessions into the model
 - **Exporter** — writes the model to a sink; the store and OTLP are sinks
-- **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache; its schema, every table's writer, the reader and the reads a viewer page runs are `src/hyphae/store/`
-- **Store handle** — one open trace store, `src/hyphae/store/handle.py:Store`: what a page, `hp query` or a pass holds instead of a connection, and `rows` on it is the one way a package outside the store runs SQL
+- **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache; its schema, every table's writer, the reader and the repositories a viewer page reads through are `src/hyphae/store/`
+- **Store handle** — one open trace store, `src/hyphae/store/handle.py:Store`: what a page, `hp query` or a pass holds instead of a connection; its repositories are the only reads a package outside the store makes, and the driver never leaves the package
 - **Repository** — one family of reads over the handle, a method per statement, the widths and keys in and the models and citation out; each hangs off the handle as a property (`src/hyphae/store/handle.py`), `store.sessions` (`src/hyphae/store/sessions.py:SessionRepository`) the pattern, and a page names the repository and never the SQL
 - **Fingerprint** — changes when any of a session's files do; the only thing deciding re-extraction
 - **Picker** — the multi-select a bare `hp extract` opens: one row per base project, sorted by recent activity, pre-checked with the last pick; the only thing that writes the settings file (`src/hyphae/extract/picker.py`)

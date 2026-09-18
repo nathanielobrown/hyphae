@@ -1,12 +1,13 @@
-"""One open trace store, and the one verb a page or `hp query` runs SQL through.
+"""One open trace store: the repositories a page, `hp query` or a pass reads through, and the
+one private verb they run SQL by.
 
-The driver stays inside this package: a page or a query holds a `Store` rather than a
-connection, and the forbidden contract holds every package outside the store to that
-(`docs/layering.md`). The enrichment tables' writer is the `enrichment` repository, prepared
-on a writable handle by the pass that owns it; the OTLP ledger's stays a writer of its own.
-`rows` hands back columns and tuples because its two consumers want different shapes from
-them — the page reads want dicts, `hp query` a header and a body — and a cursor is the
-driver's type.
+The driver stays inside this package: a caller holds a `Store` rather than a connection and
+names one of the repositories below, and the forbidden contract holds every package outside
+the store to that (`docs/layering.md`). The enrichment tables' writer is the `enrichment`
+repository, prepared on a writable handle by the pass that owns it; which writers stand
+outside the handle, `docs/store.md` says. `_rows` hands back columns and tuples because its
+two consumers want different shapes from them — the page reads want dicts, `hp query` a header
+and a body — and a cursor is the driver's type.
 """
 
 from collections.abc import Generator, Mapping
@@ -94,9 +95,10 @@ class Store:
     def _rows(self, sql: str, bindings: Mapping[str, ParamValue]) -> Fetched:
         """Run one statement with every value bound by name, and hand back what it answered.
 
-        DDL runs through here too — the analysis corpus relations are temp tables — and
-        answers whatever the driver reports for it. A binding the statement names and the
-        caller left out is the driver's own error, not a NULL bound in its place.
+        The repositories' one verb, and the library's `fetch` over it. DDL runs through here
+        too — the analysis corpus relations are temp tables — and answers whatever the driver
+        reports for it. A binding the statement names and the caller left out is the driver's
+        own error, not a NULL bound in its place.
         """
         cursor = self._connection.execute(sql, dict(bindings))
         columns = tuple(column[0] for column in cursor.description or ())
