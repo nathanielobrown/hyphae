@@ -17,6 +17,7 @@ cannot: the delegate, and the library's pair, public so a repository module can 
 import ast
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
+from functools import cached_property
 from pathlib import Path
 from typing import NamedTuple
 
@@ -266,11 +267,13 @@ def spells_library(receiver: ast.expr, library: frozenset[str]) -> bool:
     )
 
 
-def handles_named() -> set[str]:
-    """Every name a handle is held under outside the store: parameters annotated as one, `with`
-    targets and `enter_context` assignments of `open_store`."""
+def handles_named(modules: list[tuple[str, ast.Module]]) -> set[str]:
+    """Every name a handle is held under in `modules`: parameters annotated as one, `with`
+    targets and `enter_context` assignments of `open_store`, and whatever one of those is then
+    assigned to, `db = store`, `db: Store = store` or `self.db = store`."""
     names: set[str] = set()
-    for _, tree in outside_the_store():
+    trees = [tree for _, tree in modules]
+    for tree in trees:
         for node in ast.walk(tree):
             if isinstance(node, ast.arg) and node.annotation is not None:
                 spelled = ast.unparse(node.annotation)
@@ -287,7 +290,20 @@ def handles_named() -> set[str]:
                     and any(opens_a_store(argument) for argument in node.value.args)
                 ):
                     names.update(ast.unparse(target) for target in node.targets)
+    # A second pass, since a walk reaches a body's assignment before the parameter it copies.
+    for tree in trees:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign | ast.AnnAssign) and (
+                isinstance(node.value, ast.Name) and node.value.id in names
+            ):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                names.update(rebound(target) for target in targets)
     return names
+
+
+def rebound(target: ast.expr) -> str:
+    """The name a plain assignment binds: the bare name, or the attribute of a stash."""
+    return target.attr if isinstance(target, ast.Attribute) else ast.unparse(target)
 
 
 def opens_a_store(expression: ast.expr) -> bool:
@@ -351,7 +367,46 @@ def test_no_module_outside_the_store_reaches_the_handle() -> None:
 def test_every_store_handle_outside_the_store_is_named_store() -> None:
     """The spelling the ratchet keys on: a handle outside the store is always `store`.
 
-    A parameter typed `Store` or `Db` under another name, or `open_store` opened `as db`, would be
-    a handle the scan above cannot see reaching in.
+    A parameter typed `Store` or `Db` under another name, `open_store` opened `as db`, or a
+    `store` copied into `db`, would be a handle the scan above cannot see reaching in.
     """
-    assert handles_named() == {"store"}
+    assert handles_named(outside_the_store()) == {"store"}
+
+
+# What the handle scan sees, one module each: each way a handle arrives, and each way one is
+# copied to another name afterwards, whichever order the two are written in.
+HELD = [
+    pytest.param("def f(store: Store): ...", {"store"}, id="parameter"),
+    pytest.param("def f(store: Store | None): ...", {"store"}, id="optional_parameter"),
+    pytest.param("with open_store(path) as db: ...", {"db"}, id="with_target"),
+    pytest.param("db = stack.enter_context(open_store(path))", {"db"}, id="entered"),
+    pytest.param("def f(store: Store):\n    db = store", {"store", "db"}, id="copied"),
+    pytest.param("def f(store: Store):\n    db: Store = store", {"store", "db"}, id="copied_typed"),
+    pytest.param("def f(store: Store):\n    self.db = store", {"store", "db"}, id="stashed"),
+    pytest.param("db = store\ndef f(store: Store): ...", {"store", "db"}, id="copied_above"),
+    pytest.param("def f(store: Store):\n    db = other", {"store"}, id="copied_from_elsewhere"),
+]
+
+
+@pytest.mark.parametrize(("source", "held"), HELD)
+def test_the_scan_sees_each_name_a_handle_is_held_under(source: str, held: set[str]) -> None:
+    """Every way a module takes a handle or copies it to another name is seen, in a module of
+    one or two lines, and a copy of something else is not."""
+    assert handles_named([("plant.py", ast.parse(source))]) == held
+
+
+@pytest.mark.reads_the_repo  # reads the class namespace, which mutmut fills with `xǁ` variants
+def test_the_public_names_of_a_handle_are_its_repositories() -> None:
+    """What `Store` exports is one property per repository and nothing else — no public alias
+    of a verb the ratchet and the lint watch by their private names."""
+    # The class namespace holds one public name per repository...
+    public = {name for name in vars(Store) if not name.startswith("_")}
+    repositories = {
+        name for name, member in vars(Store).items() if isinstance(member, cached_property)
+    }
+    assert public == repositories
+    assert "sessions" in repositories
+    # ...and a fresh handle holds no public name of its own: an alias `__init__` sets, which the
+    # class namespace never shows, would be the one public name on it before any repository is
+    # read, since a `cached_property` writes into the instance only once read.
+    assert not {name for name in vars(Store(duckdb.connect())) if not name.startswith("_")}

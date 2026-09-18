@@ -224,6 +224,20 @@ def whole(path: Path, module: str) -> bool:
     )
 
 
+def aliased(path: Path, package: str) -> set[str]:
+    """Every `as` name one file binds to the package, a module of it or a name in it: a spelling
+    the scans above key on the real name and would read straight past."""
+    found = set()
+    for node in ast.walk(ast.parse(path.read_text())):
+        if not isinstance(node, ast.Import | ast.ImportFrom):
+            continue
+        for alias in node.names:
+            origin = alias.name if isinstance(node, ast.Import) else f"{node.module}.{alias.name}"
+            if alias.asname and (origin == package or origin.startswith(f"{package}.")):
+                found.add(alias.asname)
+    return found
+
+
 def queried(path: Path) -> set[str]:
     """Every name one file takes from the query library, by attribute or by import."""
     tree = ast.parse(path.read_text())
@@ -446,6 +460,8 @@ def test_a_page_model_is_made_of_nothing_either_side_of_the_seam_owns() -> None:
         here = f"{PACKAGE}.{dotted(path)}"
         assert frameworks([here], FRAMEWORKS) == "", f"{path.relative_to(VIEW)} holds a framework"
         assert row not in taken(path, module), f"{path.relative_to(VIEW)} carries a raw row"
+        # ...nor the module that declares it, which would carry the row as an attribute...
+        assert not whole(path, module), f"{path.relative_to(VIEW)} imports {module} whole"
     # ...and the probe can see one where one is: every page's markup names htpy, and holds it...
     assert all("htpy" in named(path) for path in markup_modules())
     marked = [f"{PACKAGE}.{dotted(path)}" for path in markup_modules()]
@@ -503,9 +519,13 @@ def test_no_routes_module_of_a_page_names_the_stores_vocabulary(tmp_path: Path) 
     assert found, "no page declares a routes module"
     for path in found:
         names = {name for module in STORE for name in taken(path, module)}
-        # ...none of them takes a store module whole, which would hide the names below...
-        for module in STORE:
+        # ...none of them takes a store module whole, or the store itself, or the root package,
+        # which would hide the names below behind an attribute...
+        for module in (*STORE, "hyphae.store", "hyphae"):
             assert not whole(path, module), f"{dotted(path)} imports {module} whole"
+        # ...none binds anything of the store under another name, which would hide it from
+        # every scan below that keys on the real one...
+        assert not aliased(path, "hyphae.store"), f"{dotted(path)} aliases the store"
         # ...none names anything the store exports but the words a URL is written in...
         assert names <= URL_WORDS, f"{dotted(path)} names the store's {sorted(names - URL_WORDS)}"
         # ...and none names a query the library declares.
@@ -516,12 +536,27 @@ def test_no_routes_module_of_a_page_names_the_stores_vocabulary(tmp_path: Path) 
     read = {name for path in read_modules() for module in STORE for name in taken(path, module)}
     assert "open_store" in read
     assert any(whole(path, "hyphae.view.bounds") for path in read_modules())
-    # ...and it can see the module taken whole, in either spelling, where a module does.
-    for module in STORE:
+    # ...it can see the module taken whole, in either spelling, where a module does, and the
+    # store or the root package taken whole above it...
+    for module in (*STORE, "hyphae.store", "hyphae"):
         package, _, name = module.rpartition(".")
-        for spelling in (f"import {module}\n", f"from {package} import {name}\n"):
+        spellings = [f"import {module}\n"]
+        if package:
+            spellings.append(f"from {package} import {name}\n")
+        for spelling in spellings:
             (tmp_path / "routes.py").write_text(spelling)
             assert whole(tmp_path / "routes.py", module), spelling
+    # ...and the alias, whether it renames the store, one of its modules or one of its names.
+    for spelling in (
+        "from hyphae import store as s\n",
+        "import hyphae.store as s\n",
+        "from hyphae.store import library as s\n",
+        "from hyphae.store.sessions import SORTS as s\n",
+    ):
+        (tmp_path / "routes.py").write_text(spelling)
+        assert aliased(tmp_path / "routes.py", "hyphae.store") == {"s"}, spelling
+    (tmp_path / "routes.py").write_text("from hyphae.storefront import x as s\n")
+    assert not aliased(tmp_path / "routes.py", "hyphae.store")
 
 
 def test_the_store_roster_is_every_module_of_the_store_but_the_library() -> None:
