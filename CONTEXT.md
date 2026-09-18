@@ -67,7 +67,7 @@ What each page shows and cites: `docs/viewer.md`; the code: one package per page
 
 - **Component** — one typed function building part of a page's markup with htpy; a page is Python, not a template (a page's own `markup`, over the shared `src/hyphae/view/components/`)
 - **Surface** — one place a page prints store text at widths of its own: the NavTree, a header, a children log, an expansion, a popover, a list row; `src/hyphae/view/bounds.py` declares each
-- **Widths** — a surface's fixed sizes, one field per query parameter it binds; a read names the surface, `bounds.bound` fills the mapping, the footer quotes it
+- **Widths** — a surface's fixed sizes, one field per query parameter it binds; a read names the surface, `store/library.py:bind` fills the mapping off it, the footer quotes it
 - **Projects page** — `/`, the landing page: every project and its recent sessions
 - **Session list** — `/sessions`: the filter form above one page of sessions
 - **Node page** — the one page shape every node kind shares: NavTree beside reading pane
@@ -101,7 +101,7 @@ What each page shows and cites: `docs/viewer.md`; the code: one package per page
 - **Facts** — the labelled store fields under the title; the label registry is `src/hyphae/view/text/labels.py`
 - **Enrichment block** — what a pass wrote about the node: description, tags, friction, behind the `✨` glyph
 - **Detail** — a fat value the reading pane previews, cut at 4,000 characters with the rest a fetch away (`?detail=`)
-- **Detail spec** — the one declaration of a Detail: its name, fetch route, header and whole queries, and how it was written; the registry is `src/hyphae/view/detail.py:DETAILS`
+- **Detail spec** — the one declaration of a Detail: its name, the fetch that answers it whole and the route that serves it, and how it was written; a node's own are `src/hyphae/view/detail.py:DETAILS`, a pass's lines `src/hyphae/view/enrichment.py:LINES`
 - **Children log** — the paged table of one kind of child under the details (`?log=`)
 - **Expansion** — a child's body opened in place from a log row's View button
 - **Walk** — the prev / next controls stepping along the node's own level

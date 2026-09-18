@@ -2,10 +2,11 @@
 
 The driver stays inside this package: a page or a query holds a `Store` rather than a
 connection, and the forbidden contract holds every package outside the store to that
-(`docs/layering.md`). The enrichment tables and the OTLP ledger keep their own writers in
-this package until phase 4 of the store-layering plan hangs them off the handle. `rows`
-hands back columns and tuples because its two consumers want different shapes from them —
-the page reads want dicts, the runner a header and a body — and a cursor is the driver's type.
+(`docs/layering.md`). The enrichment tables keep their own writer in this package until PR
+4.5 of the store-layering plan hangs it off the handle; the OTLP ledger's stays a writer of
+its own. `rows` hands back columns and tuples because its two consumers want different shapes
+from them — the page reads want dicts, the runner a header and a body — and a cursor is the
+driver's type.
 """
 
 from collections.abc import Generator, Mapping
@@ -30,8 +31,8 @@ class Fetched(NamedTuple):
 class Store:
     """One open trace store, for as long as the caller holds it.
 
-    A page gets one per request (`PAGE_WAIT`); a query gets one per run (`CLI_WAIT`).
-    Phase 4 of the store-layering plan hangs one repository per area off it.
+    A page gets one per request (`PAGE_WAIT`); a query gets one per run (`CLI_WAIT`). The
+    repositories block below fills in as each phase-4 PR hangs its area off the handle.
     `connection` is public until the last `rows` caller outside this package is gone.
     """
 
