@@ -19,6 +19,7 @@ import duckdb
 
 from hyphae.models.citation import ParamValue
 from hyphae.store import macros
+from hyphae.store.failures import FailureRepository
 from hyphae.store.offloads import OffloadRepository
 from hyphae.store.records import RecordRepository
 from hyphae.store.sessions import SessionRepository
@@ -62,7 +63,10 @@ class Store:
         """The offload page: one chunk of a tool result Claude Code wrote to a file."""
         return OffloadRepository(self)
 
-    # failures
+    @cached_property
+    def failures(self) -> FailureRepository:
+        """The errors page and the error stepper: every failed tool call of one session."""
+        return FailureRepository(self)
 
     # analysis
 

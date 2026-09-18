@@ -14,6 +14,7 @@ session looks like, not an invented one.
 """
 
 import duckdb
+import pytest
 from fastapi.testclient import TestClient
 
 from hyphae.view import bounds
@@ -85,6 +86,33 @@ def test_the_errors_page_lists_every_failure_of_the_session_in_the_order_they_ha
     # told apart without opening either.
     row = fields(page, "data-error", f"tool:{order[0][1]}")
     assert row["title"] and row["started_at"]
+
+
+def test_a_cap_below_the_count_lists_the_first_failures_and_says_how_many_it_left(
+    plant: Planter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The "+N more" line is the store's count of what the cap left off, said rather than lost.
+
+    The cap is 100 and the busiest recorded session fails once, so the line never renders over
+    the fixtures as recorded: the cap is lowered at the one constant the page reads it from,
+    over the planted seven.
+    """
+    cap = 3
+    monkeypatch.setattr(bounds, "ERRORS_WIDTHS", bounds.ERRORS_WIDTHS._replace(errors=cap))
+    path = plant(ALL_FAILED)
+    with TestClient(build_app(path)) as planted:
+        page = planted.get(f"/session/{FORK_ORIGIN}/errors").text
+    with duckdb.connect(str(path), read_only=True) as connection:
+        order = failed(connection, FORK_ORIGIN)
+    left = len(order) - cap
+    assert left > 0
+    # The page lists the first `cap` failures in the order the whole list has...
+    assert values(page, "data-error") == [f"tool:{tool_id}" for _, tool_id in order[:cap]]
+    # ...counts the whole session in its heading, not the rows in front of the reader...
+    assert fields(page, "class", "numbers")["matched"] == str(len(order))
+    # ...and says how many it left, once, as the number the store counted.
+    assert values(page, "data-more-errors") == [str(left)]
+    assert fields(page, "data-more-errors", str(left))["cut"] == str(left)
 
 
 def test_a_session_with_no_failure_to_jump_to_has_no_errors_page(client: TestClient) -> None:

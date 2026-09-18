@@ -44,9 +44,6 @@ class Page(StrEnum):
     # RecordRepository and OffloadRepository
 
     # FailureRepository
-    # Every failed tool call of one session, across every thread — the one page the NavTree
-    # cannot lead to, because a failure is scattered rather than nested (`view/failures.py`).
-    SESSION_ERRORS = "view_session_errors"
 
     # EnrichmentRepository
     # What an enrichment pass said about the session, its turns and its runs. Absent from a
@@ -231,12 +228,3 @@ def listed(rows: list[Row]) -> Listed:
     whose page is empty is one whose pages ran out.
     """
     return Listed(rows, rows[0][MATCHED_ROWS] if rows else 0)
-
-
-def dropped(rows: list[Row]) -> int:
-    """How many rows the query's own LIMIT left off, for a page that says so rather than lose them.
-
-    A count of rows, not a shortened string: `format.cut` and the `cut` SQL macro are the other
-    thing that word means here. Zero on an empty page — a level with nothing in it lost nothing.
-    """
-    return listed(rows).total - len(rows)
