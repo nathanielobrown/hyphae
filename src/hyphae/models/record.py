@@ -1,5 +1,6 @@
 """What the records browser and the offload page read: one raw transcript line as a browser
-row previews it, and one chunk of a tool result Claude Code wrote to a file.
+row previews it and as its fragment prints it whole, and one chunk of a tool result Claude
+Code wrote to a file.
 
 Each is built by column name off the statement that answers it (`store/records.py`,
 `store/offloads.py`), under `row.ROW`, so a column the statement gains or loses raises at the
@@ -17,19 +18,34 @@ from hyphae.models.row import ROW
 
 
 @dataclass(frozen=True, config=ROW)
-class Record:
-    """One archived transcript line as the records browser previews it: a `view_records` row."""
+class RecordFields:
+    """What every read of one archived transcript line carries: where it sits, what it is."""
 
     line_no: int
     # What Claude Code stamped the record with, where it did: a `mode` line carries neither.
     uuid: str | None
     type: str
     timestamp: dt.datetime | None
-    # The record's true length, beside the head the row shows of it.
+    # The record's true length, beside whatever of the text the read carries.
     raw_chars: int
+
+
+@dataclass(frozen=True, config=ROW)
+class Record(RecordFields):
+    """One archived transcript line as the records browser previews it: a `view_records` row."""
+
     raw_head: str
     # How many records the cursor had ahead of it before the cut, on every row alike.
     matched_rows: int
+
+
+@dataclass(frozen=True, config=ROW)
+class WholeRecord(RecordFields):
+    """One archived transcript line whole, as the browser's preview was cut from it: the
+    `view_record` row, cited."""
+
+    raw: str
+    citation: Citation
 
 
 class Paged(NamedTuple):

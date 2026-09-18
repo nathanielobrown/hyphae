@@ -1,9 +1,10 @@
 """The records and offload row models: built under the one row config, and what it refuses.
 
 `tests/models/test_listing.py` pins the config itself and the three refusals it buys; this
-holds the two models `store/records.py` and `store/offloads.py` build to it, and pins one
-refusal apiece on the column each page reads first. The values themselves are the store's:
-`tests/store/test_records.py` and `test_offloads.py` build every model off recorded rows.
+holds the three models `store/records.py`, `store/offloads.py` and `store/nodes.py` build to
+it, and pins one refusal apiece on the column each page reads first. The values themselves are
+the store's: `tests/store/test_records.py` and `test_offloads.py` build every model off
+recorded rows.
 """
 
 from typing import Any
@@ -12,7 +13,7 @@ import pytest
 from pydantic import ValidationError
 
 from hyphae.models.citation import Citation
-from hyphae.models.record import Offload, Record
+from hyphae.models.record import Offload, Record, WholeRecord
 from hyphae.models.row import ROW
 
 # One row as `view_records` answers it, and one as `view_offload` does, by column name.
@@ -35,7 +36,7 @@ AN_OFFLOAD: dict[str, Any] = {
 CITED = Citation("view_offload", {"session_id": "s", "name": "bosvr1kjx.txt"})
 
 
-@pytest.mark.parametrize("model", [Record, Offload], ids=lambda model: model.__name__)
+@pytest.mark.parametrize("model", [Record, Offload, WholeRecord], ids=lambda model: model.__name__)
 def test_every_row_model_is_built_under_the_one_row_config(model: type) -> None:
     """A model a row builds is strict and forbids extras, so a column that drifts raises."""
     assert getattr(model, "__pydantic_config__") == ROW  # noqa: B009

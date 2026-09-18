@@ -35,7 +35,8 @@ class WorkCount(TypedDict):
 
 @with_config(ROW)
 class Context(TypedDict):
-    """Where a session left the model's window: the `context` struct of `view_session_header`."""
+    """Where a thread stood in the model's window: the `context` struct of `view_session_header`,
+    and of `view_compactions`, whose rows carry where the thread stood when it compacted."""
 
     fill: int | None
     # What a turn grew the window by, which a session has no one answer for: NULL on a session.
@@ -169,4 +170,16 @@ class Answer[T](NamedTuple):
     """Every row a statement answered, with the citation for it."""
 
     rows: list[T]
+    citation: Citation
+
+
+class Listed[T](NamedTuple):
+    """One numbered page of a level: the rows, how many the level holds in all, and the citation.
+
+    `total` is the count before the LIMIT bit, which is what lets a page say which of how many
+    it is — and what lets a heading count the level rather than the rows in front of the reader.
+    """
+
+    rows: list[T]
+    total: int
     citation: Citation

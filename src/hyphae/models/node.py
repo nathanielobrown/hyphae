@@ -2,9 +2,11 @@
 
 The four headers are one node read whole for its own page — one per kind that has fields
 of its own; a bucket has none, and a compaction reads out of `view_compactions` — and
-`WholeValue` is one fat value of a node, the rest of what its header cut. Each is built by
-column name off the statement that answers it (`store/nodes.py`), under `row.ROW`, so a
-column the statement gains or loses raises at the read and not on a reader's page. The
+`WholeValue` is one fat value of a node, the rest of what its header cut. Under them are the
+rows a children log lists a page of, a thread's compactions, the numbers a NavTree row's
+popover prints, and the join from a turn to the transcript line it was read from. Each is
+built by column name off the statement that answers it (`store/nodes.py`), under `row.ROW`,
+so a column the statement gains or loses raises at the read and not on a reader's page. The
 rows they are built from stay in the store.
 """
 
@@ -15,6 +17,7 @@ from pydantic import with_config
 from pydantic.dataclasses import dataclass
 
 from hyphae.models.citation import Citation
+from hyphae.models.listing import Context
 from hyphae.models.row import ROW
 
 # The `tool_fields` struct: every member a cut string, but `todos`, a count
@@ -23,8 +26,9 @@ ToolFields = dict[str, str | int | None]
 
 
 @with_config(ROW)
-class FirstTool(TypedDict):
-    """The first tool an api call asked for, as its title names it: a `view_call_header` struct."""
+class NamedTool(TypedDict):
+    """One tool call as its title names it: the `{name, fields}` struct every statement that
+    lists tool calls beside a node answers, whether one, a call's own, or a tool's siblings."""
 
     name: str
     fields: ToolFields
@@ -37,7 +41,7 @@ class CalledTools(TypedDict):
     Both members NULL on a call that asked for nothing; `names` is every tool in order,
     cut to the header's item count."""
 
-    first: FirstTool | None
+    first: NamedTool | None
     names: list[str] | None
 
 
@@ -185,3 +189,174 @@ class WholeValue:
     # The suffix of the file a `Read` returned, which decides how the value is marked up
     # (`view/detail.py:syntax_of`). Only the named-file statement selects it; None elsewhere.
     result_type: str | None = None
+
+
+# --- the children logs ------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, config=ROW)
+class CallRow:
+    """One api call as the log under a turn — or a thread's unattributed bucket — lists it: a
+    `view_turn_calls` row."""
+
+    call_index: int
+    api_call_id: str
+    model: str
+    fallback_from: str | None
+    # What the call said, cut to the log's width; the count is its whole length.
+    text: str
+    text_chars: int
+    thinking_chars: int
+    effort: str | None
+    stop_reason: str | None
+    attribution_skill: str | None
+    started_at: dt.datetime
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_creation_tokens: int
+    # None where the price table does not price the model, which `unpriced_api_calls` counts.
+    cost_usd: float | None
+    unpriced_api_calls: int
+    tool_calls: int
+    # Every tool the call asked for, in order, for the log row to name; None where it asked
+    # for nothing.
+    called_tools: list[NamedTool] | None
+    # How many calls the level holds before the page's LIMIT bit, on every row alike.
+    matched_rows: int
+
+
+@dataclass(frozen=True, config=ROW)
+class ToolRow:
+    """One tool call as the log under an api call lists it: a `view_call_tools` row."""
+
+    tool_index: int
+    tool_call_id: str
+    name: str
+    fields: ToolFields
+    server_side: bool
+    is_error: bool
+    # No result reached the transcript: the session ended, or the call was refused, first.
+    incomplete: bool
+    offload_file: str | None
+    started_at: dt.datetime
+    input_chars: int
+    result_chars: int | None
+    matched_rows: int
+
+
+@dataclass(frozen=True, config=ROW)
+class TimelineRow:
+    """One turn as a thread's timeline lists it: a `session_timeline` or `run_timeline` row,
+    paged through `store/paging.py:window`, which is what adds the count."""
+
+    turn_index: int
+    turn_id: str
+    # What was typed, cut to the log's width: the command on a slash turn.
+    prompt: str
+    command_name: str | None
+    command_args: str | None
+    started_at: dt.datetime
+    api_calls: int
+    tool_calls: int
+    tool_errors: int
+    cost_usd: float
+    unpriced_api_calls: int
+    matched_rows: int
+
+
+@dataclass(frozen=True, config=ROW)
+class CompactionRow:
+    """One compaction as its thread's set lists it: a `view_compactions` row."""
+
+    compaction_id: str
+    timestamp: dt.datetime
+    # The turn it happened during; None where it fell between two.
+    turn_id: str | None
+    trigger: str
+    pre_tokens: int
+    post_tokens: int
+    duration_ms: int
+    context: Context
+
+
+# --- the popovers -----------------------------------------------------------------------------
+
+
+@with_config(ROW)
+class SpentGroup(TypedDict):
+    """One model's summed tokens under a node: a member of `view_numbers`'s `spent` list, which
+    the page prices at that model's rates (`pricing.py:TokenUsage` takes the same six)."""
+
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_creation_tokens: int
+    # The cache-creation total split by TTL, summed under the fallback the price table applies
+    # to one call: a call that reported no split puts its whole write on the 5-minute rate.
+    cache_5m_tokens: int
+    cache_1h_tokens: int
+
+
+@dataclass(frozen=True, config=ROW)
+class NodeNumbers:
+    """The numbers behind one NavTree row of a node made of api calls: the `view_numbers` row.
+
+    The counts are the node's last answering call and come to the window above them; the
+    dollars are every call it made. Every column but `subtree_usd` and the two counts is None
+    on a node with no api calls under it, which the popover prints as the dashes it is.
+    """
+
+    model: str | None
+    window_tokens: int | None
+    cache_read_tokens: int | None
+    new_input_tokens: int | None
+    output_tokens: int | None
+    fill: int | None
+    # What the node grew the window by, which a session has no one answer for: None there.
+    added: int | None
+    cost_usd: float | None
+    # What the agent runs under the node cost; zero where none hang under it.
+    subtree_usd: float
+    session_usd: float | None
+    unpriced_api_calls: int
+    api_calls: int
+    spent: list[SpentGroup]
+    citation: Citation
+
+
+@dataclass(frozen=True, config=ROW)
+class ToolNumbers:
+    """The numbers behind one NavTree row of a tool call: the `view_numbers_tool` row."""
+
+    input_chars: int
+    result_chars: int | None
+    offload_file: str | None
+    # The first few of the calls asked beside this one, and how many the head left off.
+    siblings: list[NamedTool]
+    siblings_cut: int
+    spawned_run: bool
+    citation: Citation
+
+
+@dataclass(frozen=True, config=ROW)
+class CompactionNumbers:
+    """The numbers behind one NavTree row of a compaction: the `view_numbers_compaction` row."""
+
+    pre_tokens: int
+    post_tokens: int
+    freed: int
+    trigger: str
+    citation: Citation
+
+
+# --- the record behind a turn -----------------------------------------------------------------
+
+
+@dataclass(frozen=True, config=ROW)
+class TurnRecord:
+    """Which transcript line one turn was read from: a `view_turn_records` row."""
+
+    turn_id: str
+    line_no: int
