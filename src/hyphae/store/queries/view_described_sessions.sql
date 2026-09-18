@@ -9,8 +9,8 @@
 -- too — a line about how a session struggled is a sentence, not a column. The work list is
 -- cut here rather than in the composition, like the agent types beside it: nothing filters on
 -- it, so the file can bound it and stay the citable core.
--- A store no pass has touched holds no `session_enrichments` at all, which is why the viewer
--- asks the catalog before it composes this in (`view/enrichment.py`).
+-- A store no pass has touched holds no `session_enrichments` at all, which is why a page
+-- asks the catalog before it composes this in (`store.enrichment.held`).
 WITH work_kinds AS (
     -- Every turn a pass reached, whichever thread it ran on: what a session spent its time on
     -- is not a property of its main thread alone.

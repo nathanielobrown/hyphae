@@ -8,8 +8,8 @@
 -- id on a run page. The other two levels belong to the session however it is being read.
 -- `$head_chars` cuts the model's own name at a width of its own: a model string is longer
 -- than a taxonomy word and shorter than a sentence.
--- A store no pass has touched holds none of these tables, which is why the viewer asks the
--- catalog before it runs this (`view/enrichment.py`).
+-- A store no pass has touched holds none of these tables, which is why a page asks the
+-- catalog before it runs this (`store.enrichment.held`).
 SELECT
     'turn' AS level,
     e.turn_id AS item_id,
