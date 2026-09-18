@@ -11,7 +11,7 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.store.pages import FILTERS
+from hyphae.store.sessions import FILTERS
 from hyphae.view.pages.sessions.routes import LIST_KEYS
 from tests.conftest import (
     MYCELIA,

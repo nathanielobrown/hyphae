@@ -3,9 +3,9 @@
 Which sort and filter keys the list offers, what a query-string value has to parse as, and the
 graph those choices compose: the parameters are checked into a `ListParams`, the read turns
 that into a page and closes the store, and the markup dependency mints the links and the form
-around both. The SQL is `store/pages.py`'s, beside every other page's composition; this module
-hands the read a key out of a closed dictionary and a value already parsed, which is what makes
-a key outside them a 400 here rather than a fragment of SQL there.
+around both. The SQL is `store/sessions.py`'s, composed in the repository the read calls; this
+module hands the read a key out of a closed dictionary and a value already parsed, which is
+what makes a key outside them a 400 here rather than a fragment of SQL there.
 """
 
 import datetime as dt
@@ -17,7 +17,7 @@ from fastapi.responses import Response
 
 from hyphae.models.citation import ParamValue
 from hyphae.store import library
-from hyphae.store.pages import DIRECTIONS, FILTERS, SORTS
+from hyphae.store.sessions import DIRECTIONS, FILTERS, SORTS
 from hyphae.view import bounds
 from hyphae.view.components import Html
 from hyphae.view.deps import ViewerDep

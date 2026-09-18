@@ -16,8 +16,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum, StrEnum
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from hyphae.models.citation import ParamValue
+
+if TYPE_CHECKING:
+    # The handle is above this module — it hands out the repositories, which read through
+    # here — so the name is the checker's only.
+    from hyphae.store.handle import Store
 
 QUERY_DIR = Path(__file__).parent / "queries"
 
@@ -246,6 +252,17 @@ def names() -> list[str]:
 def load(name: str) -> str:
     """The SQL text of one library query, by file stem."""
     return (QUERY_DIR / f"{name}.sql").read_text()
+
+
+def core(name: str) -> str:
+    """One library query as a subquery: its own text, unchanged, ready to be wrapped."""
+    return load(name).strip().rstrip(";")
+
+
+def fetch(store: "Store", sql: str, bindings: Mapping[str, ParamValue]) -> list[dict[str, Any]]:
+    """One statement's rows as dicts by column name: what a row model is built from."""
+    columns, rows = store.rows(sql, bindings)
+    return [dict(zip(columns, row, strict=True)) for row in rows]
 
 
 def statement(name: str) -> str:

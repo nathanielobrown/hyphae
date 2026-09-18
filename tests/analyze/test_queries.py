@@ -18,7 +18,7 @@ from hyphae.models.enrichment import ROWS
 from hyphae.store import library
 from hyphae.store.handle import open_store
 from hyphae.store.library import PARAM_TYPES, Scope, parameters, relations, statement
-from hyphae.store.pages import SHOWN
+from hyphae.store.sessions import SHOWN
 from hyphae.store.trace_store import PAGE_WAIT, TABLES
 from hyphae.view.detail import DETAILS, Spec, Written
 from hyphae.view.enrichment import LINES
@@ -268,11 +268,11 @@ def cut_at_width(sql: str) -> set[str]:
 
 
 # Every statement the cut protocol governs: the library's files, and the one SQL the viewer
-# composes in Python. `store/pages.py:SHOWN` cuts the strings a session-list row shows, and it
+# composes in Python. `store/sessions.py:SHOWN` cuts the strings a session-list row shows, and it
 # lives outside `queries/*.sql` — so a scan that globs the query directory is blind to exactly
 # the place a hand-spelled cut is easiest to write and hardest to notice.
 CUT_SQL: dict[str, str] = {name: statement(name) for name in NAMES} | {
-    "store/pages.py:SHOWN": SHOWN
+    "store/sessions.py:SHOWN": SHOWN
 }
 
 

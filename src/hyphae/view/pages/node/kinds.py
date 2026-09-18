@@ -13,6 +13,7 @@ the route beside it turns that into the 404 the row's `missing` spells. Every ce
 """
 
 from collections.abc import Callable, Mapping
+from dataclasses import asdict
 from typing import NamedTuple
 
 from hyphae.models.citation import Citation, ParamValue
@@ -146,14 +147,16 @@ def keyed(page: Page, binds: str, *, threaded: bool = True) -> Header:
 def _session_header(store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Read) -> Found | None:
     """The session's own header, which the page around this has read already.
 
-    Read back through the request's `Levels` rather than passed in: the page needs the row
-    before any cell runs, to price the ledger every NavTree row draws a share of, so this is a
-    memo hit and never a second statement (`levels.py`). Its sizes are ignored because the
-    query declares no detail to cut.
+    Off the corpus rather than the store: the page needs the header before any cell runs, to
+    price the ledger every NavTree row draws a share of, so this is never a second statement.
+    Its widths and sizes are ignored for the same reason — the page read it at its own. Only
+    a page reads a session, and only a page's corpus holds a header: `browser.opened` refuses
+    the session kind, so an expansion never arrives here.
     """
-    bindings = bound(Page.SESSION_HEADER, reading.widths, session_id=corpus.session_id)
-    rows = corpus.levels.rows(store, Page.SESSION_HEADER, **bindings)
-    return Found(rows[0], [Citation(Page.SESSION_HEADER.value, bindings)]) if rows else None
+    assert corpus.head is not None  # noqa: S101  # a narrowing, not a check: see the docstring
+    row = asdict(corpus.head)
+    row.pop("citation")
+    return Found(row, [corpus.head.citation])
 
 
 def _loose(corpus: nav_tree.Corpus) -> list[Row]:

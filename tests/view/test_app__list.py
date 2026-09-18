@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from hyphae.analyze import manifest
 from hyphae.store import library
-from hyphae.store.pages import DIRECTIONS, SORTS, Page
+from hyphae.store.sessions import DIRECTIONS, SESSIONS, SORTS
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.links import DEFAULT_DIRECTION, DEFAULT_SORT
@@ -399,7 +399,7 @@ def test_the_list_is_served_a_page_at_a_time(
     The footer is read on every page for the same reason: the query reads one row past the
     page so the pager can learn there is another, and the citation quotes the size the reader
     asked for rather than that probe. A footer citing the probe would offer a row the page
-    never showed (`store/pages.py:PAGER_PROBE`).
+    never showed (`store/sessions.py:PAGER_PROBE`).
     """
     size = 5
     seen: list[str] = []
@@ -409,7 +409,7 @@ def test_the_list_is_served_a_page_at_a_time(
         html = client.get(url).text
         rows = values(html, "data-session-id")
         assert len(rows) <= size
-        assert f"limit={size}" in fields(html, "id", "citation")[Page.SESSIONS.value].split()
+        assert f"limit={size}" in fields(html, "id", "citation")[SESSIONS].split()
         seen += rows
         onward = {unescape(href) for href in inside(html, "data-page", "next", "href")}
         if not onward:

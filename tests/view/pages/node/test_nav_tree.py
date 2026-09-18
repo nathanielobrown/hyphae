@@ -537,11 +537,11 @@ def test_a_chain_is_resolved_to_the_depth_the_page_prices_and_no_deeper(
         for step in range(bounds.DEPTH // rung - 1)
     ]
     corpus = nav_tree.Corpus(
-        SPINE, held=NO_LEDGER, runs=ladder, described=Descriptions(), source=MAIN
+        SPINE, head=None, held=NO_LEDGER, runs=ladder, described=Descriptions(), source=MAIN
     )
     # A short ladder resolves, which is what says a rung is worth four levels and not some
     # other number: one run is the session, a turn, a call, a tool call and the run itself.
-    shallow = nav_tree.Corpus(SPINE, NO_LEDGER, ladder[:2], Descriptions(), MAIN)
+    shallow = nav_tree.Corpus(SPINE, None, NO_LEDGER, ladder[:2], Descriptions(), MAIN)
     assert len(nav_tree.ancestry(shallow, [Ref(Kind.RUN, "a0", "a0")])) == 1 + rung
     assert len(nav_tree.ancestry(shallow, [Ref(Kind.RUN, "a1", "a1")])) == 1 + 2 * rung
     # Exactly `DEPTH` is served — a tool call of the deepest thread, seeded by its own page the
@@ -557,7 +557,7 @@ def test_a_chain_is_resolved_to_the_depth_the_page_prices_and_no_deeper(
     past = [*ladder, {**ladder[-1], "run_id": "past", "spawn_source": deepest}]
     with pytest.raises(ValueError, match=str(bounds.DEPTH)):
         nav_tree.ancestry(
-            nav_tree.Corpus(SPINE, NO_LEDGER, past, Descriptions(), MAIN),
+            nav_tree.Corpus(SPINE, None, NO_LEDGER, past, Descriptions(), MAIN),
             [Ref(Kind.RUN, "past", "past")],
         )
 

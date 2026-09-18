@@ -11,6 +11,7 @@ driver's type.
 
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
+from functools import cached_property
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -18,6 +19,7 @@ import duckdb
 
 from hyphae.models.citation import ParamValue
 from hyphae.store import macros
+from hyphae.store.sessions import SessionRepository
 from hyphae.store.trace_store import open_trace_store
 
 
@@ -43,7 +45,10 @@ class Store:
     # blank line between neighbours so two PRs' edits rebase past each other
     # (`plans/store-layering/phase-4-repositories.md`).
 
-    # sessions and projects
+    @cached_property
+    def sessions(self) -> SessionRepository:
+        """The sessions and the projects: the list, the landing page, one session's header."""
+        return SessionRepository(self)
 
     # records and offload
 

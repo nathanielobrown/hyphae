@@ -8,8 +8,10 @@ A row in, a node out, and nothing about the page the node lands on. What a row i
 the facts a body prints, the cells of a log row — is the page's own (`view/pages/node/reads.py`).
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
+from hyphae.models.listing import SessionHeader
 from hyphae.store.pages import Row
 from hyphae.view.enrichment import Descriptions
 from hyphae.view.nodes import (
@@ -31,14 +33,13 @@ from hyphae.view.text.format import ELLIPSIS
 from hyphae.view.text.tool_names import Fields, name_tool
 
 
-def _context(row: Row) -> Context | None:
-    """Where the row says its node left the window, or None where it says nothing.
+def _context(held: Mapping[str, Any] | None) -> Context | None:
+    """Where a row's `context` struct says its node left the window, or None where it says nothing.
 
     A level of nodes that end on no window leaves the column out, and a node whose model our
     table has no window for answers NULL inside it: both are a bar the NavTree does not draw,
     the way a model we cannot price is a cost it does not print.
     """
-    held = row.get("context")
     if held is None or held["fill"] is None or held["window"] is None:
         return None
     return Context(
@@ -107,26 +108,26 @@ def tool_about(name: str, fields: Fields | None) -> str:
     return said if said and said not in _named(name, held)[1] else ""
 
 
-def session_node(header: Row, held: Ledger, described: Descriptions) -> Node:
+def session_node(header: SessionHeader, held: Ledger, described: Descriptions) -> Node:
     """The root of every NavTree: the session everything under it was recorded in.
 
     The one node whose halves are read the other way round. What a session spent is the whole
     of its subtree — there is nothing above it to gather it — so its own half is that less
     every run under it, which is its main thread.
     """
-    whole = header["cost_usd"] or 0
-    under = held.below(Ref(Kind.SESSION, None, header["session_id"]))
+    whole = header.cost_usd or 0
+    under = held.below(Ref(Kind.SESSION, None, header.session_id))
     return Node(
         kind=Kind.SESSION,
-        session_id=header["session_id"],
+        session_id=header.session_id,
         source=None,
-        node_id=header["session_id"],
+        node_id=header.session_id,
         # What the enrichment pass said it was, else the title Claude Code gave it, else the
         # id — which is what a reader pasted to arrive here, so the row is never blank.
         words=_words(
             (described.session.description if described.session else None)
-            or header["title"]
-            or header["session_id"]
+            or header.title
+            or header.session_id
         ),
         spend=Spend(
             own=(main := round(whole - under, COST_PLACES)),
@@ -134,9 +135,9 @@ def session_node(header: Row, held: Ledger, described: Descriptions) -> Node:
             share=_share(main, held.whole),
             total_share=1.0 if under and whole else None,
         ),
-        unpriced_api_calls=header["unpriced_api_calls"],
+        unpriced_api_calls=header.unpriced_api_calls,
         enriched=described.session is not None,
-        context=_context(header),
+        context=_context(header.context),
     )
 
 
@@ -151,7 +152,7 @@ def turn_node(session_id: str, source: str, row: Row, held: Ledger, described: s
         spend=_spend(row["cost_usd"], Ref(Kind.TURN, source, row["turn_id"]), held),
         unpriced_api_calls=row["unpriced_api_calls"],
         enriched=described is not None,
-        context=_context(row),
+        context=_context(row.get("context")),
     )
 
 
@@ -172,7 +173,7 @@ def run_node(session_id: str, row: Row, held: Ledger, described: str | None) -> 
         spend=_spend(row["cost_usd"], Ref(Kind.RUN, row["run_id"], row["run_id"]), held),
         unpriced_api_calls=row["unpriced_api_calls"],
         enriched=described is not None,
-        context=_context(row),
+        context=_context(row.get("context")),
         # A run that compacted ran its window out, whatever the last call it made says it held —
         # and how often it did is what the row's badge says, since a run's own compactions are
         # recorded on a thread the reader is not looking at.
@@ -229,7 +230,7 @@ def call_node(session_id: str, source: str, row: Row, held: Ledger) -> Node:
         tail=_tally(names[1:], TALLY_CHARS) if silent else "",
         spend=_spend(cost, Ref(Kind.CALL, source, row["api_call_id"]), held),
         unpriced_api_calls=row["unpriced_api_calls"],
-        context=_context(row),
+        context=_context(row.get("context")),
     )
 
 
@@ -277,7 +278,7 @@ def compaction_node(session_id: str, source: str, row: Row) -> Node:
         unpriced_api_calls=0,
         # The one node whose bar reads backwards: what it freed, between the two fills it
         # recorded, against the window of the call its thread made nearest to it.
-        context=_context(row),
+        context=_context(row.get("context")),
     )
 
 

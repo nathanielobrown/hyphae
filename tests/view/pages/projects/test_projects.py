@@ -18,7 +18,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hyphae.projects import project_predicate
-from hyphae.store.pages import Page
+from hyphae.store.sessions import PROJECT_ROLLUPS
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.components.parts import unpriced
@@ -214,7 +214,7 @@ def test_the_windows_count_the_sessions_inside_the_window_the_page_cites(
     )
     with TestClient(build_app(path)) as planted:
         page = planted.get("/").text
-    bindings = cited(page, Page.PROJECT_ROLLUPS.value)
+    bindings = cited(page, PROJECT_ROLLUPS)
     row = fields(page, "data-project", MYCELIA)
     with duckdb.connect(str(path), read_only=True) as connection:
         connection.execute("SET TimeZone='UTC'")
@@ -254,7 +254,7 @@ def test_a_window_holding_no_session_is_a_gap_rather_than_a_crash(
             store,
             f"SELECT count(*) FROM ({FOLD}) WHERE root = ?"
             " AND started_at >= current_date - to_days(?)",
-            [root, int(cited(page, Page.PROJECT_ROLLUPS.value)[RECENT_DAYS])],
+            [root, int(cited(page, PROJECT_ROLLUPS)[RECENT_DAYS])],
         )[0]
         == 0
     ]
@@ -312,7 +312,7 @@ def test_the_page_cites_the_query_and_the_window_it_ran(client: TestClient) -> N
     A page whose windows came from SQL's own `now()` would cite a line that answers something
     different every time it is re-run, which is the reason the route binds the clock.
     """
-    bindings = cited(client.get("/").text, Page.PROJECT_ROLLUPS.value)
+    bindings = cited(client.get("/").text, PROJECT_ROLLUPS)
     assert dt.date.fromisoformat(bindings["as_of"]) <= dt.datetime.now(dt.UTC).date()
     assert bindings["projects"] == str(bounds.PROJECTS.default)
     # And the two windows the columns are headed with, which are bindings like the rest.

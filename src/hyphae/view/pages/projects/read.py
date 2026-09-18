@@ -7,12 +7,10 @@ or a store column.
 
 from pathlib import Path
 
-from hyphae.models.citation import Citation
+from hyphae.models.listing import ProjectRollup
 from hyphae.store.handle import open_store
-from hyphae.store.pages import Page, Row, dropped, page_rows
 from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds
-from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
 from hyphae.view.links import project_link
 from hyphae.view.pages.projects.models import ProjectRow, ProjectsPage
@@ -25,23 +23,24 @@ def projects(db: Path) -> ProjectsPage:
     # any other parameter. The query reads no clock of its own: a page counting "the last
     # 7 days" from SQL's `now()` would cite a line that answers something else tomorrow,
     # and the footer's whole promise is that a reader can re-run what the page ran.
-    binds = bound(Page.PROJECT_ROLLUPS, bounds.PROJECTS_WIDTHS, as_of=fmt.utcnow().date())
     with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
-        rows = page_rows(store, Page.PROJECT_ROLLUPS, **binds)
+        rollups = store.sessions.rollups(
+            as_of=fmt.utcnow().date(), widths=bounds.PROJECTS_WIDTHS._asdict()
+        )
     return ProjectsPage(
-        rows=[_project_row(row) for row in rows],
+        rows=[_project_row(row) for row in rollups.rows],
         # The bindings the two window headings print, so a heading and its column read the
         # same numbers — the citation below carries them too.
         recent_days=bounds.PROJECTS_WIDTHS.recent_days,
         window_days=bounds.PROJECTS_WIDTHS.window_days,
         # What the page cut, which the query counted before its LIMIT: a landing page that
         # silently dropped projects would be a corpus a reader cannot see.
-        cut=dropped(rows),
-        citations={Page.PROJECT_ROLLUPS.value: cited(Citation(Page.PROJECT_ROLLUPS.value, binds))},
+        cut=rollups.cut,
+        citations={rollups.citation.name: cited(rollups.citation)},
     )
 
 
-def _project_row(row: Row) -> ProjectRow:
+def _project_row(row: ProjectRollup) -> ProjectRow:
     """One store row as the row the landing page prints.
 
     The link is minted through the list's own builder, so a project opens the list the way the
@@ -49,16 +48,16 @@ def _project_row(row: Row) -> ProjectRow:
     filter matches a whole path, and a cut one matches nothing.
     """
     return ProjectRow(
-        project_dir=row["project_dir"],
-        link=project_link(row["project_filter"]),
-        recent_sessions=row["recent_sessions"],
-        recent_cost=row["recent_cost"],
-        recent_unpriced=row["recent_unpriced"],
-        window_sessions=row["window_sessions"],
-        window_cost=row["window_cost"],
-        window_unpriced=row["window_unpriced"],
-        sessions=row["sessions"],
-        cost_usd=row["cost_usd"],
-        unpriced_api_calls=row["unpriced_api_calls"],
-        last_active=row["last_active"],
+        project_dir=row.project_dir,
+        link=project_link(row.project_filter),
+        recent_sessions=row.recent_sessions,
+        recent_cost=row.recent_cost,
+        recent_unpriced=row.recent_unpriced,
+        window_sessions=row.window_sessions,
+        window_cost=row.window_cost,
+        window_unpriced=row.window_unpriced,
+        sessions=row.sessions,
+        cost_usd=row.cost_usd,
+        unpriced_api_calls=row.unpriced_api_calls,
+        last_active=row.last_active,
     )

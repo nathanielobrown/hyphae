@@ -345,9 +345,9 @@ POPOVER_WIDTHS = Popover(
 )
 
 # What one row of the session list shows of each long string, which the store composes rather
-# than a query file (`store/pages.py:SHOWN`): the list's filters read the whole values. 100 covers
-# the longest title the canonical store holds (81) and its longest project path (58). The landing
-# page ranks paths at the same width, one row per project rather than per session.
+# than a query file (`store/sessions.py:SHOWN`): the list's filters read the whole values. 100
+# covers the longest title the canonical store holds (81) and its longest project path (58). The
+# landing page ranks paths at the same width, one row per project rather than per session.
 _LIST_CHARS = 100
 # How much of a taxonomy value one tag carries. The taxonomy is closed and its longest member is
 # 9 characters, but a page whose size is arithmetic needs the number bound rather than noticed. A

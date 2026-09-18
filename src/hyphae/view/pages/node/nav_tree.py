@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 from hyphae.models.citation import Citation, ParamValue
+from hyphae.models.listing import SessionHeader
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import Store
 from hyphae.store.pages import TURN_CURSOR, Library, Page, Row
@@ -58,6 +59,10 @@ class Corpus:
     """
 
     session_id: str
+    # The session's own header, read once by the page before any cell runs: what the root row
+    # and the session's own pane print, and what prices the ledger. An expansion holds none —
+    # it opens a child of the session and never the session itself.
+    head: SessionHeader | None
     # What the session spent and where its agent runs charged it: the basis every share on the
     # NavTree is a share of, and the subtree totals the dual badge draws.
     held: Ledger

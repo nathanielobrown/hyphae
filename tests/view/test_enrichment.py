@@ -21,6 +21,7 @@ from fastapi.testclient import TestClient
 
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
 from hyphae.store.pages import Page
+from hyphae.store.sessions import DESCRIBED_SESSIONS, SESSIONS
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.enrichment import GLYPH, GLYPH_CLASS
@@ -131,7 +132,7 @@ def test_the_session_list_shows_what_the_model_said_about_each_session(
     # ...and a session the pass never reached carrying nothing at all beside it.
     assert values(listing, "data-enrichment") == described
     # The query behind that is cited like every other query the page ran.
-    assert Page.DESCRIBED_SESSIONS.value in fields(listing, "id", "citation")
+    assert DESCRIBED_SESSIONS in fields(listing, "id", "citation")
     # A row's head is narrower than the pane's, and a pass writes to neither: 435 of the 438
     # described sessions in the canonical store on 2026-08-25 run past the 100 characters a row
     # prints, so the cut is the ordinary case here rather than the edge. It is marked like
@@ -365,8 +366,8 @@ def test_a_store_no_enrichment_pass_has_touched_renders_every_page(
     # session list joins what a pass wrote only where there is a pass to join, so citing that
     # join here would be evidence for a query the page never issued.
     listed = fields(client.get("/sessions").text, "id", "citation")
-    assert Page.SESSIONS.value in listed
-    assert Page.DESCRIBED_SESSIONS.value not in listed
+    assert SESSIONS in listed
+    assert DESCRIBED_SESSIONS not in listed
     # And the store really is the bare one, so the sweep above proves what it claims.
     tables = {row[0] for row in store.execute("SELECT table_name FROM duckdb_tables()").fetchall()}
     assert not tables & {rows.table for rows in ROWS.values()}

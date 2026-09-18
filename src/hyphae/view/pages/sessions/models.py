@@ -13,7 +13,7 @@ from hyphae.models.citation import ParamValue
 from hyphae.view.citation import Cited
 from hyphae.view.models import Count
 
-# What the page heads each sortable column with, keyed by the column (`store/pages.py:SORTS`).
+# What the page heads each sortable column with, keyed by the column (`store/sessions.py:SORTS`).
 # Held to that tuple from both sides by `tests/view/test_app__list.py`; the order is the
 # store's, the words are the page's.
 HEADINGS: Mapping[str, str] = {
