@@ -75,8 +75,13 @@ SERVER, PAGE, SHARED, LEAF = 3, 2, 1, 0
 NOT_A_SIZE = frozenset({"FIRST_PAGE"})
 
 # The modules of the store a page reads through: the shared queries, bindings and rows, and the
-# repository the session list reads. A page names one of these and never the driver.
-STORE = ("hyphae.store.pages", "hyphae.store.sessions")
+# repositories a page reads its models from. A page names one of these and never the driver.
+STORE = (
+    "hyphae.store.pages",
+    "hyphae.store.sessions",
+    "hyphae.store.records",
+    "hyphae.store.offloads",
+)
 
 # What a routes module may still take from the store: the words a session-list URL is written
 # in. A route's job is to refuse a URL, and refusing `?sort=banana` means holding the list of

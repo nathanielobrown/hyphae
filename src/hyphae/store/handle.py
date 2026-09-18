@@ -19,6 +19,8 @@ import duckdb
 
 from hyphae.models.citation import ParamValue
 from hyphae.store import macros
+from hyphae.store.offloads import OffloadRepository
+from hyphae.store.records import RecordRepository
 from hyphae.store.sessions import SessionRepository
 from hyphae.store.trace_store import open_trace_store
 
@@ -50,7 +52,15 @@ class Store:
         """The sessions and the projects: the list, the landing page, one session's header."""
         return SessionRepository(self)
 
-    # records and offload
+    @cached_property
+    def records(self) -> RecordRepository:
+        """The records browser: one page of a thread's raw transcript, at a keyset cursor."""
+        return RecordRepository(self)
+
+    @cached_property
+    def offloads(self) -> OffloadRepository:
+        """The offload page: one chunk of a tool result Claude Code wrote to a file."""
+        return OffloadRepository(self)
 
     # failures
 

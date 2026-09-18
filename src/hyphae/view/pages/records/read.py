@@ -7,12 +7,9 @@ a store column.
 
 from pathlib import Path
 
-from hyphae.models.citation import Citation, ParamValue
 from hyphae.store.handle import open_store
-from hyphae.store.pages import MATCHED_ROWS, Page, page_rows, paged
 from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds
-from hyphae.view.bounds import bound
 from hyphae.view.citation import cited
 from hyphae.view.pages.records.models import RecordRow, RecordsPage
 
@@ -23,10 +20,14 @@ def records(db: Path, session_id: str, source: str, after: int, size: int) -> Re
     A thread the store never held and a cursor past the end of one it does are the same answer
     — nothing at this URL. Neither is a page worth rendering empty.
     """
-    keyed: dict[str, ParamValue] = {"session_id": session_id, "source": source}
-    binds = bound(Page.RECORDS, bounds.RECORDS_WIDTHS, **keyed, after=after, page_records=size)
     with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
-        page = paged(page_rows(store, Page.RECORDS, **binds), "line_no")
+        page = store.records.page(
+            session_id=session_id,
+            source=source,
+            after=after,
+            size=size,
+            widths=bounds.RECORDS_WIDTHS._asdict(),
+        )
     if not page.rows:
         return None
     # The one record the page fetches unasked: the first row, which is the one a citation
@@ -39,18 +40,18 @@ def records(db: Path, session_id: str, source: str, after: int, size: int) -> Re
         source=source,
         rows=[
             RecordRow(
-                line_no=row["line_no"],
-                type=row["type"],
-                timestamp=row["timestamp"],
-                raw_chars=row["raw_chars"],
-                raw_head=row["raw_head"],
+                line_no=row.line_no,
+                type=row.type,
+                timestamp=row.timestamp,
+                raw_chars=row.raw_chars,
+                raw_head=row.raw_head,
             )
             for row in page.rows
         ],
-        matched=first[MATCHED_ROWS],
-        opened=first["line_no"] if first["raw_chars"] <= bounds.OPENED_RECORD_CHARS else None,
+        matched=first.matched_rows,
+        opened=first.line_no if first.raw_chars <= bounds.OPENED_RECORD_CHARS else None,
         after=page.after,
         more=page.more,
         size=size,
-        citations={Page.RECORDS.value: cited(Citation(Page.RECORDS.value, binds))},
+        citations={page.citation.name: cited(page.citation)},
     )

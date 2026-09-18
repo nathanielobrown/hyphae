@@ -12,8 +12,7 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.store import library
-from hyphae.store.pages import Page
+from hyphae.store import library, records
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from tests.conftest import ANCESTOR, MAIN, RESUME, RESUME_LONG_RECORD, SPINE, SPINE_RUN
@@ -87,7 +86,7 @@ def test_the_browser_pages_by_line_number_without_repeating_or_skipping(
     # ...covers the thread exactly: no line twice, none missed, and none out of order.
     assert seen == archived
     # Keyset, not OFFSET: a page counted off from the start re-reads rows an extract appended.
-    assert "OFFSET" not in library.load(Page.RECORDS).upper()
+    assert "OFFSET" not in library.load(records.RECORDS).upper()
 
 
 def test_a_citation_tuple_maps_to_a_working_url(

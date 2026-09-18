@@ -3,14 +3,16 @@
 Every read here runs through the `Store` a request holds (`store/handle.py`): the page's own
 open is the route's, and what this module owns is what it asks once it has one.
 
-The three enums are the viewer's whole query catalog, split by what a query is allowed to
-select: a page or a fragment truncates every fat column in SQL, and a per-value query is the
-declared exception. Naming a query in one of them is what puts it in reach of the payload
-scans (`tests/view/test_bounds.py`), so the union is also the checklist.
+The three enums are what is left of the viewer's query catalog once each repository takes
+its statements (`store/handle.py`), split by what a query is allowed to select: a page or a
+fragment truncates every fat column in SQL, and a per-value query is the declared exception.
+The payload scans (`tests/view/test_bounds.py`) run over the catalog itself, so a statement
+that leaves an enum for a repository stays scanned.
 
 The SQL a page composes around one of those queries is here too: `window` for a numbered page
 of a query that limits nothing itself. The session list's sort, filter and cut are its
-repository's (`store/sessions.py`). A route reads rows; it does not build SQL.
+repository's (`store/sessions.py`), and the records browser's keyset page is its own
+(`store/records.py`). A route reads rows; it does not build SQL.
 """
 
 from collections.abc import Mapping
@@ -40,10 +42,6 @@ class Page(StrEnum):
     # SessionRepository
 
     # RecordRepository and OffloadRepository
-    # One page of a thread's raw transcript, previewed a record per row, and one chunk of a
-    # tool result written to a file beside the transcript.
-    RECORDS = "view_records"
-    OFFLOAD = "view_offload"
 
     # FailureRepository
     # Every failed tool call of one session, across every thread — the one page the NavTree
@@ -156,20 +154,6 @@ def page_rows(store: Store, page: Library, **bindings: ParamValue) -> list[Row]:
     return fetch(store, library.load(page), bindings)
 
 
-class Paged(NamedTuple):
-    """One keyset page: the rows, what is behind them, and where to resume.
-
-    The records browser's way of paging, and the only one left: a citation names a line, so the
-    page for it is the one that *starts* at that line rather than the nth page of the thread.
-    """
-
-    rows: list[Row]
-    # How many rows the cap cut, for the "+N more" the page shows instead of losing them.
-    more: int
-    # The `$after` cursor the next fetch binds, or None when this page is the last.
-    after: int | None
-
-
 class Listed(NamedTuple):
     """One numbered page of a level: the rows, and how many the level holds in all.
 
@@ -256,16 +240,3 @@ def dropped(rows: list[Row]) -> int:
     thing that word means here. Zero on an empty page — a level with nothing in it lost nothing.
     """
     return listed(rows).total - len(rows)
-
-
-def paged(rows: list[Row], cursor: str) -> Paged:
-    """A page of rows and its continuation, from a query's own pre-LIMIT match count.
-
-    `MATCHED_ROWS` carries how many rows the cursor had ahead of it, which the paging queries
-    compute with a window function — so a page knows what it cut without a second query, and
-    cannot report "+0 more" for rows it silently dropped.
-    """
-    if not rows:
-        return Paged(rows, 0, None)
-    behind = dropped(rows)
-    return Paged(rows, behind, rows[-1][cursor] if behind else None)
