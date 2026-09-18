@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 from hyphae.models.citation import ParamValue
 from hyphae.store import library
 from hyphae.store.handle import Store
-from hyphae.store.pages import Row
+from hyphae.view.nodes import Row
 from hyphae.view.pages.node.levels import Levels
 from tests.conftest import DENSE_TOOL, FORK_ORIGIN, FORK_ORIGIN_RUN, MAIN, SPINE
 from tests.view.conftest import fields, inside, kin, one, plain, under, values

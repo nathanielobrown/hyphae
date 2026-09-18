@@ -12,6 +12,7 @@ moved out from under it is exactly how it comes to find nothing.
 """
 
 import ast
+import pkgutil
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -19,6 +20,7 @@ from pathlib import Path
 
 import pytest
 
+import hyphae.store
 import hyphae.view
 from hyphae.store import library
 from tests.view import test_components
@@ -50,7 +52,7 @@ READS = frozenset({"read", "browser", "fragments"})
 
 # What a value crossing that seam may not be made of: a request, a response, or an element.
 # The store is banned by name below rather than listed here — `duckdb` is not what a raw row
-# arrives as, `store.pages.Row` (the last shape of the store a builder still takes) is.
+# arrives as; a plain dict is, and the viewer's own name for that shape is `RAW` below.
 FRAMEWORKS = frozenset({"fastapi", "starlette", "htpy"})
 
 # And the two of those a routes module is the one place for. Split from the set above because
@@ -74,21 +76,23 @@ SERVER, PAGE, SHARED, LEAF = 3, 2, 1, 0
 # before the first row, which a paged route takes as its default rather than cutting to it.
 NOT_A_SIZE = frozenset({"FIRST_PAGE"})
 
-# The modules of the store a page reads through: the handle every read opens, the shared
-# bindings and rows, and the repositories a page reads its models from. A page names one of
-# these and never the driver.
-STORE = (
-    "hyphae.store.handle",
-    "hyphae.store.pages",
-    "hyphae.store.paging",
-    "hyphae.store.sessions",
-    "hyphae.store.records",
-    "hyphae.store.offloads",
-    "hyphae.store.failures",
-    "hyphae.store.enrichment",
-    "hyphae.store.nodes",
-    "hyphae.store.nav",
+# Every module of the store but the query library, read off the package rather than listed,
+# so a module added tomorrow is denied the day it lands. Denied whole, not "what a page reads
+# through": a routes module takes its `Store` from `deps` as a `Db` and never opens one, so the
+# handle and the writers are as much out of bounds as the repositories. The library is the one
+# exception, because a routes module takes the cursor and the two bindable names from it, and
+# `queried()` holds it to exactly those.
+LIBRARY = "hyphae.store.library"
+STORE = tuple(
+    f"hyphae.store.{module.name}"
+    for module in pkgutil.iter_modules(hyphae.store.__path__)
+    if f"hyphae.store.{module.name}" != LIBRARY
 )
+
+# The viewer's own name for a raw row, and the module that declares it: the dict shape the
+# NavTree's builders take, which a page makes out of a model with `asdict`. A page model may
+# not carry it, so the models leaf refuses the name from this module by name.
+RAW = ("hyphae.view.nodes", "Row")
 
 # What a routes module may still take from the store: the words a session-list URL is written
 # in. A route's job is to refuse a URL, and refusing `?sort=banana` means holding the list of
@@ -437,15 +441,17 @@ def test_a_page_model_is_made_of_nothing_either_side_of_the_seam_owns() -> None:
     found = model_modules()
     # There are page models to read...
     assert found, "no page declares a `models.py`, so this rule holds nothing"
+    module, row = RAW
     for path in found:
         here = f"{PACKAGE}.{dotted(path)}"
         assert frameworks([here], FRAMEWORKS) == "", f"{path.relative_to(VIEW)} holds a framework"
-        for module in STORE:
-            assert "Row" not in taken(path, module), f"{path.relative_to(VIEW)} carries a store row"
-    # ...and the probe can see one where one is: every page's markup names htpy, and holds it.
+        assert row not in taken(path, module), f"{path.relative_to(VIEW)} carries a raw row"
+    # ...and the probe can see one where one is: every page's markup names htpy, and holds it...
     assert all("htpy" in named(path) for path in markup_modules())
     marked = [f"{PACKAGE}.{dotted(path)}" for path in markup_modules()]
     assert frameworks(marked, FRAMEWORKS) == "htpy"
+    # ...and the raw row where it is taken: the builders spell it from the module that owns it.
+    assert row in taken(VIEW / "builders.py", module)
 
 
 def test_neither_side_of_a_pages_seam_imports_the_other() -> None:
@@ -516,6 +522,28 @@ def test_no_routes_module_of_a_page_names_the_stores_vocabulary(tmp_path: Path) 
         for spelling in (f"import {module}\n", f"from {package} import {name}\n"):
             (tmp_path / "routes.py").write_text(spelling)
             assert whole(tmp_path / "routes.py", module), spelling
+
+
+def test_the_store_roster_is_every_module_of_the_store_but_the_library() -> None:
+    """The routes leaf denies the store by a roster read off the package, and the roster is
+    whole.
+
+    An enumerated roster is green for a module nobody listed: a store module added tomorrow
+    is one a routes module may import until someone adds it. So `STORE` is derived, and this
+    leaf holds the derivation to the tree by a second reader — the files on disk — so that
+    what is left out is exactly the library, and a wider exclusion cannot arrive unnamed.
+    """
+    store = Path(hyphae.store.__file__).parent
+    on_disk = {
+        f"hyphae.store.{path.stem}"
+        for path in store.iterdir()
+        if (path.suffix == ".py" and path.stem != "__init__") or (path / "__init__.py").exists()
+    }
+    # The roster is every module on disk but the library, which is on disk...
+    assert set(STORE) == on_disk - {LIBRARY}, sorted(set(STORE) ^ (on_disk - {LIBRARY}))
+    assert LIBRARY in on_disk
+    # ...and it holds the name the routes leaf pins its self-check on: the handle a read opens.
+    assert "hyphae.store.handle" in STORE
 
 
 # --- Rule 2: a page package is a leaf ------------------------------------------------------

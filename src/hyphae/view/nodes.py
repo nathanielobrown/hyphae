@@ -14,14 +14,18 @@ import math
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from markupsafe import Markup
 
-from hyphae.store.pages import Row
 from hyphae.view import bounds
 from hyphae.view.text import inline_markdown
 from hyphae.view.text.format import cut
+
+# What a builder still reads a node from: a raw row, which a page makes out of a store model with
+# `asdict`. One builder serves rows of two to four models that differ by a column or two, so it
+# reads them as a dict rather than as any one model, and the ledger below takes the same shape.
+Row = dict[str, Any]
 
 # How a cost badge is drawn: the steps it has, and how many decades of share they cover. A
 # session's cheapest turn and its dearest are three orders of magnitude apart, so the scale is

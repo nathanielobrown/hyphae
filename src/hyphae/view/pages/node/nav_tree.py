@@ -24,7 +24,6 @@ from hyphae.models.nav import NavCallRow, NavToolRow, NavTurnRow
 from hyphae.models.node import CompactionRow, UnattributedRow
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import Store
-from hyphae.store.pages import Row
 from hyphae.view import bounds
 from hyphae.view.builders import (
     call_node,
@@ -43,6 +42,7 @@ from hyphae.view.nodes import (
     Node,
     Preset,
     Ref,
+    Row,
 )
 from hyphae.view.pages.node.levels import Levels
 from hyphae.view.pages.node.models import NavTreeRow

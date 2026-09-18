@@ -8,7 +8,7 @@ paths:
   - "src/hyphae/view/*.py"
   - "src/hyphae/view/text/*.py"
   - "src/hyphae/store/queries/view_*.sql"
-  - "src/hyphae/store/{pages,sessions,records,offloads,failures,enrichment,nodes}.py"
+  - "src/hyphae/store/{sessions,records,offloads,failures,enrichment,nodes,nav}.py"
 ---
 
 # Viewer UI

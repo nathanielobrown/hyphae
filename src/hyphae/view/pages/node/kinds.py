@@ -29,12 +29,11 @@ from hyphae.models.node import (
 )
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import Store
-from hyphae.store.pages import Row
 from hyphae.view import bounds, builders, detail, nodes
 from hyphae.view.citation import Ran
 from hyphae.view.detail import Detail, details, preview
 from hyphae.view.enrichment import Descriptions, Enrichment
-from hyphae.view.nodes import Kind, Node, Ref
+from hyphae.view.nodes import Kind, Node, Ref, Row
 from hyphae.view.pages.node import nav_tree, reads
 from hyphae.view.pages.node.columns import Shape
 from hyphae.view.pages.node.knobs import skipped

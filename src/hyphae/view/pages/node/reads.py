@@ -15,9 +15,8 @@ from hyphae.models.node import CompactionNumbers, NodeNumbers, SpentGroup, ToolN
 from hyphae.models.record import WholeRecord
 from hyphae.pricing import TokenUsage
 from hyphae.store import library
-from hyphae.store.pages import Row
 from hyphae.view.builders import tool_about, tool_titles
-from hyphae.view.nodes import Kind, Node
+from hyphae.view.nodes import Kind, Node, Row
 from hyphae.view.pages.node import models
 from hyphae.view.pages.node.columns import Shape
 from hyphae.view.pages.node.numbers import Numbers

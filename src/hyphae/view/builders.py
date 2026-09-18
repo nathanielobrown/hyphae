@@ -13,7 +13,6 @@ from typing import Any
 
 from hyphae.models.listing import SessionHeader
 from hyphae.models.node import NamedTool
-from hyphae.store.pages import Row
 from hyphae.view.enrichment import Descriptions
 from hyphae.view.nodes import (
     COST_PLACES,
@@ -28,6 +27,7 @@ from hyphae.view.nodes import (
     Ledger,
     Node,
     Ref,
+    Row,
     Spend,
 )
 from hyphae.view.text.format import ELLIPSIS
