@@ -188,6 +188,13 @@ unfixable = ["F401"]
 # Tests are not an attack surface: `assert` is the point, a subprocess is the fixture, and a
 # `/tmp` path is a value a test invents. Everything else bandit checks stays on in `src/`.
 "tests/**" = ["S"]
+# The underscore on `Store._rows` and `Store._connection` is the store's package line, not a
+# class one: the repositories call them from their own modules, and the handle's own leaf
+# (`tests/store/test_handle.py`) pins the verbs by name. Outside these two globs the rule is
+# the door. The test glob also frees a module-level `_name` such as `nodes._windowed` to any
+# leaf under it.
+"src/hyphae/store/**" = ["SLF001"]
+"tests/store/**" = ["SLF001"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"

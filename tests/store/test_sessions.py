@@ -70,7 +70,7 @@ def repository(store: Store) -> SessionRepository:
 
 def rows_of(store: Store, sql: str, bindings: dict[str, Any]) -> list[dict[str, Any]]:
     """What a statement answers, as the dicts a model is built from."""
-    columns, rows = store.rows(sql, bindings)
+    columns, rows = store._rows(sql, bindings)
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
 

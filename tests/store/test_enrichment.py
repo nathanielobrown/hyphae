@@ -647,7 +647,7 @@ def test_a_read_only_handle_reads_and_refuses_to_write(mutable_db: Path) -> None
     with open_store(mutable_db, read_only=True, wait=NO_WAIT) as store:
         reader = store.enrichment
         assert reader.items(Level.session)[0] == item
-        assert reader.connection is store.connection
+        assert reader.connection is store._connection
         # ...and a write on it is DuckDB's own refusal, not a silent no-op.
         with pytest.raises(duckdb.InvalidInputException, match="read-only"):
             reader.upsert(item, enrichment(), stamp())

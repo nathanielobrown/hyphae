@@ -182,10 +182,11 @@ class EnrichmentRepository:
     def connection(self) -> duckdb.DuckDBPyConnection:
         """The handle's own connection, for the SQL the readers and writers here run on it.
 
-        Phase 5 of the store-layering plan deletes this with `Store.connection`'s privacy; the
-        tests that execute SQL on it move then.
+        The handle keeps its connection private; this is the planter's door to it — what a
+        test that plants a row or reads a table back runs on — and no package outside the
+        store reaches it (`tests/store/test_handle.py`).
         """
-        return self.store.connection
+        return self.store._connection
 
     def prepare(self) -> None:
         """Create the enrichment tables and views, or refuse a store whose tables drifted.
@@ -203,7 +204,7 @@ class EnrichmentRepository:
         """Whether the store holds every enrichment table — a pass creates them, not the
         exporter, and a read-only handle cannot, so a page asks before `described` or `line`."""
         catalog = "SELECT table_name FROM duckdb_tables() WHERE schema_name = 'main'"
-        tables = {name for (name,) in self.store.rows(catalog, {}).rows}
+        tables = {name for (name,) in self.store._rows(catalog, {}).rows}
         return {rows.table for rows in ROWS.values()} <= tables
 
     def described(self, *, session_id: str, source: str, widths: Mapping[str, int]) -> Described:

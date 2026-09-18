@@ -29,7 +29,7 @@ from hyphae.store.analysis import AnalysisRepository
 from hyphae.store.handle import Store, open_store
 from tests.analyze.conftest import MYCELIA_SESSIONS
 from tests.conftest import MYCELIA, NO_WAIT, SPINE
-from tests.store.test_handle import reached
+from tests.store.test_handle import outside_the_store, reached
 from tests.store.test_sessions import AS_OF, LIVE_STORE, rows_of
 
 # One expensive store, built once per worker: every leaf here reads the enriched corpus.
@@ -125,7 +125,7 @@ def test_the_period_view_is_built_after_the_table_it_reads(enriched_db: Path) ->
     the other one."""
     with open_store(enriched_db, read_only=True, wait=NO_WAIT) as store:
         with pytest.raises(duckdb.CatalogException, match="project_sessions"):
-            store.rows(analysis.SESSION_PERIODS, {})
+            store._rows(analysis.SESSION_PERIODS, {})
         # The repository runs them in the order that works.
         store.analysis.scope(project=Path(MYCELIA), since=None, as_of=AS_OF)
         assert rows_of(store, "SELECT count(*) AS n FROM session_period", {}) == [
@@ -179,7 +179,7 @@ def test_a_keyed_statement_answers_its_rows_and_cites_only_what_it_bound(
     """With no corpus scoped, a keyed statement's citation is its own bindings alone, in the
     order they were passed, and its rows are the statement's."""
     answer = repository.run(TIMELINE, TIMELINE_BINDINGS)
-    columns, rows = store.rows(library.load(TIMELINE), TIMELINE_BINDINGS)
+    columns, rows = store._rows(library.load(TIMELINE), TIMELINE_BINDINGS)
     assert rows, "the spine session lost its turns: re-pick the session"
     assert answer == Answered(columns, rows, Citation(TIMELINE, TIMELINE_BINDINGS))
     assert answer.columns[:2] == ("turn_index", "turn_id")
@@ -239,7 +239,7 @@ def test_a_keyword_left_off_or_added_is_refused(repository: AnalysisRepository) 
 def test_the_runner_no_longer_reaches_the_handle() -> None:
     """`analyze/runner.py` reads through this repository now: the ratchet in
     `tests/store/test_handle.py` states the set, and this is the PR's own proof of its half."""
-    assert "analyze/runner.py" not in reached()
+    assert "analyze/runner.py" not in reached(outside_the_store())
 
 
 # --- the backstop over real shapes -----------------------------------------------------------

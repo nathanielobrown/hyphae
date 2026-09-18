@@ -261,7 +261,7 @@ def core(name: str) -> str:
 
 def fetch(store: "Store", sql: str, bindings: Mapping[str, ParamValue]) -> list[dict[str, Any]]:
     """One statement's rows as dicts by column name: what a row model is built from."""
-    columns, rows = store.rows(sql, bindings)
+    columns, rows = store._rows(sql, bindings)
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
 

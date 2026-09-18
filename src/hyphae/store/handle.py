@@ -42,11 +42,11 @@ class Store:
 
     A page gets one per request (`PAGE_WAIT`); a query gets one per run (`CLI_WAIT`). Every
     area's repository hangs off it as a property below, and a page names the repository it
-    reads. `connection` is public until the last `rows` caller outside this package is gone.
+    reads; the connection and `_rows` are the package's own, and no module outside runs SQL.
     """
 
     def __init__(self, connection: duckdb.DuckDBPyConnection) -> None:
-        self.connection = connection
+        self._connection = connection
 
     # The repositories, one `cached_property` per area.
 
@@ -91,14 +91,14 @@ class Store:
         """The NavTree: one level whole, and every agent run of the session."""
         return NavRepository(self)
 
-    def rows(self, sql: str, bindings: Mapping[str, ParamValue]) -> Fetched:
+    def _rows(self, sql: str, bindings: Mapping[str, ParamValue]) -> Fetched:
         """Run one statement with every value bound by name, and hand back what it answered.
 
         DDL runs through here too — the analysis corpus relations are temp tables — and
         answers whatever the driver reports for it. A binding the statement names and the
         caller left out is the driver's own error, not a NULL bound in its place.
         """
-        cursor = self.connection.execute(sql, dict(bindings))
+        cursor = self._connection.execute(sql, dict(bindings))
         columns = tuple(column[0] for column in cursor.description or ())
         return Fetched(columns, cursor.fetchall())
 

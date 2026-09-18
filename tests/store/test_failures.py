@@ -137,7 +137,7 @@ def test_a_session_that_failed_on_two_threads_lists_every_failure_in_the_order_t
     with open_store(planted, read_only=True, wait=NO_WAIT) as store:
         answer = store.failures.failures(session_id=FORK_ORIGIN, widths=ERRORS)
         # The expectation spells the order itself, in SQL over the planted rows...
-        order = failed(store.connection, FORK_ORIGIN)
+        order = failed(store._connection, FORK_ORIGIN)
     assert [(row.source, row.tool_call_id) for row in answer.rows] == order
     assert len(order) == PLANTED
     # ...more than one thread among them, which is what makes the list session-wide...

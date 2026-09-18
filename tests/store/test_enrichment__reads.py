@@ -26,7 +26,7 @@ from hyphae.store.handle import open_store
 from hyphae.view import bounds
 from tests.conftest import NO_WAIT, enriching
 from tests.enrich.conftest import SPINE, SPINE_RUN
-from tests.store.test_handle import reached
+from tests.store.test_handle import outside_the_store, reached
 from tests.store.test_sessions import LIVE_STORE, rows_of
 
 # The widths the one enrichment surface prints at, as a page passes them.
@@ -61,7 +61,7 @@ def test_a_store_missing_any_one_table_is_not_held(
     partial = tmp_path / "partial.duckdb"
     shutil.copyfile(enriched_db, partial)
     with open_store(partial, read_only=False, wait=NO_WAIT) as store:
-        store.rows(f"DROP TABLE {ROWS[level].table}", {})
+        store._rows(f"DROP TABLE {ROWS[level].table}", {})
     # ...then the repository holds nothing, since a page reads all three in one statement.
     with open_store(partial, read_only=True, wait=NO_WAIT) as store:
         assert store.enrichment.held() is False
@@ -204,7 +204,7 @@ def test_every_item_of_a_level_is_built_under_the_strict_model(
 def test_the_viewer_no_longer_reaches_the_handle() -> None:
     """`view/enrichment.py` reads through this repository now: the ratchet in
     `tests/store/test_handle.py` states the set, and this is the PR's own proof of its half."""
-    assert "view/enrichment.py" not in reached()
+    assert "view/enrichment.py" not in reached(outside_the_store())
 
 
 # --- the backstop over real shapes -----------------------------------------------------------

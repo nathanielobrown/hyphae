@@ -85,9 +85,9 @@ class AnalysisRepository:
             "window_days": library.WINDOW_DAYS,
         }
         # The view reads the table, so the table is built first.
-        self.store.rows(PROJECT_SESSIONS, self.corpus)
-        self.store.rows(SESSION_PERIODS, {})
-        ((unplaceable,),) = self.store.rows(UNPLACEABLE, {}).rows
+        self.store._rows(PROJECT_SESSIONS, self.corpus)
+        self.store._rows(SESSION_PERIODS, {})
+        ((unplaceable,),) = self.store._rows(UNPLACEABLE, {}).rows
         return unplaceable
 
     def run(self, name: str, bindings: Mapping[str, ParamValue]) -> Answered:
@@ -97,5 +97,5 @@ class AnalysisRepository:
         refuses one it names and the caller left out. A corpus statement needs `scope` first,
         and its citation says what scoped it ahead of what it bound.
         """
-        columns, rows = self.store.rows(library.load(name), bindings)
+        columns, rows = self.store._rows(library.load(name), bindings)
         return Answered(columns, rows, Citation(name, {**self.corpus, **bindings}))
