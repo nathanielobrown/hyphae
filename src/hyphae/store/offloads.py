@@ -44,8 +44,5 @@ class OffloadRepository:
         bindings = library.bind(
             OFFLOAD, {}, {}, session_id=session_id, name=name, after_chars=after, chunk_chars=size
         )
-        rows = library.fetch(self.store, library.load(OFFLOAD), bindings)
-        if not rows:
-            return None
-        (row,) = rows
-        return Offload(citation=Citation(OFFLOAD, bindings), **row)
+        row = library.one(self.store, OFFLOAD, bindings)
+        return None if row is None else Offload(citation=Citation(OFFLOAD, bindings), **row)

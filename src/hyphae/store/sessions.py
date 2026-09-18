@@ -248,8 +248,7 @@ class SessionRepository:
     def header(self, *, session_id: str, widths: Mapping[str, int]) -> SessionHeader | None:
         """One session's header, or None when the store holds no session by that id."""
         bindings = library.bind(SESSION_HEADER, widths, {}, session_id=session_id)
-        rows = library.fetch(self.store, library.load(SESSION_HEADER), bindings)
-        if not rows:
+        row = library.one(self.store, SESSION_HEADER, bindings)
+        if row is None:
             return None
-        (row,) = rows
         return SessionHeader(citation=Citation(SESSION_HEADER, bindings), **row)

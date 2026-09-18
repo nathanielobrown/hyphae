@@ -228,10 +228,8 @@ class EnrichmentRepository:
         """
         name = LINE_STATEMENTS[level, field]
         bindings = library.bind(name, {}, {}, **keys)
-        rows = library.fetch(self.store, library.load(name), bindings)
-        if not rows:
-            return None
-        return WholeValue(citation=Citation(name, bindings), **rows[0])
+        row = library.one(self.store, name, bindings)
+        return None if row is None else WholeValue(citation=Citation(name, bindings), **row)
 
     # --- what a pass reads -------------------------------------------------------------------
 

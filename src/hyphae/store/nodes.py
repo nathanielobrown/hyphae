@@ -77,11 +77,8 @@ class NodeRepository:
         """One node's header as its model, or None where the store holds no node at those keys."""
         statement = HEADERS[model]
         bindings = library.bind(statement, widths, sizes, **keys)
-        rows = library.fetch(self.store, library.load(statement), bindings)
-        if not rows:
-            return None
-        (row,) = rows
-        return model(citation=Citation(statement, bindings), **row)
+        row = library.one(self.store, statement, bindings)
+        return None if row is None else model(citation=Citation(statement, bindings), **row)
 
     def value(
         self,
@@ -98,8 +95,5 @@ class NodeRepository:
         """
         statement = VALUES[model, field]
         bindings = library.bind(statement, widths, {}, **keys)
-        rows = library.fetch(self.store, library.load(statement), bindings)
-        if not rows:
-            return None
-        (row,) = rows
-        return WholeValue(citation=Citation(statement, bindings), **row)
+        row = library.one(self.store, statement, bindings)
+        return None if row is None else WholeValue(citation=Citation(statement, bindings), **row)

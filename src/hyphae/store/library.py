@@ -265,6 +265,19 @@ def fetch(store: "Store", sql: str, bindings: Mapping[str, ParamValue]) -> list[
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
 
+def one(store: "Store", name: str, bindings: Mapping[str, ParamValue]) -> dict[str, Any] | None:
+    """The one row a keyed statement answers, or None where the store holds nothing at the keys.
+
+    A statement handed here answers at most one row — a header, a value, a chunk — so two is
+    the statement's bug, and the unpack raises rather than picking one.
+    """
+    rows = fetch(store, load(name), bindings)
+    if not rows:
+        return None
+    (row,) = rows
+    return row
+
+
 class Counted(Protocol):
     """A row of a statement that limits itself: it carries how many matched before the LIMIT bit."""
 
