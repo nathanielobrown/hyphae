@@ -23,7 +23,6 @@ from fastapi.testclient import TestClient
 from hyphae.analyze.manifest import catalog
 from hyphae.store import library, macros
 from hyphae.store.library import VIEW_PREFIX
-from hyphae.store.pages import Fragment, Page, Value
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.citation import QUERY_URL
@@ -35,6 +34,7 @@ from tests.conftest import (
     RESUME_LONG_RECORD,
     macro_connection,
 )
+from tests.store.test_catalog import viewer_statements
 from tests.view.budgets import (
     ESCAPED_CHAR_BYTES,
     EXACT_PIN,
@@ -70,6 +70,30 @@ from tests.view.scenarios import SCENARIOS, SERVED_ROUTES
 # The library described once for the whole module: every leaf below reads what a query binds,
 # and a `Query` is derived from its statement rather than looked up (`analyze/manifest.py`).
 CATALOG = catalog()
+# The statements the viewer owns, and the ones among them that select one fat value whole:
+# spelled here rather than read off an enum, so the scans below cannot shrink as a member leaves.
+VIEWER = frozenset(viewer_statements())
+WHOLE = frozenset(
+    {
+        "view_call_text",
+        "view_call_thinking",
+        "view_record",
+        "view_run_brief",
+        "view_run_description",
+        "view_run_friction",
+        "view_run_prompt",
+        "view_run_result",
+        "view_session_description",
+        "view_session_friction",
+        "view_tool_command",
+        "view_tool_input",
+        "view_tool_result",
+        "view_turn_command_args",
+        "view_turn_description",
+        "view_turn_friction",
+        "view_turn_prompt",
+    }
+)
 
 # What a query may wrap a fat column in and still be bounded: a fixed-width prefix of it, a
 # count of what it holds, the check that it parses, the window the model it names answers in,
@@ -236,14 +260,14 @@ def test_every_macro_the_scan_trusts_answers_one_character_past_the_width() -> N
                 assert len(value) == chars + 1, member
 
 
-@pytest.mark.parametrize("name", sorted(Page) + sorted(Fragment))
+@pytest.mark.parametrize("name", sorted(VIEWER - WHOLE))
 def test_no_page_or_fragment_query_selects_a_fat_column_whole(name: str) -> None:
     """Every query behind a page or a fragment is bounded in SQL, however large the record."""
     assert unbounded(library.load(name)) == set()
 
 
-@pytest.mark.parametrize("value", sorted(Value))
-def test_a_per_value_query_returns_the_one_value_it_is_named_for(value: Value) -> None:
+@pytest.mark.parametrize("value", sorted(WHOLE))
+def test_a_per_value_query_returns_the_one_value_it_is_named_for(value: str) -> None:
     """The per-value queries are the exception, and they are the exception by declaration.
 
     They select a fat column whole — that is what they are for. What keeps the bound is that
@@ -255,17 +279,14 @@ def test_a_per_value_query_returns_the_one_value_it_is_named_for(value: Value) -
     assert unbounded(library.load(value)) != set()
 
 
-def test_every_viewer_query_is_declared_as_a_page_a_fragment_or_a_value() -> None:
-    """A viewer query lands in one of the three sets, so the scans above cannot miss it.
+def test_every_per_value_query_is_a_statement_that_ships() -> None:
+    """`WHOLE` names statements in the catalog, so the two scans above partition the viewer's.
 
-    Without this, a query shipped under `view_` but named in no enum is scanned by nothing
-    and can select a fat column onto a page with the whole tier still green.
+    The scans run over the catalog rather than the query enums, so a statement can neither
+    leave them by leaving an enum nor land unscanned; what could still go wrong is `WHOLE`
+    naming a statement that no longer exists, which would exempt nothing and scan nothing.
     """
-    declared = set(Page) | set(Fragment) | set(Value)
-    # Every query the viewer owns is scanned by one of the leaves above...
-    assert {name for name in CATALOG if name.startswith(VIEW_PREFIX)} <= declared
-    # ...and every name declared is a query that ships, timelines shared with the runner too.
-    assert declared <= set(CATALOG)
+    assert WHOLE <= VIEWER
 
 
 def ran_at(client: TestClient, mount: tuple[str, str]) -> dict[str, dict[str, set[int]]]:

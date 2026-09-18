@@ -6,8 +6,13 @@ Locking is not this file's business — `test_trace_store__locking.py` covers bo
 answers with, that a missing binding is refused rather than bound NULL, that the macros are
 installed and DDL runs (the runner's relations and every `view_*` cut go through this verb),
 that `open_store` raises what the door under it raises, and that `read_only` reaches the door.
+
+The ratchet at the end is the store's boundary: which modules outside the package still run
+SQL through `rows` or read `connection`. Phase 4 moves each behind a repository, phase 5 pins
+the set empty and makes both private (`plans/store-layering/phase-4-repositories.md`).
 """
 
+import ast
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
@@ -15,6 +20,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
+import hyphae
 from hyphae.store.handle import Fetched, Store, open_store
 from hyphae.store.schema import SCHEMA_VERSION, SchemaVersionError
 from hyphae.store.trace_store import StoreLocked, open_trace_store
@@ -24,6 +30,17 @@ from tests.conftest import LOCK_TIMEOUT, NO_WAIT, RESUME, SPINE, locked
 NAMED = sorted((RESUME, SPINE))
 # How long the lock holder below keeps the store before letting go on its own.
 BRIEF_HOLD = 0.4
+
+PACKAGE = Path(hyphae.__file__).parent
+# The two verbs the handle exposes, and the modules outside the store still reaching them: the
+# analysis runner (its relations and the corpus statements, PR 4.4) and the enrichment reads
+# (PR 4.5). Each of those PRs proves its own module left with a leaf of its own; this literal
+# is edited once more, to `set()`, by phase 5.
+VERBS = frozenset({"rows", "connection"})
+REACHING = frozenset({"analyze/runner.py", "view/enrichment.py"})
+# How a handle is spelled outside the store: an annotation of the handle or the viewer's
+# dependency alias, or the target `open_store` is opened into.
+HANDLE = frozenset({"Store", "Db"})
 
 
 def test_rows_answers_the_columns_the_statement_named_and_the_rows_as_tuples(
@@ -145,3 +162,91 @@ def test_wait_reaches_the_door(mutable_db: Path) -> None:
         (row,) = store.rows("SELECT count(*) FROM sessions", {}).rows
     # ...and reads the store the writer let go of.
     assert row[0] > 0
+
+
+def outside_the_store() -> list[tuple[str, ast.Module]]:
+    """Every module under the package but the store's, parsed, keyed by its path in the package."""
+    return [
+        (str(path.relative_to(PACKAGE)), ast.parse(path.read_text(), filename=str(path)))
+        for path in sorted(PACKAGE.rglob("*.py"))
+        if path.relative_to(PACKAGE).parts[0] != "store"
+    ]
+
+
+def reached() -> set[str]:
+    """The modules outside the store reading `.rows` or `.connection` off something spelled `store`.
+
+    Keyed on the receiver's spelling rather than its type, because every handle outside the store
+    is named `store` (the leaf below holds that), and a type-keyed scan cannot see what
+    `enter_context(open_store(...))` binds. The receiver is the bare name or an attribute by it —
+    `self.store.rows`, the shape of an object that stashed the handle, as `walk.py`'s reader does.
+    `levels.py:Levels.rows` is a method on another receiver, so neither its definition nor its
+    callers land here.
+    """
+    return {
+        module
+        for module, tree in outside_the_store()
+        if any(
+            isinstance(node, ast.Attribute) and node.attr in VERBS and spells_store(node.value)
+            for node in ast.walk(tree)
+        )
+    }
+
+
+def spells_store(receiver: ast.expr) -> bool:
+    """Whether an expression is `store` or ends in `.store`."""
+    return (isinstance(receiver, ast.Name) and receiver.id == "store") or (
+        isinstance(receiver, ast.Attribute) and receiver.attr == "store"
+    )
+
+
+def handles_named() -> set[str]:
+    """Every name a handle is held under outside the store: parameters annotated as one, `with`
+    targets and `enter_context` assignments of `open_store`."""
+    names: set[str] = set()
+    for _, tree in outside_the_store():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.arg) and node.annotation is not None:
+                spelled = ast.unparse(node.annotation)
+                if spelled in HANDLE or spelled.removesuffix(" | None") in HANDLE:
+                    names.add(node.arg)
+            elif isinstance(node, ast.withitem) and opens_a_store(node.context_expr):
+                if node.optional_vars is not None:
+                    names.add(ast.unparse(node.optional_vars))
+            elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+                entered = node.value.func
+                if (
+                    isinstance(entered, ast.Attribute)
+                    and entered.attr == "enter_context"
+                    and any(opens_a_store(argument) for argument in node.value.args)
+                ):
+                    names.update(ast.unparse(target) for target in node.targets)
+    return names
+
+
+def opens_a_store(expression: ast.expr) -> bool:
+    return (
+        isinstance(expression, ast.Call)
+        and isinstance(expression.func, ast.Name)
+        and expression.func.id == "open_store"
+    )
+
+
+@pytest.mark.reads_the_repo  # reads every module outside the store package
+def test_no_module_outside_the_store_reaches_the_handle_but_the_two_the_plan_names() -> None:
+    """The ratchet: `rows` and `connection` are the store's, and two modules still borrow them.
+
+    `==` rather than `<=`, so a module that stops reaching in is a red here as well as a new one
+    that starts — the set is a fact the PR that changes it states.
+    """
+    assert reached() == REACHING
+
+
+@pytest.mark.reads_the_repo  # reads every module outside the store package
+def test_every_store_handle_outside_the_store_is_named_store() -> None:
+    """The spelling the ratchet keys on: a handle outside the store is always `store`.
+
+    A parameter typed `Store` or `Db` under another name, or `open_store` opened `as db`, would be
+    a handle the scan above cannot see reaching in.
+    """
+    assert handles_named() == {"store"}
