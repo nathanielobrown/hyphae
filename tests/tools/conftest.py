@@ -36,16 +36,27 @@ def numbers(text: str) -> list[int]:
     return [int(match.replace(",", "")) for match in re.findall(r"\d[\d,]*", text)]
 
 
-def contract(kind: str) -> dict:
-    """The one contract of this type under `[tool.importlinter]` in `pyproject.toml`, as data."""
+# The contracts under `[tool.importlinter]`, by the name each declares — the one key that
+# tells two contracts of one type apart.
+LAYERS = "Layers"
+DRIVER = "Only the store speaks DuckDB"
+
+
+def contracts() -> list[dict]:
+    """Every contract under `[tool.importlinter]` in `pyproject.toml`, as data, in table order."""
     config = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    (found,) = [c for c in config["tool"]["importlinter"]["contracts"] if c["type"] == kind]
+    return config["tool"]["importlinter"]["contracts"]
+
+
+def contract(name: str) -> dict:
+    """The one contract of this name under `[tool.importlinter]` in `pyproject.toml`, as data."""
+    (found,) = [c for c in contracts() if c["name"] == name]
     return found
 
 
 def contract_layers() -> list[str]:
     """The `layers` list the layers contract in `pyproject.toml` declares, top to bottom."""
-    return contract("layers")["layers"]
+    return contract(LAYERS)["layers"]
 
 
 def mise_config() -> dict:
