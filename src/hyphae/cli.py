@@ -12,7 +12,7 @@ from typing import Any, NamedTuple
 
 from hyphae import user_settings
 from hyphae.analyze.manifest import catalog
-from hyphae.analyze.runner import Result, run
+from hyphae.analyze.runner import run
 from hyphae.enrich.client import (
     DEFAULT_CONCURRENCY,
     DEFAULT_MODEL,
@@ -39,6 +39,7 @@ from hyphae.extract import picker
 from hyphae.extract.claude_code import ClaudeCodeExtractor
 from hyphae.extract.discover import discover
 from hyphae.extract.layout import DEFAULT_PROJECTS_ROOT, find_project_dirs, find_sessions
+from hyphae.models.analysis import Answered
 from hyphae.models.enrichment import Versions
 from hyphae.pipeline import Failure, refresh
 from hyphae.pricing import MODELS, SYNTHETIC_MODEL
@@ -285,10 +286,10 @@ def _query(args: argparse.Namespace) -> None:
     print(result.citation, file=sys.stderr if args.csv else sys.stdout)
     if args.csv:
         writer = csv.writer(sys.stdout)
-        writer.writerow(result.columns)
-        writer.writerows(result.rows)
+        writer.writerow(result.answer.columns)
+        writer.writerows(result.answer.rows)
         return
-    print(_table(result))
+    print(_table(result.answer))
 
 
 def _query_arguments(subcommand: argparse.ArgumentParser) -> None:
@@ -328,15 +329,15 @@ def _query_arguments(subcommand: argparse.ArgumentParser) -> None:
     )
 
 
-def _table(result: Result) -> str:
+def _table(answer: Answered) -> str:
     """The rows as an aligned table, wide enough for the values it holds."""
-    cells = [[_cell(value) for value in row] for row in result.rows]
+    cells = [[_cell(value) for value in row] for row in answer.rows]
     widths = [
         max(len(column), *(len(row[index]) for row in cells)) if cells else len(column)
-        for index, column in enumerate(result.columns)
+        for index, column in enumerate(answer.columns)
     ]
     lines = [
-        "  ".join(column.ljust(width) for column, width in zip(result.columns, widths, strict=True))
+        "  ".join(column.ljust(width) for column, width in zip(answer.columns, widths, strict=True))
     ]
     lines.append("  ".join("-" * width for width in widths))
     lines += [

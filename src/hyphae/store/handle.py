@@ -5,7 +5,7 @@ connection, and the forbidden contract holds every package outside the store to 
 (`docs/layering.md`). The enrichment tables keep their own writer in this package until PR
 4.5 of the store-layering plan hangs it off the handle; the OTLP ledger's stays a writer of
 its own. `rows` hands back columns and tuples because its two consumers want different shapes
-from them — the page reads want dicts, the runner a header and a body — and a cursor is the
+from them — the page reads want dicts, `hp query` a header and a body — and a cursor is the
 driver's type.
 """
 
@@ -19,6 +19,7 @@ import duckdb
 
 from hyphae.models.citation import ParamValue
 from hyphae.store import macros
+from hyphae.store.analysis import AnalysisRepository
 from hyphae.store.failures import FailureRepository
 from hyphae.store.offloads import OffloadRepository
 from hyphae.store.records import RecordRepository
@@ -68,7 +69,10 @@ class Store:
         """The errors page and the error stepper: every failed tool call of one session."""
         return FailureRepository(self)
 
-    # analysis
+    @cached_property
+    def analysis(self) -> AnalysisRepository:
+        """`hp query`: the corpus scoped to one project, and any library statement run over it."""
+        return AnalysisRepository(self)
 
     # enrichment
 
@@ -79,7 +83,7 @@ class Store:
     def rows(self, sql: str, bindings: Mapping[str, ParamValue]) -> Fetched:
         """Run one statement with every value bound by name, and hand back what it answered.
 
-        DDL runs through here too — the runner's corpus relations are temp tables — and
+        DDL runs through here too — the analysis corpus relations are temp tables — and
         answers whatever the driver reports for it. A binding the statement names and the
         caller left out is the driver's own error, not a NULL bound in its place.
         """

@@ -1,9 +1,9 @@
 """Runs one library query against the trace store and hands back its rows and its citation.
 
 The store is opened read-only, and every value the caller supplies reaches DuckDB as a bound
-parameter — nothing is interpolated into SQL. A corpus query gets one thing from the runner
-that its file does not define: `project_sessions`, the temp table holding the sessions
-`--project` selected and whether each falls in the trailing window.
+parameter — nothing is interpolated into SQL. The runner resolves the request — which
+statement, at which bindings, over which project — and `store.analysis` runs it: a corpus
+query reads the relations `scope` built from `--project` (`src/hyphae/store/analysis.py`).
 """
 
 import datetime as dt
@@ -11,67 +11,29 @@ from collections.abc import Mapping
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from hyphae.analyze import manifest
+from hyphae.models.analysis import Answered
 from hyphae.models.citation import ParamValue
-from hyphae.projects import project_predicate, resolve_project
 from hyphae.store import library
-from hyphae.store.handle import Store, open_store
+from hyphae.store.handle import open_store
 from hyphae.store.library import NoDefault, ParamType, QueryError, Scope
 from hyphae.store.schema import SchemaVersionError
 from hyphae.store.trace_store import CLI_WAIT, StoreLocked
 
-# The sessions `--project` selects, and the window flag every corpus query reads. Written
-# here rather than in each query file so that a query cannot scope itself differently from
-# the corpus it reports against. These two relations are `library.CORPUS_RELATIONS`, which is
-# what reading one makes a statement a corpus one.
-_PROJECT_SESSIONS = f"""
-CREATE OR REPLACE TEMP TABLE project_sessions AS
-SELECT
-    id AS session_id,
-    started_at,
-    coalesce(
-        started_at >= $as_of::DATE - to_days($window_days::INTEGER)
-            AND started_at < $as_of::DATE + INTERVAL 1 DAY,
-        false
-    ) AS in_window
-FROM sessions
-WHERE {project_predicate("project_dir", "$project")}
-  AND ($since::DATE IS NULL OR started_at >= $since::DATE)
-"""
-
-# The two windows every count is reported in, as rows a count can group by. Written here for
-# the same reason as the predicate above: a query that filtered its own window would be a
-# second implementation of the recency rule, free to drift from the total it restricts.
-_SESSION_PERIODS = """
-CREATE OR REPLACE TEMP VIEW session_period AS
-SELECT session_id, 'corpus' AS period FROM project_sessions
-UNION ALL
-SELECT session_id, 'trailing_window' AS period FROM project_sessions WHERE in_window
-"""
-
-# Sessions no project predicate can place. They are excluded from every corpus count, so the
-# runner reports how many there were rather than leaving the gap silent.
-_UNPLACEABLE = "SELECT count(*) FROM sessions WHERE project_dir IS NULL"
-
 
 @dataclass(frozen=True)
 class Result:
-    """One query's rows, and the line a report copies to show what produced them."""
+    """One query's answer, and the line a report copies to show what produced it."""
 
-    name: str
-    # Resolved bindings in citation order — every one at the value DuckDB actually saw.
-    bindings: dict[str, ParamValue]
-    columns: tuple[str, ...]
-    rows: list[tuple[Any, ...]]
+    answer: Answered
     # Sessions with no `project_dir`; None for a keyed query, which asks about one session.
     unplaceable_sessions: int | None
 
     @property
     def citation(self) -> str:
         """Query file and resolved bindings, as a SQL comment: the claim's query."""
-        return library.citation(self.name, self.bindings)
+        return library.citation(*self.answer.citation)
 
 
 def run(
@@ -109,37 +71,12 @@ def run(
     except (FileNotFoundError, SchemaVersionError, StoreLocked) as error:
         raise QueryError(str(error)) from error
     with opened:
-        cited: dict[str, ParamValue] = {}
         unplaceable = None
         if corpus:
             # Narrowing for the type checker; `corpus and project is None` raised above.
             assert project is not None  # noqa: S101
-            cited = _build_project_sessions(store, project, since, as_of)
-            ((unplaceable,),) = store.rows(_UNPLACEABLE, {}).rows
-        columns, rows = store.rows(library.load(name), bindings)
-        return Result(
-            name=name,
-            bindings=cited | bindings,
-            columns=columns,
-            rows=rows,
-            unplaceable_sessions=unplaceable,
-        )
-
-
-def _build_project_sessions(
-    store: Store, project: Path, since: dt.date | None, as_of: dt.date
-) -> dict[str, ParamValue]:
-    """Materialize the corpus for `project`, and return the bindings that defined it."""
-    resolved = str(resolve_project(project))
-    bindings: dict[str, ParamValue] = {
-        "project": resolved,
-        "since": since,
-        "as_of": as_of,
-        "window_days": library.WINDOW_DAYS,
-    }
-    store.rows(_PROJECT_SESSIONS, bindings)
-    store.rows(_SESSION_PERIODS, {})
-    return bindings
+            unplaceable = store.analysis.scope(project=project, since=since, as_of=as_of)
+        return Result(store.analysis.run(name, bindings), unplaceable)
 
 
 def _resolve(

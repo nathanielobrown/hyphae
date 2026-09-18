@@ -4,7 +4,7 @@ that hands one out.
 Locking is not this file's business — `test_trace_store__locking.py` covers both waits,
 `StoreLocked`, and a refused store freeing its lock. What is pinned here is the shape `rows`
 answers with, that a missing binding is refused rather than bound NULL, that the macros are
-installed and DDL runs (the runner's relations and every `view_*` cut go through this verb),
+installed and DDL runs (the repositories' DDL and every `view_*` cut go through this verb),
 that `open_store` raises what the door under it raises, and that `read_only` reaches the door.
 
 The ratchet at the end is the store's boundary: which modules outside the package still run
@@ -32,12 +32,12 @@ NAMED = sorted((RESUME, SPINE))
 BRIEF_HOLD = 0.4
 
 PACKAGE = Path(hyphae.__file__).parent
-# The two verbs the handle exposes, and the modules outside the store still reaching them: the
-# analysis runner (its relations and the corpus statements, PR 4.4) and the enrichment reads
-# (PR 4.5). Each of those PRs proves its own module left with a leaf of its own; this literal
-# is edited once more, to `set()`, by phase 5.
+# The two verbs the handle exposes, and the one module outside the store still reaching them:
+# the enrichment reads (PR 4.5). That PR proves its module left with a leaf of its own, as
+# `tests/store/test_analysis.py` does for the runner; this literal is edited once more, to
+# `set()`, by phase 5.
 VERBS = frozenset({"rows", "connection"})
-REACHING = frozenset({"analyze/runner.py", "view/enrichment.py"})
+REACHING = frozenset({"view/enrichment.py"})
 # How a handle is spelled outside the store: an annotation of the handle or the viewer's
 # dependency alias, or the target `open_store` is opened into.
 HANDLE = frozenset({"Store", "Db"})
@@ -77,7 +77,7 @@ def test_rows_refuses_a_binding_the_statement_names_and_the_caller_left_out(
 
 
 def test_open_store_installs_the_macros_and_rows_runs_ddl(corpus_db: Path) -> None:
-    """What the runner's relations and every `view_*` cut need from the one verb."""
+    """What the repositories' DDL and every `view_*` cut need from the one verb."""
     with open_store(corpus_db, read_only=True, wait=NO_WAIT) as store:
         # If a statement calls a library macro by name, the handle has installed it: `cut`
         # takes one character past the width so a page can mark the stop.
@@ -233,8 +233,8 @@ def opens_a_store(expression: ast.expr) -> bool:
 
 
 @pytest.mark.reads_the_repo  # reads every module outside the store package
-def test_no_module_outside_the_store_reaches_the_handle_but_the_two_the_plan_names() -> None:
-    """The ratchet: `rows` and `connection` are the store's, and two modules still borrow them.
+def test_no_module_outside_the_store_reaches_the_handle_but_the_one_the_plan_names() -> None:
+    """The ratchet: `rows` and `connection` are the store's, and one module still borrows them.
 
     `==` rather than `<=`, so a module that stops reaching in is a red here as well as a new one
     that starts — the set is a fact the PR that changes it states.

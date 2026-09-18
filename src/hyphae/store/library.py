@@ -36,7 +36,7 @@ class Scope(StrEnum):
     """What a query is asking about, which decides what the runner has to give it."""
 
     # Counts across sessions: takes `--project`, and reads the corpus predicate and the
-    # trailing window through the runner's `project_sessions` table.
+    # trailing window through the `project_sessions` table `store.analysis` scopes.
     CORPUS = "corpus"
     # Anything that is not a count across sessions: a fetch keyed by `session_id`/`source`,
     # or the viewer's whole-store list. Exempt from both — a corpus predicate on
@@ -45,7 +45,7 @@ class Scope(StrEnum):
     KEYED = "keyed"
 
 
-# The two relations `analyze/runner.py` builds from `--project`, and so the whole of what
+# The two relations `store/analysis.py` builds from `--project`, and so the whole of what
 # makes a statement a corpus one: a query reading neither is not scoped to a project at all,
 # whatever anyone says about it. Declared here rather than beside the SQL that creates them
 # because it is the contract between a statement and the runner, and both sides read it.
