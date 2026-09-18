@@ -12,6 +12,7 @@ from typing import NamedTuple
 from pydantic.dataclasses import dataclass
 
 from hyphae.models.citation import Citation
+from hyphae.models.node import ToolFields
 from hyphae.models.row import ROW
 
 
@@ -27,9 +28,7 @@ class Failure:
     source: str
     tool_call_id: str
     name: str
-    # The `tool_fields` struct: every member a cut string, but `todos`, a count
-    # (`store/macros.py`); what a title is composed out of (`view/text/tool_names.py`).
-    fields: dict[str, str | int | None]
+    fields: ToolFields
     # Constant true under the statement's filter, selected so every tool row reads alike.
     is_error: bool
     started_at: dt.datetime
