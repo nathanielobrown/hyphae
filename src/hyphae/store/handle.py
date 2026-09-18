@@ -38,6 +38,24 @@ class Store:
     def __init__(self, connection: duckdb.DuckDBPyConnection) -> None:
         self.connection = connection
 
+    # The repositories, one `cached_property` per area as each phase-4 PR lands it, with a
+    # blank line between neighbours so two PRs' edits rebase past each other
+    # (`plans/store-layering/phase-4-repositories.md`).
+
+    # sessions and projects
+
+    # records and offload
+
+    # failures
+
+    # analysis
+
+    # enrichment
+
+    # nodes
+
+    # the NavTree and the walk
+
     def rows(self, sql: str, bindings: Mapping[str, ParamValue]) -> Fetched:
         """Run one statement with every value bound by name, and hand back what it answered.
 

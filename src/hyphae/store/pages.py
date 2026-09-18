@@ -31,8 +31,16 @@ TURN_CURSOR = "turn_index"
 
 
 class Page(StrEnum):
-    """The library queries the pages are built from, by the part each one fills."""
+    """The library queries the pages are built from, by the part each one fills.
 
+    Grouped under a heading naming the repository that takes each over. A PR of phase 4
+    deletes the members under its heading and leaves the heading standing, so two PRs' edits
+    always have an unchanged line between them and rebase past each other in either order
+    (`plans/store-layering/phase-4-repositories.md`).
+    """
+
+    # SessionRepository
+    # The sessions and projects the list and the landing page read.
     SESSIONS = "view_sessions"
     # Every project the store holds sessions for, which is the landing page: the counts a
     # reader lands on are a corpus's, so they come from the `corpus_*` views.
@@ -41,44 +49,56 @@ class Page(StrEnum):
     # of the page: the projects on one page of sessions are not the projects to filter by.
     PROJECTS = "view_projects"
     SESSION_HEADER = "view_session_header"
+    # What the pass said each session was, joined to the page of rows the list just read.
+    # Absent from a store no pass has written to, which is why `view/enrichment.py` asks first.
+    DESCRIBED_SESSIONS = "view_described_sessions"
+
+    # RecordRepository and OffloadRepository
+    # One page of a thread's raw transcript, previewed a record per row, and one chunk of a
+    # tool result written to a file beside the transcript.
+    RECORDS = "view_records"
+    OFFLOAD = "view_offload"
+
+    # FailureRepository
     # Every failed tool call of one session, across every thread — the one page the NavTree
     # cannot lead to, because a failure is scattered rather than nested (`view/failures.py`).
     SESSION_ERRORS = "view_session_errors"
+
+    # EnrichmentRepository
+    # What an enrichment pass said about the session, its turns and its runs. Absent from a
+    # store no pass has written to, for the same reason as `DESCRIBED_SESSIONS`.
+    ENRICHMENT = "view_enrichment"
+
+    # NodeRepository
     # One node read whole, the header of its own page. One per kind that has fields of its
     # own; a bucket has none, and a compaction reads out of `view_compactions`.
     RUN_HEADER = "view_run_header"
     TURN_HEADER = "view_turn_header"
     CALL_HEADER = "view_call_header"
     TOOL_HEADER = "view_tool_header"
+    # The line each of a thread's turns was read from — what turns a timeline row into a link
+    # into the records page.
+    TURN_RECORDS = "view_turn_records"
+
+    # NavRepository
     # The levels of the NavTree beside a node page: one thin row per child, whatever the level
     # holds. One query per kind of child rather than per kind of parent, so a turn's calls
     # are read the same way under a session, under a run, or under a bucket.
     NAV_TREE_TURNS = "view_nav_tree_turns"
     NAV_TREE_CALLS = "view_nav_tree_calls"
     NAV_TREE_TOOLS = "view_nav_tree_tools"
+    RUNS = "view_runs"
     # The two turn timelines, shared with `hp query` — the same rows a report cites.
     # One query per thread kind: `session_timeline` reads `main`, `run_timeline` a bound source.
     TIMELINE = "session_timeline"
     RUN_TIMELINE = "run_timeline"
-    RUNS = "view_runs"
     COMPACTIONS = "view_compactions"
-    # What an enrichment pass said about the session, its turns and its runs. Absent from a
-    # store no pass has written to, which is why `view/enrichment.py` asks before it runs.
-    ENRICHMENT = "view_enrichment"
-    # The same for the list: what the pass said each session was, joined to the page of rows
-    # the list just read. Absent from an un-enriched store for the same reason.
-    DESCRIBED_SESSIONS = "view_described_sessions"
-    # One page of a thread's raw transcript, previewed a record per row, and the line each of
-    # the thread's turns was read from — what turns a timeline row into a link into it.
-    RECORDS = "view_records"
-    TURN_RECORDS = "view_turn_records"
-    # One chunk of a tool result written to a file beside the transcript.
-    OFFLOAD = "view_offload"
 
 
 class Fragment(StrEnum):
     """The library queries htmx fetches a page of at a time, on expanding something."""
 
+    # NodeRepository
     # One page of the api calls under a turn, and one page of the tool calls under a call.
     TURN_CALLS = "view_turn_calls"
     CALL_TOOLS = "view_call_tools"
@@ -95,9 +115,12 @@ class Value(StrEnum):
 
     Every other query truncates in SQL. These return a fat column untruncated because the
     unit *is* one value — the bound is the largest single value in the store, not a page's
-    worth of them, and it is only reached when a reader opens that one value.
+    worth of them, and it is only reached when a reader opens that one value. Grouped the way
+    `Page` is.
     """
 
+    # NodeRepository
+    # The ten values a node's pane previews out of its header and fetches whole here.
     CALL_TEXT = "view_call_text"
     CALL_THINKING = "view_call_thinking"
     # What one tool call was asked and what it returned, one value each rather than the row
@@ -107,7 +130,6 @@ class Value(StrEnum):
     # And what a `Bash` call ran, which the input holds escaped onto one line: a value of its
     # own because a shell command is read as shell, not as a string inside JSON.
     TOOL_COMMAND = "view_tool_command"
-    RECORD = "view_record"
     # What a turn was asked, what followed the command a slash turn ran, and what an agent
     # run was briefed with. Each is a value a pane previews, cut in the node's header query
     # and fetched whole here.
@@ -118,7 +140,11 @@ class Value(StrEnum):
     # and what it returned to the agent that made it.
     RUN_PROMPT = "view_run_prompt"
     RUN_RESULT = "view_run_result"
-    # And the two lines an enrichment pass wrote about an item, at each of the three levels it
+    # One raw record whole, as the records page previewed it.
+    RECORD = "view_record"
+
+    # EnrichmentRepository
+    # The two lines an enrichment pass wrote about an item, at each of the three levels it
     # writes at. Fat for the same reason the rest are — a pass writes as much as it wants
     # to — and one query each, because a fetch serves one value and a reader opens whichever
     # of the two ran past the width.
