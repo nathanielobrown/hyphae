@@ -1,9 +1,7 @@
 """What bounds a page: every size the viewer serves, beside the ceiling that caps it.
 
 A size is something a reader types, so the ceiling rather than the default is the number the
-payload bound is arithmetic over. The two halves used to live apart — a default in the query
-manifest, a ceiling in the app, and the composed sizes in whichever module composed them — so
-answering "what bounds this page?" meant visiting four files under three naming conventions.
+payload bound is arithmetic over.
 
 A size a query binds is the surface's rather than the query's — no `view_` parameter declares
 a default (`analyze/manifest.py`) — so it is named here beside its ceiling and quoted in the
@@ -189,8 +187,8 @@ NAV_TREE_ROW_BYTES = 1703
 # What each surface prints at. A surface is one place a page shows store text at widths of its
 # own — the NavTree, a node's header, a children log, an expansion, a popover, a list row — and
 # a profile is one field per query parameter that surface binds, named for the parameter. A read
-# names its surface and `bound` below fills the mapping from it, so the pairing of
-# parameter to width is stated once here instead of in every line that reads.
+# names its surface and `store/library.py:bind` fills the mapping from it, so the pairing
+# of parameter to width is stated once here instead of in every line that reads.
 #
 # No field takes a default: a surface that binds a parameter says what it binds it at, and a read
 # that wants another width names another surface. The field order is the order the citation under
