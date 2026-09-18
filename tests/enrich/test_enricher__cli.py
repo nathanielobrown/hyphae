@@ -22,7 +22,7 @@ from hyphae.enrich.enricher import (
 )
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION
 from hyphae.pricing import SYNTHETIC_MODEL
-from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.enrichment import EnrichmentRepository
 from tests.conftest import MYCELIA, enriching
 from tests.enrich.conftest import (
     CURRENT,
@@ -62,7 +62,7 @@ def logged_in(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize("extra", [(), ("--dry-run",)])
 def test_an_unpriced_model_is_refused_at_the_door(
     db: Path,
-    store: EnrichmentStore,
+    store: EnrichmentRepository,
     model: str,
     extra: tuple[str, ...],
     capsys: pytest.CaptureFixture[str],
@@ -88,7 +88,7 @@ def test_an_unpriced_model_is_refused_at_the_door(
 
 def test_a_dry_run_asks_no_auth_question(
     db: Path,
-    store: EnrichmentStore,
+    store: EnrichmentRepository,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -117,7 +117,7 @@ def test_a_dry_run_asks_no_auth_question(
     assert order == ["preflight", "client"]
 
 
-def test_the_removed_batch_flag_is_rejected(db: Path, store: EnrichmentStore) -> None:
+def test_the_removed_batch_flag_is_rejected(db: Path, store: EnrichmentRepository) -> None:
     """`--no-batch` is gone: a script still passing it stops rather than silently batching.
 
     There is one path now, and it is neither of the two the flag chose between.
@@ -152,7 +152,7 @@ def test_a_dry_run_creates_the_enrichment_tables_it_finds_missing(
 
 
 def test_a_dry_run_writes_nothing_and_sends_nothing(
-    db: Path, store: EnrichmentStore, capsys: pytest.CaptureFixture[str]
+    db: Path, store: EnrichmentRepository, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """`--dry-run` says how much a run would send, broken down by level."""
     # If a dry run is asked for...
@@ -167,7 +167,7 @@ def test_a_dry_run_writes_nothing_and_sends_nothing(
 
 def test_a_dry_run_scoped_to_a_project_places_a_relative_path(
     db: Path,
-    store: EnrichmentStore,
+    store: EnrichmentRepository,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -192,7 +192,7 @@ def test_a_dry_run_scoped_to_a_project_places_a_relative_path(
 
 
 def test_a_dry_run_counts_the_ancestors_of_what_is_stale(
-    db: Path, store: EnrichmentStore, capsys: pytest.CaptureFixture[str]
+    db: Path, store: EnrichmentRepository, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """One stale leaf is quoted as four items: itself and everything that embeds it.
 
@@ -219,7 +219,7 @@ def test_a_dry_run_counts_the_ancestors_of_what_is_stale(
 
 
 def test_a_dry_run_quotes_a_price_it_computed_itself(
-    db: Path, store: EnrichmentStore, capsys: pytest.CaptureFixture[str]
+    db: Path, store: EnrichmentRepository, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The quoted dollars are arithmetic over the prompts, checkable without a network.
 
@@ -275,7 +275,7 @@ def test_the_cli_writes_what_the_library_writes(
 
 
 def test_the_cli_limits_what_it_sends(
-    db: Path, store: EnrichmentStore, logged_in: None, monkeypatch: pytest.MonkeyPatch
+    db: Path, store: EnrichmentRepository, logged_in: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`--limit N` sends at most N items, which is what makes a dev run cheap."""
     client = FakeClient()
@@ -289,7 +289,7 @@ def test_the_cli_limits_what_it_sends(
 
 
 def test_the_concurrency_flag_reaches_the_client(
-    db: Path, store: EnrichmentStore, logged_in: None, monkeypatch: pytest.MonkeyPatch
+    db: Path, store: EnrichmentRepository, logged_in: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`--concurrency N` sets how many `claude` processes a round runs at once, defaulting to 4."""
     # If the one place a client is built is asked for one, it answers with the real client,

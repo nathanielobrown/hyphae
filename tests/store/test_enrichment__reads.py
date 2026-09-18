@@ -21,7 +21,7 @@ from hyphae.models.node import WholeValue
 from hyphae.models.row import ROW
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store import library
-from hyphae.store.enrichment import ENRICHMENT, LINE_STATEMENTS, EnrichmentStore
+from hyphae.store.enrichment import ENRICHMENT, LINE_STATEMENTS, EnrichmentRepository
 from hyphae.store.handle import open_store
 from hyphae.view import bounds
 from tests.conftest import NO_WAIT, enriching
@@ -33,14 +33,23 @@ from tests.store.test_sessions import LIVE_STORE, rows_of
 ENRICHMENT_WIDTHS = bounds.ENRICHMENT_WIDTHS._asdict()
 
 
+def test_the_handle_hands_out_one_repository(corpus_db: Path) -> None:
+    """`store.enrichment` is the repository over that store, built once, for a page and a pass
+    alike."""
+    with open_store(corpus_db, read_only=True, wait=NO_WAIT) as store:
+        assert store.enrichment is store.enrichment
+        assert isinstance(store.enrichment, EnrichmentRepository)
+        assert store.enrichment.store is store
+
+
 def test_held_asks_the_catalog_for_the_tables(corpus_db: Path, enriched_db: Path) -> None:
     """A store no pass has prepared holds no enrichment table; a prepared one holds all three."""
     # If a page opens the store no pass has touched, the repository says so without a read...
     with open_store(corpus_db, read_only=True, wait=NO_WAIT) as store:
-        assert EnrichmentStore(store).held() is False
+        assert store.enrichment.held() is False
     # ...and over the same corpus a pass prepared, the tables are there.
     with open_store(enriched_db, read_only=True, wait=NO_WAIT) as store:
-        assert EnrichmentStore(store).held() is True
+        assert store.enrichment.held() is True
 
 
 @pytest.mark.parametrize("level", sorted(ROWS), ids=str)
@@ -55,7 +64,7 @@ def test_a_store_missing_any_one_table_is_not_held(
         store.rows(f"DROP TABLE {ROWS[level].table}", {})
     # ...then the repository holds nothing, since a page reads all three in one statement.
     with open_store(partial, read_only=True, wait=NO_WAIT) as store:
-        assert EnrichmentStore(store).held() is False
+        assert store.enrichment.held() is False
 
 
 @pytest.mark.parametrize(
@@ -69,7 +78,7 @@ def test_described_builds_every_row_by_column_name_and_cites_the_read(
     """One session's rows at every level, exactly as the statement answers them for the thread
     asked, with the bindings the footer quotes."""
     with open_store(enriched_db, read_only=True, wait=NO_WAIT) as store:
-        answer = EnrichmentStore(store).described(
+        answer = store.enrichment.described(
             session_id=SPINE, source=source, widths=ENRICHMENT_WIDTHS
         )
         bindings = library.bind(ENRICHMENT, ENRICHMENT_WIDTHS, {}, session_id=SPINE, source=source)
@@ -88,7 +97,7 @@ def test_described_over_a_session_no_pass_reached_is_empty_and_still_cited(
 ) -> None:
     """A session with no row is an empty answer, cited: the store held the tables to ask."""
     with open_store(enriched_db, read_only=True, wait=NO_WAIT) as store:
-        answer = EnrichmentStore(store).described(
+        answer = store.enrichment.described(
             session_id="no-such-session", source=MAIN_SOURCE, widths=ENRICHMENT_WIDTHS
         )
     assert answer.rows == []
@@ -119,7 +128,7 @@ def test_line_answers_the_planted_line_whole_and_none_where_no_pass_wrote_one(
 ) -> None:
     """Each of the six lines comes back whole from its own level's table, cited by its keys."""
     with open_store(enriched_db, read_only=True, wait=NO_WAIT) as store:
-        repository = EnrichmentStore(store)
+        repository = store.enrichment
         # If the first item of a level was planted with the row `planted_enrichment(0)` writes
         # — a description, and friction on every fourth index, so on this one...
         items = repository.items(level)
@@ -138,7 +147,7 @@ def test_a_line_binds_only_the_keys_its_level_declares(enriched_db: Path) -> Non
     """A turn's keys name a thread; a session's do not. Keys the statement lacks are refused
     where the line is read, not in DuckDB with the parameter unnamed."""
     with open_store(enriched_db, read_only=True, wait=NO_WAIT) as store:
-        repository = EnrichmentStore(store)
+        repository = store.enrichment
         turn = keys_of(repository.items(Level.turn)[0])
         with pytest.raises(ValueError, match="source"):
             repository.line(Level.session, "description", turn)
@@ -152,7 +161,7 @@ def test_a_line_binds_only_the_keys_its_level_declares(enriched_db: Path) -> Non
 def test_a_described_keyword_left_off_or_added_is_refused(enriched_db: Path) -> None:
     """`described` takes exactly its three keywords: a width spelled as a key is two surfaces."""
     with open_store(enriched_db, read_only=True, wait=NO_WAIT) as store:
-        described: Callable[..., Any] = EnrichmentStore(store).described
+        described: Callable[..., Any] = store.enrichment.described
         whole: dict[str, Any] = {
             "session_id": SPINE,
             "source": MAIN_SOURCE,

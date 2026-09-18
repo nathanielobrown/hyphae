@@ -34,7 +34,7 @@ from hyphae.models.enrichment import (
 )
 from hyphae.models.trace import SessionTrace
 from hyphae.store import macros
-from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.enrichment import EnrichmentRepository
 from hyphae.store.handle import open_store
 from hyphae.store.schema import table_ddl
 from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
@@ -349,15 +349,14 @@ NO_WAIT = 0.0
 
 
 @contextmanager
-def enriching(path: Path) -> Generator[EnrichmentStore]:
+def enriching(path: Path) -> Generator[EnrichmentRepository]:
     """`path` open for a pass: writable, with the enrichment tables in place.
 
     What `hp enrich` does to a store before it reads an item, at the lock budget above.
     """
     with open_store(path, read_only=False, wait=NO_WAIT) as store:
-        repository = EnrichmentStore(store)
-        repository.prepare()
-        yield repository
+        store.enrichment.prepare()
+        yield store.enrichment
 
 
 # What a writer does to the store: opens it read-write, says so, and holds it for the seconds

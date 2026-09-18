@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 # Every session in the store, one row: what the list ranks and drills from.
 SESSIONS = "view_sessions"
 # What the pass said each session was, joined to the page of rows the list just read. Absent
-# from a store no pass has written to, which is why `view/enrichment.py` asks first.
+# from a store no pass has written to, which is why a caller asks `store.enrichment.held()` first.
 DESCRIBED_SESSIONS = "view_described_sessions"
 # The names the list's project filter offers, which is a column of the store rather than of
 # the page: the projects on one page of sessions are not the projects to filter by.
@@ -195,7 +195,7 @@ class SessionRepository:
         """One page of the session list, ordered by one of `SORTS` and narrowed by `FILTERS`.
 
         `described` says whether the store holds the enrichment tables to join — a caller asks
-        `view/enrichment.py`, where that catalog check lives. It is an argument rather than a
+        `store.enrichment.held()`, where that catalog check lives. It is an argument rather than a
         check here because it is a fact about the store, not about the request. Joined, every
         row is a `DescribedSessionRollup`; a page narrows by `isinstance`.
         """

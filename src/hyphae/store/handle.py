@@ -2,10 +2,10 @@
 
 The driver stays inside this package: a page or a query holds a `Store` rather than a
 connection, and the forbidden contract holds every package outside the store to that
-(`docs/layering.md`). The enrichment tables keep their own writer in this package until PR
-4.5 of the store-layering plan hangs it off the handle; the OTLP ledger's stays a writer of
-its own. `rows` hands back columns and tuples because its two consumers want different shapes
-from them — the page reads want dicts, `hp query` a header and a body — and a cursor is the
+(`docs/layering.md`). The enrichment tables' writer is the `enrichment` repository, prepared
+on a writable handle by the pass that owns it; the OTLP ledger's stays a writer of its own.
+`rows` hands back columns and tuples because its two consumers want different shapes from
+them — the page reads want dicts, `hp query` a header and a body — and a cursor is the
 driver's type.
 """
 
@@ -20,6 +20,7 @@ import duckdb
 from hyphae.models.citation import ParamValue
 from hyphae.store import macros
 from hyphae.store.analysis import AnalysisRepository
+from hyphae.store.enrichment import EnrichmentRepository
 from hyphae.store.failures import FailureRepository
 from hyphae.store.offloads import OffloadRepository
 from hyphae.store.records import RecordRepository
@@ -74,7 +75,11 @@ class Store:
         """`hp query`: the corpus scoped to one project, and any library statement run over it."""
         return AnalysisRepository(self)
 
-    # enrichment
+    @cached_property
+    def enrichment(self) -> EnrichmentRepository:
+        """What a pass wrote about each item, and the pass's own reads and writes: a page asks
+        `held` before `described` or `line`; a pass prepares a writable handle first."""
+        return EnrichmentRepository(self)
 
     # nodes
 

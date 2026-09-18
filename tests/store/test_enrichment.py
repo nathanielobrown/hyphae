@@ -14,7 +14,7 @@ from hyphae.enrich.stamp import stale
 from hyphae.models.enrichment import ROWS, Level
 from hyphae.models.items import TurnItem, item_key, level_of
 from hyphae.models.trace import MAIN_SOURCE
-from hyphae.store.enrichment import _SCHEMA, PAYLOAD_COLUMNS, EnrichmentStore
+from hyphae.store.enrichment import _SCHEMA, PAYLOAD_COLUMNS, EnrichmentRepository
 from hyphae.store.handle import open_store
 from hyphae.store.schema import SchemaVersionError, declared_shape
 from tests.conftest import (
@@ -42,7 +42,7 @@ from tests.enrich.conftest import (
 )
 
 
-def spine_turns(store: EnrichmentStore) -> list[TurnItem]:
+def spine_turns(store: EnrichmentRepository) -> list[TurnItem]:
     return [item for item in store.turn_items() if item.session_id == SPINE]
 
 
@@ -163,7 +163,9 @@ UNREADABLE_CARRIERS = {
 }
 
 
-def plant_record(store: EnrichmentStore, session_id: str, line_no: int, record: object) -> None:
+def plant_record(
+    store: EnrichmentRepository, session_id: str, line_no: int, record: object
+) -> None:
     """Add one raw transcript record to a session's archive, at a line of its own."""
     store.connection.execute(
         "INSERT INTO raw_records (session_id, source, line_no, uuid, timestamp, type, raw)"
@@ -643,7 +645,7 @@ def test_a_read_only_handle_reads_and_refuses_to_write(mutable_db: Path) -> None
         item = store.items(Level.session)[0]
     # ...then over a read-only handle the same repository lists the same items...
     with open_store(mutable_db, read_only=True, wait=NO_WAIT) as store:
-        reader = EnrichmentStore(store)
+        reader = store.enrichment
         assert reader.items(Level.session)[0] == item
         assert reader.connection is store.connection
         # ...and a write on it is DuckDB's own refusal, not a silent no-op.

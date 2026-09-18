@@ -18,10 +18,10 @@ from hyphae.models.items import (
     SessionItem,
     TurnItem,
 )
-from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.enrichment import EnrichmentRepository
 
 
-def turn(store: EnrichmentStore, session_id: str, prefix: str) -> TurnItem:
+def turn(store: EnrichmentRepository, session_id: str, prefix: str) -> TurnItem:
     """The one main turn of `session_id` whose id starts with `prefix`."""
     items = [
         item
@@ -32,7 +32,7 @@ def turn(store: EnrichmentStore, session_id: str, prefix: str) -> TurnItem:
     return items[0]
 
 
-def run(store: EnrichmentStore, agent_run_id: str) -> AgentRunItem:
+def run(store: EnrichmentRepository, agent_run_id: str) -> AgentRunItem:
     """The store's one agent run with this id."""
     items = [item for item in store.run_items() if item.agent_run_id == agent_run_id]
     assert len(items) == 1, f"{agent_run_id} named {len(items)} runs"
@@ -44,14 +44,14 @@ def ended(rendered: str) -> str:
     return rendered.rsplit("\n", 1)[-1]
 
 
-def session(store: EnrichmentStore, session_id: str) -> SessionItem:
+def session(store: EnrichmentRepository, session_id: str) -> SessionItem:
     """The store's one enrichable session with this id."""
     items = [item for item in store.session_items() if item.session_id == session_id]
     assert len(items) == 1, f"{session_id} named {len(items)} sessions"
     return items[0]
 
 
-def describe(store: EnrichmentStore, item: Item, description: str) -> None:
+def describe(store: EnrichmentRepository, item: Item, description: str) -> None:
     """Enrich one item, so a render of its parent has a child description to embed."""
     store.upsert(
         item,

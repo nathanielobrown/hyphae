@@ -45,7 +45,6 @@ from hyphae.pipeline import Failure, refresh
 from hyphae.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.projects import encode_project_path, resolve_project
 from hyphae.store.delivery import DeliveryLedger
-from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.handle import open_store
 from hyphae.store.library import REQUIRED, QueryError
 from hyphae.store.trace_reader import StoreSource, UnknownProjectError
@@ -365,7 +364,7 @@ def _enrich(args: argparse.Namespace) -> None:
     with open_store(args.db, read_only=False, wait=CLI_WAIT) as store:
         # Writable, and prepared before anything reads: the pass creates the enrichment
         # tables, and a dry run leaves them behind as the one thing it writes.
-        enrichment = EnrichmentStore(store)
+        enrichment = store.enrichment
         enrichment.prepare()
         if args.dry_run:
             _report_plan(

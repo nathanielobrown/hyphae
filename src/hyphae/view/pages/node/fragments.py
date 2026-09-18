@@ -123,7 +123,7 @@ def detailed(store: Store, spec: Spec, keys: Mapping[str, str]) -> Detailed:
     if spec.written is Written.LINE and not enriched(store):
         # A pass creates the enrichment tables rather than the exporter, so a store none has
         # touched holds no such line — the same nothing a missing row is, and the same answer
-        # (`view/enrichment.py`). Asked per request and not at startup, because a pass can run
+        # (`store.enrichment.held`). Asked per request and not at startup, because a pass can run
         # against the store while the viewer is reading it. Ahead of the read, which would
         # otherwise fail on the missing table rather than on the missing line.
         raise Missing("No enrichment pass has written to this store.")

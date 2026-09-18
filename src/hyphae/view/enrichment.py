@@ -5,7 +5,7 @@ tables themselves are created by that pass rather than by the exporter — so a 
 opens read-only may not hold them. `described()` asks the repository whether it holds them
 first and hands back an empty answer when they are absent, which is what makes a page over an
 un-enriched store render the same as a page over an item the pass has not reached yet: nothing
-beside the item. The reads are the repository's (`store/enrichment.py`); what is here is the
+beside the item. The reads are `store.enrichment`'s (`store/enrichment.py`); what is here is the
 presentation of them — the tuple a pane prints, the map a page keys, and the six line specs.
 """
 
@@ -17,7 +17,6 @@ from typing import NamedTuple, assert_never
 from hyphae.models.citation import Citation
 from hyphae.models.enrichment import Level, Versions
 from hyphae.models.node import WholeValue
-from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.handle import Store
 from hyphae.view import bounds
 from hyphae.view.citation import Ran
@@ -101,7 +100,7 @@ class Descriptions:
 def enriched(store: Store) -> bool:
     """Whether this store holds the enrichment tables at all — a pass creates them, not the
     exporter, so a store nothing has enriched holds none of them."""
-    return EnrichmentStore(store).held()
+    return store.enrichment.held()
 
 
 def described(store: Store, session_id: str, source: str) -> Descriptions:
@@ -111,10 +110,9 @@ def described(store: Store, session_id: str, source: str) -> Descriptions:
     page. An item with no row is absent from the mapping rather than present and empty, so a
     component asks `.get(id)` and gets a description or nothing.
     """
-    repository = EnrichmentStore(store)
-    if not repository.held():
+    if not store.enrichment.held():
         return Descriptions()
-    answer = repository.described(
+    answer = store.enrichment.described(
         session_id=session_id, source=source, widths=bounds.ENRICHMENT_WIDTHS._asdict()
     )
     by_level: dict[Level, dict[str, Enrichment]] = {level: {} for level in Level}
@@ -150,7 +148,7 @@ def line(level: Level, name: str) -> Callable[[Store, Mapping[str, str]], WholeV
     """The fetch behind one line's spec: the repository's `line`, at the level and column."""
 
     def fetch(store: Store, keys: Mapping[str, str]) -> WholeValue | None:
-        return EnrichmentStore(store).line(level, name, keys)
+        return store.enrichment.line(level, name, keys)
 
     return fetch
 

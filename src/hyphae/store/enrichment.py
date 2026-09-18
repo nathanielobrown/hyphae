@@ -4,8 +4,8 @@ These tables live in the same DuckDB file as the trace store but outside the pip
 per-session replace, so a re-extraction never touches them. They attach to the pipeline's
 natural keys, which come from the data and survive re-extraction with it.
 
-`EnrichmentStore` is a value over one open handle (`store/handle.py`), for both of its
-readers. A pass opens the store writable, calls `prepare` once, then asks it for the items of
+`EnrichmentRepository` is the handle's `enrichment` property (`store/handle.py`), for both of
+its readers. A pass opens the store writable, calls `prepare` once, then asks it for the items of
 a level and hands back rows to render; a level's `Stamp`s are what each stored row was
 written under, for `enrich/stamp.py` to judge. A page holds a read-only handle, never
 prepares, and reads what the pass wrote: `held` says whether the tables are there at all,
@@ -132,8 +132,8 @@ _STDOUT_TAG = "local-command-stdout"
 _STDOUT_BODY = f"(?s)<{_STDOUT_TAG}>(.*)</{_STDOUT_TAG}>"
 
 
-# Where a project-scoped query narrows to one repository. `EnrichmentStore._select` writes the
-# clause here and binds what it needs; nothing else may write either half.
+# Where a project-scoped query narrows to one repository. `EnrichmentRepository._select`
+# writes the clause here and binds what it needs; nothing else may write either half.
 _PROJECT_SCOPE = "{project}"
 
 # What a pass said about one session, its threads' turns and its runs: the rows a page shows
@@ -166,7 +166,7 @@ class RunLink:
     parent_turn: str | None
 
 
-class EnrichmentStore:
+class EnrichmentRepository:
     """Reads enrichable items out of a trace store and writes enrichments back to it.
 
     Over the handle the caller opened, on the caller's terms: a pass holds it writable and

@@ -25,7 +25,7 @@ from hyphae.enrich.levels import LEVELS, ROUND_ORDER, render
 from hyphae.enrich.stamp import input_hash
 from hyphae.enrich.validation import FailureKind
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
-from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.enrichment import EnrichmentRepository
 from tests.conftest import MODEL_ONLY, build_store, enriching, fixture_transcripts
 from tests.enrich.conftest import (
     AUDITOR_RUN,
@@ -70,7 +70,7 @@ def forest_store(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture
-def forest(forest_store: Path, tmp_path: Path) -> Iterator[EnrichmentStore]:
+def forest(forest_store: Path, tmp_path: Path) -> Iterator[EnrichmentRepository]:
     """A private copy of the three-session store, open for enrichment."""
     copy = tmp_path / "forest.duckdb"
     copy.write_bytes(forest_store.read_bytes())
@@ -78,7 +78,7 @@ def forest(forest_store: Path, tmp_path: Path) -> Iterator[EnrichmentStore]:
         yield opened
 
 
-def test_every_level_is_declared_whole_and_described_bottom_up(store: EnrichmentStore) -> None:
+def test_every_level_is_declared_whole_and_described_bottom_up(store: EnrichmentRepository) -> None:
     """Each level has a store read that hands back its own items, a renderer that takes them,
     and a table.
 
@@ -105,7 +105,7 @@ def test_every_level_is_declared_whole_and_described_bottom_up(store: Enrichment
     assert (Level.agent_run, Level.turn, Level.session) == ROUND_ORDER
 
 
-def test_a_run_writes_a_row_for_every_stale_item(store: EnrichmentStore) -> None:
+def test_a_run_writes_a_row_for_every_stale_item(store: EnrichmentRepository) -> None:
     """One pass describes every enrichable item and records what it was described under."""
     # If a run enriches the `spine/` store...
     client = FakeClient()
@@ -171,7 +171,7 @@ def test_a_pass_never_sends_a_gated_session_and_reports_the_row_it_deleted(
         assert any(key.startswith(f"{Level.turn}|{MODEL_ONLY}|") for key in client.keys)
 
 
-def test_a_second_run_over_an_unchanged_store_sends_nothing(forest: EnrichmentStore) -> None:
+def test_a_second_run_over_an_unchanged_store_sends_nothing(forest: EnrichmentRepository) -> None:
     """Running again with nothing changed submits nothing and rewrites nothing.
 
     This is what makes `enrich` safe to run beside `extract` on a schedule. Over the forest
@@ -192,7 +192,7 @@ def test_a_second_run_over_an_unchanged_store_sends_nothing(forest: EnrichmentSt
     assert written_at(forest) == before
 
 
-def test_a_prompt_version_bump_re_enriches_the_level(store: EnrichmentStore) -> None:
+def test_a_prompt_version_bump_re_enriches_the_level(store: EnrichmentRepository) -> None:
     """Changing the instructions the hash cannot see re-enriches everything they cover."""
     enrich(store, FakeClient(), versions=CURRENT)
     # If the turn level's prompt version moves — an instruction or output-schema edit...
@@ -204,7 +204,7 @@ def test_a_prompt_version_bump_re_enriches_the_level(store: EnrichmentStore) -> 
     assert {row[8] for row in stored(store)} == {99}
 
 
-def test_a_taxonomy_bump_re_enriches(store: EnrichmentStore) -> None:
+def test_a_taxonomy_bump_re_enriches(store: EnrichmentRepository) -> None:
     """A taxonomy revision makes existing rows stale without invalidating them."""
     enrich(store, FakeClient(), versions=CURRENT)
     # If the taxonomy is revised — one version every level's answers are judged against...
@@ -220,7 +220,7 @@ def test_a_taxonomy_bump_re_enriches(store: EnrichmentStore) -> None:
     assert {row[9] for row in stored(store)} == {99}
 
 
-def test_a_model_switch_re_enriches(store: EnrichmentStore) -> None:
+def test_a_model_switch_re_enriches(store: EnrichmentRepository) -> None:
     """`--model` re-enriches automatically: a description is an answer from one model."""
     enrich(store, FakeClient(), versions=CURRENT)
     # The model rides on the client, not on `versions`: both passes run under the same
@@ -236,7 +236,9 @@ def test_a_model_switch_re_enriches(store: EnrichmentStore) -> None:
     assert {row[10] for row in stored(store)} == {"claude-sonnet-4-5"}
 
 
-def test_a_round_of_mixed_failures_crashes_naming_keys_and_kinds(store: EnrichmentStore) -> None:
+def test_a_round_of_mixed_failures_crashes_naming_keys_and_kinds(
+    store: EnrichmentRepository,
+) -> None:
     """Failed items crash the run at the end, classified by kind and named by key alone.
 
     Nothing the model wrote reaches the summary — the natural implementation, formatting the
@@ -283,7 +285,9 @@ def test_a_round_of_mixed_failures_crashes_naming_keys_and_kinds(store: Enrichme
     assert stored(store)[0][3] == f"Described {items[3].key}."
 
 
-def test_a_failed_request_leaves_its_item_stale(store: EnrichmentStore, tmp_path: Path) -> None:
+def test_a_failed_request_leaves_its_item_stale(
+    store: EnrichmentRepository, tmp_path: Path
+) -> None:
     """An item the CLI could not answer writes nothing, and the next run picks it up again.
 
     Staleness is the whole resume mechanism: there is no state to keep, so a crashed run
@@ -311,7 +315,7 @@ def test_a_failed_request_leaves_its_item_stale(store: EnrichmentStore, tmp_path
 
 def test_the_auth_blob_never_reaches_the_output(
     db: Path,
-    store: EnrichmentStore,
+    store: EnrichmentRepository,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -344,7 +348,7 @@ def test_the_auth_blob_never_reaches_the_output(
 
 
 def test_a_run_the_cli_refuses_names_what_the_cli_said(
-    forest: EnrichmentStore, monkeypatch: pytest.MonkeyPatch
+    forest: EnrichmentRepository, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A round the CLI refuses carries its stderr into the crash, and never its stdout.
 
@@ -372,7 +376,7 @@ def test_a_run_the_cli_refuses_names_what_the_cli_said(
     assert answered not in said
 
 
-def test_rounds_send_children_before_parents(forest: EnrichmentStore) -> None:
+def test_rounds_send_children_before_parents(forest: EnrichmentRepository) -> None:
     """Every run is described after the runs it spawned, and every main turn after both.
 
     A parent's prompt embeds its children's descriptions, so a parent sent first would be
@@ -395,7 +399,7 @@ def test_rounds_send_children_before_parents(forest: EnrichmentStore) -> None:
     ]
 
 
-def test_a_dry_run_names_exactly_the_items_a_run_sends(forest: EnrichmentStore) -> None:
+def test_a_dry_run_names_exactly_the_items_a_run_sends(forest: EnrichmentRepository) -> None:
     """A plan under a limit lists the very items a pass under that limit sends, in order.
 
     The dry run is the only thing between an operator and a paid pass. Planning by rules of
@@ -427,7 +431,7 @@ def test_a_dry_run_names_exactly_the_items_a_run_sends(forest: EnrichmentStore) 
     assert planned[3] in {key_of(forest, SPINE_RUN), key_of(forest, AUDITOR_RUN)}
 
 
-def test_a_rootless_run_is_a_root(forest: EnrichmentStore) -> None:
+def test_a_rootless_run_is_a_root(forest: EnrichmentRepository) -> None:
     """A run no tool call spawned is a leaf of nobody's tree, and goes out in the first round.
 
     46 recorded runs carry no spawning call — mostly teammates, which the team mechanism
@@ -442,7 +446,7 @@ def test_a_rootless_run_is_a_root(forest: EnrichmentStore) -> None:
     assert key_of(forest, SPINE_RUN) not in first
 
 
-def test_a_run_naming_a_missing_parent_crashes(forest: EnrichmentStore) -> None:
+def test_a_run_naming_a_missing_parent_crashes(forest: EnrichmentRepository) -> None:
     """A child whose parent run is not in the store crashes the run, naming the child.
 
     Planted, not recorded: no run of the corpus names a parent the store lacks (2,459
@@ -457,7 +461,7 @@ def test_a_run_naming_a_missing_parent_crashes(forest: EnrichmentStore) -> None:
         enrich(forest, FakeClient(), versions=CURRENT)
 
 
-def test_a_childs_new_description_makes_its_ancestors_stale(store: EnrichmentStore) -> None:
+def test_a_childs_new_description_makes_its_ancestors_stale(store: EnrichmentRepository) -> None:
     """A description that changes re-describes everything above it, in the same invocation.
 
     The stale set has to be recomputed after each round's upserts. Computing it once up
@@ -503,7 +507,7 @@ def test_a_childs_new_description_makes_its_ancestors_stale(store: EnrichmentSto
     assert stored_sessions(store)[0][2] != before_session
 
 
-def test_a_child_re_described_identically_stops_the_cascade(store: EnrichmentStore) -> None:
+def test_a_child_re_described_identically_stops_the_cascade(store: EnrichmentRepository) -> None:
     """A re-described child whose text did not change leaves its ancestors alone.
 
     The other half of the hash contract, and the reason a dry run's count is an upper bound.
@@ -526,7 +530,7 @@ def test_a_child_re_described_identically_stops_the_cascade(store: EnrichmentSto
     assert [row for row in stored_runs(store) if row[0] == SPINE_RUN] == parent_before
 
 
-def test_a_failed_childs_parents_are_skipped(store: EnrichmentStore) -> None:
+def test_a_failed_childs_parents_are_skipped(store: EnrichmentRepository) -> None:
     """When a child fails, the items whose prompts embed it write nothing at all.
 
     Writing a parent whose child failed bakes a hole into a description that the hash then

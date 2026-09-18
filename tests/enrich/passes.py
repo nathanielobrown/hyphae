@@ -17,7 +17,7 @@ from hyphae.enrich.client import (
     Succeeded,
 )
 from hyphae.models.items import AgentRunItem, TurnItem
-from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.enrichment import EnrichmentRepository
 from tests.enrich.conftest import (
     MODEL,
 )
@@ -71,45 +71,45 @@ def answer(key: str, **overrides: object) -> dict[str, Any]:
     } | overrides
 
 
-def turns(store: EnrichmentStore) -> list[TurnItem]:
+def turns(store: EnrichmentRepository) -> list[TurnItem]:
     """The store's main turns in the order a run sends them — the order they happened in."""
     return store.turn_items()
 
 
-def runs(store: EnrichmentStore) -> list[AgentRunItem]:
+def runs(store: EnrichmentRepository) -> list[AgentRunItem]:
     """The store's agent runs, in no particular order — the rounds decide what goes when."""
     return store.run_items()
 
 
-def key_of(store: EnrichmentStore, agent_run_id: str) -> str:
+def key_of(store: EnrichmentRepository, agent_run_id: str) -> str:
     """The item key one agent run is sent and stored under."""
     return next(item.key for item in runs(store) if item.agent_run_id == agent_run_id)
 
 
-def turn_key(store: EnrichmentStore, prefix: str) -> str:
+def turn_key(store: EnrichmentRepository, prefix: str) -> str:
     """The item key of the one main turn whose id starts with `prefix`."""
     return next(item.key for item in turns(store) if item.turn_id.startswith(prefix))
 
 
-def session_key(store: EnrichmentStore, session_id: str) -> str:
+def session_key(store: EnrichmentRepository, session_id: str) -> str:
     """The item key one session is sent and stored under."""
     return next(item.key for item in store.session_items() if item.session_id == session_id)
 
 
-def stored_sessions(store: EnrichmentStore) -> list[tuple[Any, ...]]:
+def stored_sessions(store: EnrichmentRepository) -> list[tuple[Any, ...]]:
     return store.connection.execute(
         "SELECT session_id, description, input_hash FROM session_enrichments ORDER BY session_id"
     ).fetchall()
 
 
-def stored_runs(store: EnrichmentStore) -> list[tuple[Any, ...]]:
+def stored_runs(store: EnrichmentRepository) -> list[tuple[Any, ...]]:
     return store.connection.execute(
         "SELECT agent_run_id, description, input_hash, enriched_at"
         " FROM agent_run_enrichments ORDER BY agent_run_id"
     ).fetchall()
 
 
-def written_at(store: EnrichmentStore) -> list[tuple[Any, ...]]:
+def written_at(store: EnrichmentRepository) -> list[tuple[Any, ...]]:
     """Every enrichment row of every level, against the moment it was written."""
     return store.connection.execute(
         "SELECT turn_id, enriched_at FROM turn_enrichments"
@@ -119,7 +119,7 @@ def written_at(store: EnrichmentStore) -> list[tuple[Any, ...]]:
     ).fetchall()
 
 
-def stored(store: EnrichmentStore) -> list[tuple[Any, ...]]:
+def stored(store: EnrichmentRepository) -> list[tuple[Any, ...]]:
     return store.connection.execute(
         "SELECT session_id, source, turn_id, description, category, outcome, friction,"
         " input_hash, prompt_version, taxonomy_version, model"

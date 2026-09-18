@@ -14,7 +14,7 @@ from hyphae.enrich.stamp import mint, stale
 from hyphae.enrich.validation import InvalidOutput, ItemFailure, validate
 from hyphae.models.enrichment import Level, Stamp, Versions
 from hyphae.models.items import Item, level_of
-from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.enrichment import EnrichmentRepository
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,7 @@ class EnrichmentFailed(Exception):
 
 
 def plan(
-    store: EnrichmentStore,
+    repository: EnrichmentRepository,
     model: str,
     *,
     versions: Versions,
@@ -68,7 +68,7 @@ def plan(
     it, because nothing writes and there is no answer to compare. A child re-described in the
     same words stops the cascade there and costs less than this quotes.
     """
-    parents = store.item_parents(project)
+    parents = repository.item_parents(project)
     quoted: list[PlannedItem] = []
 
     def describe(sending: list[PlannedItem]) -> _Outcome:
@@ -78,12 +78,12 @@ def plan(
             restated={key for entry in sending for key in _ancestors(entry.item.key, parents)},
         )
 
-    _pass(store, model, versions=versions, project=project, limit=limit, describe=describe)
+    _pass(repository, model, versions=versions, project=project, limit=limit, describe=describe)
     return quoted
 
 
 def enrich(
-    store: EnrichmentStore,
+    repository: EnrichmentRepository,
     client: BatchClient,
     *,
     versions: Versions,
@@ -97,20 +97,22 @@ def enrich(
     is what carries a new child description up the tree, and planning the rounds up front
     would look identical until the day a description changed.
     """
-    swept = store.sweep_zombies()
+    swept = repository.sweep_zombies()
     enriched = 0
     failures: list[ItemFailure] = []
 
     def describe(sending: list[PlannedItem]) -> _Outcome:
         nonlocal enriched
-        count, round_failures = _round(store, client, sending)
+        count, round_failures = _round(repository, client, sending)
         enriched += count
         failures.extend(round_failures)
         # Nothing is declared restated here: the upserts are on disk, so the next round
         # re-reads and re-hashes its items and sees for itself which prompts moved.
         return _Outcome(failures=round_failures, restated=set())
 
-    _pass(store, client.model, versions=versions, project=project, limit=limit, describe=describe)
+    _pass(
+        repository, client.model, versions=versions, project=project, limit=limit, describe=describe
+    )
     if failures:
         raise EnrichmentFailed(failures)
     return EnrichReport(swept=swept, enriched=enriched)
@@ -127,7 +129,7 @@ class _Outcome:
 
 
 def _pass(
-    store: EnrichmentStore,
+    repository: EnrichmentRepository,
     model: str,
     *,
     versions: Versions,
@@ -140,7 +142,7 @@ def _pass(
     Shared by `enrich` and `plan` so a dry run cannot walk staleness by rules of its own:
     `describe` is the only difference between quoting a round and paying for it.
     """
-    parents = store.item_parents(project)
+    parents = repository.item_parents(project)
     rounds: list[tuple[Level, set[str] | None]] = [
         (Level.agent_run, keys) for keys in _rounds(parents)
     ]
@@ -156,9 +158,9 @@ def _pass(
     for level, keys in rounds:
         if remaining is not None and remaining <= 0:
             break
-        entries = _plan_level(store, model, level, versions=versions, project=project)
+        entries = _plan_level(repository, model, level, versions=versions, project=project)
         moved = set(
-            stale({key: entry.stamp for key, entry in entries.items()}, store.stamps(level))
+            stale({key: entry.stamp for key, entry in entries.items()}, repository.stamps(level))
         )
         sending = [
             entry
@@ -173,7 +175,12 @@ def _pass(
 
 
 def _plan_level(
-    store: EnrichmentStore, model: str, level: Level, *, versions: Versions, project: str | None
+    repository: EnrichmentRepository,
+    model: str,
+    level: Level,
+    *,
+    versions: Versions,
+    project: str | None,
 ) -> dict[str, PlannedItem]:
     """One level's items, rendered and stamped as they stand right now.
 
@@ -186,7 +193,7 @@ def _plan_level(
             rendered=(rendered := render(item)),
             stamp=mint(versions, level, rendered, model),
         )
-        for item in store.items(level, project)
+        for item in repository.items(level, project)
     }
 
 
@@ -228,7 +235,7 @@ def _ancestors(key: str, parents: Mapping[str, str | None]) -> set[str]:
 
 
 def _round(
-    store: EnrichmentStore, client: BatchClient, planned: list[PlannedItem]
+    repository: EnrichmentRepository, client: BatchClient, planned: list[PlannedItem]
 ) -> tuple[int, list[ItemFailure]]:
     """Send one level's stale items and write the answers, one row per success."""
     if not planned:
@@ -262,7 +269,7 @@ def _round(
                 except InvalidOutput as invalid:
                     failures.append(ItemFailure(key=result.key, kind=invalid.kind))
                     continue
-                store.upsert(entry.item, enrichment, entry.stamp)
+                repository.upsert(entry.item, enrichment, entry.stamp)
     missing = set(by_key) - answered
     if missing:
         raise ValueError(f"{type(client).__name__} left {len(missing)} request(s) unanswered")

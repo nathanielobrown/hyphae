@@ -22,7 +22,7 @@ from hyphae.models.enrichment import (
     Versions,
 )
 from hyphae.models.items import SessionItem
-from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.enrichment import EnrichmentRepository
 from tests.conftest import build_store, enriching, fixture_transcripts
 from tests.enrich.fake_cli import FakeCli, Reply
 
@@ -124,7 +124,7 @@ def db(spine_store: Path, tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def store(db: Path) -> Iterator[EnrichmentStore]:
+def store(db: Path) -> Iterator[EnrichmentRepository]:
     """That copy, open for enrichment."""
     with enriching(db) as opened:
         yield opened
