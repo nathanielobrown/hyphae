@@ -285,13 +285,15 @@ class Counted(Protocol):
     def matched_rows(self) -> int: ...
 
 
-def dropped(rows: Sequence[Counted]) -> int:
-    """How many rows the statement's own LIMIT left off: what a page says rather than loses.
+def matched(rows: Sequence[Counted]) -> int:
+    """How many rows matched before the LIMIT bit: the count every row carries, read off the
+    first, and zero on an empty answer — a read that matched nothing is a level of nothing."""
+    return rows[0].matched_rows if rows else 0
 
-    The count is on every row alike, so the first one carries it. Zero on an empty answer: a
-    read that matched nothing lost nothing.
-    """
-    return rows[0].matched_rows - len(rows) if rows else 0
+
+def dropped(rows: Sequence[Counted]) -> int:
+    """How many rows the statement's own LIMIT left off: what a page says rather than loses."""
+    return matched(rows) - len(rows)
 
 
 def statement(name: str) -> str:

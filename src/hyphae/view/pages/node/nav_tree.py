@@ -23,7 +23,8 @@ from hyphae.models.citation import Citation, ParamValue
 from hyphae.models.listing import SessionHeader
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import Store
-from hyphae.store.pages import TURN_CURSOR, Library, Page, Row
+from hyphae.store.pages import Page, Row
+from hyphae.store.paging import TURN_CURSOR
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
 from hyphae.view.builders import (
@@ -188,12 +189,13 @@ def home(source: str, turn_id: str | None) -> Ref:
     return Ref(Kind.TURN, source, turn_id)
 
 
-def _timeline(session_id: str, source: str) -> tuple[Library, dict[str, ParamValue]]:
+def _timeline(session_id: str, source: str) -> tuple[Page, dict[str, ParamValue]]:
     """Which timeline answers for a thread, and what it binds: `main` has one of its own.
 
     Read at a NavTree row's width, not a log's: what the NavTree takes from a timeline is the
     thread's buckets, and a bucket row is titled the way every other row of the tree is. The
-    pane's children log reads the same query at its own width (`routes/pages.py`).
+    pane's children log reads the same query at its own width, through `store.nodes.timeline`
+    (`pages/node/kinds.py`).
     """
     if source == MAIN_SOURCE:
         return Page.TIMELINE, bound(Page.TIMELINE, bounds.NAV_TREE_WIDTHS, session_id=session_id)

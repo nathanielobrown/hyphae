@@ -13,12 +13,9 @@ sentence, so a popover and the page for the same node refuse in the same words
 
 from collections.abc import Mapping
 
-from hyphae.models.citation import ParamValue
 from hyphae.store import library
 from hyphae.store.handle import Store
-from hyphae.store.pages import Fragment, Row, Value, page_rows
 from hyphae.view import bounds
-from hyphae.view.bounds import bound
 from hyphae.view.detail import Spec, Written, syntax_of
 from hyphae.view.enrichment import enriched
 from hyphae.view.nodes import Kind, Ref
@@ -43,38 +40,34 @@ def counted(
     which has no api calls to be measured out of.
     """
     if kind is Kind.TOOL:
-        keyed = bound(
-            Fragment.TOOL_NUMBERS,
-            bounds.POPOVER_WIDTHS,
+        measured = store.nodes.tool_numbers(
             session_id=session_id,
             source=source,
             tool_call_id=node_id,
+            widths=bounds.POPOVER_WIDTHS._asdict(),
         )
-        rows = page_rows(store, Fragment.TOOL_NUMBERS, **keyed)
-        if not rows:
+        if measured is None:
             raise Missing(KINDS[kind].missing)
         return Measured(
             key=Ref(kind, source, node_id).key,
-            citation=library.citation(Fragment.TOOL_NUMBERS, keyed),
-            node=reads.tool_numbers(rows[0]),
+            citation=library.citation(*measured.citation),
+            node=reads.tool_numbers(measured),
         )
-    binds = bound(
-        Fragment.NUMBERS,
-        bounds.POPOVER_WIDTHS,
-        session_id=session_id,
-        source=source,
-        node_id=node_id,
-        kind=kind,
-    )
-    rows = page_rows(store, Fragment.NUMBERS, **binds)
     # The query aggregates, so it answers a row for a node that is not there as readily as
     # for one that is — a node with no api calls under it is a real reading, and the popover
     # prints it as the dashes it is.
-    read = reads.node_numbers(rows[0])
+    numbers = store.nodes.numbers(
+        kind=kind,
+        session_id=session_id,
+        source=source,
+        node_id=node_id,
+        widths=bounds.POPOVER_WIDTHS._asdict(),
+    )
+    read = reads.node_numbers(numbers)
     whole = read.session_usd
     return Popover(
         key=Ref(kind, source, node_id).key,
-        citation=library.citation(Fragment.NUMBERS, binds),
+        citation=library.citation(*numbers.citation),
         window=read.window,
         # The three lines between the window and the total, each priced and washed here
         # rather than in the component: what a charge is made of is arithmetic
@@ -93,20 +86,18 @@ def compacted(store: Store, session_id: str, source: str, compaction_id: str) ->
     Its own read rather than a branch of `counted`, because a compaction shares nothing with
     the kinds made of api calls — no window to stand on, no model, no dollar.
     """
-    keyed = bound(
-        Fragment.COMPACTION_NUMBERS,
-        bounds.POPOVER_WIDTHS,
+    measured = store.nodes.compaction_numbers(
         session_id=session_id,
         source=source,
         compaction_id=compaction_id,
+        widths=bounds.POPOVER_WIDTHS._asdict(),
     )
-    rows = page_rows(store, Fragment.COMPACTION_NUMBERS, **keyed)
-    if not rows:
+    if measured is None:
         raise Missing(KINDS[Kind.COMPACTION].missing)
     return Measured(
         key=Ref(Kind.COMPACTION, source, compaction_id).key,
-        citation=library.citation(Fragment.COMPACTION_NUMBERS, keyed),
-        node=reads.compaction_numbers(rows[0]),
+        citation=library.citation(*measured.citation),
+        node=reads.compaction_numbers(measured),
     )
 
 
@@ -142,24 +133,9 @@ def detailed(store: Store, spec: Spec, keys: Mapping[str, str]) -> Detailed:
 
 def recorded(store: Store, session_id: str, source: str, line_no: int) -> Record:
     """One archived record whole, as the browser's preview was cut from."""
-    keyed = {"session_id": session_id, "source": source, "line_no": line_no}
-    # The record itself, which the store holds NOT NULL.
-    row = _one(store, Value.RECORD, keyed, "raw")
-    return reads.record_value(row, library.citation(Value.RECORD, keyed))
-
-
-def _one(
-    store: Store,
-    value: Value,
-    keyed: Mapping[str, ParamValue],
-    column: str,
-) -> Row:
-    """The one row a per-value fragment is for.
-
-    `column` is where the query puts the value this fragment is for; a row with nothing under
-    it is the same 404 a missing row is (`detailed`).
-    """
-    rows = page_rows(store, value, **keyed)
-    if not rows or rows[0][column] is None:
+    whole = store.nodes.record(session_id=session_id, source=source, line_no=line_no)
+    # A line past the thread is the same 404 a missing value is; the record itself the store
+    # holds NOT NULL, so there is no row with nothing under it.
+    if whole is None:
         raise Missing(NOTHING_THERE)
-    return rows[0]
+    return reads.record_value(whole)

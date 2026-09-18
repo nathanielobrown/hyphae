@@ -22,8 +22,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hyphae.models.citation import ParamValue
-from hyphae.store import pages
+from hyphae.store import library
 from hyphae.store.handle import Store
+from hyphae.store.pages import Row
 from tests.conftest import DENSE_TOOL, FORK_ORIGIN, FORK_ORIGIN_RUN, MAIN, SPINE
 from tests.view.conftest import fields, inside, kin, one, plain, under, values
 
@@ -293,13 +294,13 @@ def test_the_walk_asks_the_store_nothing_the_nav_tree_already_asked(
     # If every statement one page runs is written down...
     url = select(client)
     ran: list[tuple[str, tuple[tuple[str, ParamValue], ...]]] = []
-    read = pages.fetch
+    read = library.fetch
 
-    def watched(store: Store, sql: str, bindings: Mapping[str, ParamValue]) -> list[pages.Row]:
+    def watched(store: Store, sql: str, bindings: Mapping[str, ParamValue]) -> list[Row]:
         ran.append((sql, tuple(sorted(bindings.items()))))
         return read(store, sql, bindings)
 
-    monkeypatch.setattr(pages, "fetch", watched)
+    monkeypatch.setattr(library, "fetch", watched)
     page = client.get(url)
     assert page.status_code == 200
 

@@ -1,11 +1,12 @@
-"""`NodeRepository`: one node's header as a strict model, and one of its fat values whole.
+"""`NodeRepository`: one node's header and its values.
 
 Driven against the corpus store, over the seam the node page reads through: a header row
 of each kind reaches its model unchanged, at the widths the page and the expansion each
 read at; a value comes back whole with the citation the fragment's footer quotes; a row the
 store holds with nothing under it and a node the store never held are told apart; the
-methods bind exactly what their statements declare; and the two tables that key them name
-nothing a model lacks.
+methods bind exactly what their statements declare; and the tables that key them name
+nothing a model lacks. The rest of the repository — a node's children, its numbers and its
+record — is `tests/store/test_nodes__children.py`, which shares the constants here.
 
 The `HYPHAE_LIVE_STORE` leaf at the end is the backstop over real shapes, as in
 `tests/store/test_sessions.py`: off by default, run by hand before a PR touching a model opens.
@@ -22,7 +23,13 @@ from typing import Any
 import pytest
 
 from hyphae.models.citation import Citation
-from hyphae.models.node import CallHeader, NodeHeader, RunHeader, ToolHeader, TurnHeader
+from hyphae.models.node import (
+    CallHeader,
+    NodeHeader,
+    RunHeader,
+    ToolHeader,
+    TurnHeader,
+)
 from hyphae.store import library, nodes
 from hyphae.store.handle import Store, open_store
 from hyphae.store.nodes import NodeRepository
@@ -56,6 +63,10 @@ HEADER = bounds.HEADER_WIDTHS._asdict()
 PAGE = {"detail_chars": bounds.DETAIL.default}
 EXPANSION = bounds.EXPANSION_WIDTHS._asdict()
 NO_SIZES: dict[str, int] = {}
+# And the two surfaces the children file reads at: a children log's rows, and a NavTree row's
+# popover.
+LOG = bounds.LOG_WIDTHS._asdict()
+POPOVER = bounds.POPOVER_WIDTHS._asdict()
 
 # One node of each kind, by the keys its header statement binds: the spine's slash turn, the
 # fork origin's own run, and the dense call and the `Read` it made.
@@ -218,7 +229,7 @@ def test_a_store_nothing_was_extracted_into_answers_none(tmp_path: Path) -> None
         assert store.nodes.value(TurnHeader, "prompt", TURN_KEYS, widths=HEADER) is None
 
 
-# --- the two tables ---------------------------------------------------------------------------
+# --- the tables -------------------------------------------------------------------------------
 
 
 def test_every_header_model_is_keyed_and_every_value_is_a_field_its_header_cut() -> None:

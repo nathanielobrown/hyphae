@@ -1,9 +1,9 @@
 """One store row read into the shape the node page's markup takes: facts, a log row, numbers.
 
-The seam the markup sits behind. A `Row` is whatever columns the query returned; past here a
-body, a log row or a popover reads named fields of a type it declares itself, so a query that
-dropped a column raises here rather than printing a dash under a label
-(`view/pages/node/markup/`).
+The seam the markup sits behind. A body and a log row read a `Row`, whatever columns the query
+returned; a popover and a record read the model `store.nodes` built. Past here the markup reads
+named fields of a type it declares itself, so a query that dropped a column raises here rather
+than printing a dash under a label (`view/pages/node/markup/`).
 
 The node itself is built one layer down (`view/builders.py`): what a row is *called* is the
 same wherever it is read, and only what a row is *shown as* is this page's own.
@@ -11,7 +11,10 @@ same wherever it is read, and only what a row is *shown as* is this page's own.
 
 from typing import NamedTuple
 
+from hyphae.models.node import CompactionNumbers, NodeNumbers, SpentGroup, ToolNumbers
+from hyphae.models.record import WholeRecord
 from hyphae.pricing import TokenUsage
+from hyphae.store import library
 from hyphae.store.pages import Row
 from hyphae.view.builders import tool_about, tool_titles
 from hyphae.view.nodes import Kind, Node
@@ -107,34 +110,34 @@ def logged(shape: Shape, node: Node, row: Row) -> models.Logged:
             raise ValueError("A log of no shape lists no rows.")
 
 
-def node_numbers(row: Row) -> Numbers:
-    """A popover's readings for a node made of api calls, off the row `view_numbers` answered.
+def node_numbers(read: NodeNumbers) -> Numbers:
+    """A popover's readings for a node made of api calls, off what `store.nodes.numbers` read.
 
-    The whole row at once — the window the component prints, the counts and dollars the
+    The whole reading at once — the window the component prints, the counts and dollars the
     charge lines are composed from, and the per-model groups they are priced at — so the
-    route past here reads named fields rather than indexing the row six more times.
+    route past here reads named fields rather than the store's model six more times.
     """
     return Numbers(
         window=models.Window(
-            model=row["model"],
-            fill=row["fill"],
-            window_tokens=row["window_tokens"],
-            added=row["added"],
-            cost_usd=row["cost_usd"],
-            api_calls=row["api_calls"],
-            unpriced_api_calls=row["unpriced_api_calls"],
+            model=read.model,
+            fill=read.fill,
+            window_tokens=read.window_tokens,
+            added=read.added,
+            cost_usd=read.cost_usd,
+            api_calls=read.api_calls,
+            unpriced_api_calls=read.unpriced_api_calls,
         ),
-        cache_read_tokens=row["cache_read_tokens"],
-        new_input_tokens=row["new_input_tokens"],
-        output_tokens=row["output_tokens"],
-        cost_usd=row["cost_usd"],
-        subtree_usd=row["subtree_usd"],
-        session_usd=row["session_usd"],
-        spent=tuple((group["model"], _usage(group)) for group in row["spent"]),
+        cache_read_tokens=read.cache_read_tokens,
+        new_input_tokens=read.new_input_tokens,
+        output_tokens=read.output_tokens,
+        cost_usd=read.cost_usd,
+        subtree_usd=read.subtree_usd,
+        session_usd=read.session_usd,
+        spent=tuple((group["model"], _usage(group)) for group in read.spent),
     )
 
 
-def _usage(group: Row) -> TokenUsage:
+def _usage(group: SpentGroup) -> TokenUsage:
     """One model's summed tokens as the price table takes them.
 
     The TTL split is summed per call in SQL, under the same fallback `pricing.py` applies to
@@ -151,40 +154,40 @@ def _usage(group: Row) -> TokenUsage:
     )
 
 
-def tool_numbers(row: Row) -> models.Tool:
-    """A popover's readings for one tool call, off the row `view_numbers_tool` answered.
+def tool_numbers(read: ToolNumbers) -> models.Tool:
+    """A popover's readings for one tool call, off what `store.nodes.tool_numbers` read.
 
     The siblings are named here rather than in the query: what a tool call is called is
     Python's (`view/text/tool_names.py`), and the query ships the fields each name is composed of.
     """
     return models.Tool(
-        input_chars=row["input_chars"],
-        result_chars=row["result_chars"],
-        offload_file=row["offload_file"],
-        spawned_run=row["spawned_run"],
-        siblings=tool_titles(row["siblings"]),
-        siblings_cut=row["siblings_cut"],
+        input_chars=read.input_chars,
+        result_chars=read.result_chars,
+        offload_file=read.offload_file,
+        spawned_run=read.spawned_run,
+        siblings=tool_titles(read.siblings),
+        siblings_cut=read.siblings_cut,
     )
 
 
-def compaction_numbers(row: Row) -> models.Compaction:
-    """A popover's readings for one compaction, off `view_numbers_compaction`'s row."""
+def compaction_numbers(read: CompactionNumbers) -> models.Compaction:
+    """A popover's readings for one compaction, off what `store.nodes.compaction_numbers` read."""
     return models.Compaction(
-        pre_tokens=row["pre_tokens"],
-        post_tokens=row["post_tokens"],
-        freed=row["freed"],
-        trigger=row["trigger"],
+        pre_tokens=read.pre_tokens,
+        post_tokens=read.post_tokens,
+        freed=read.freed,
+        trigger=read.trigger,
     )
 
 
-def record_value(row: Row, citation: str) -> models.Record:
-    """One archived record as its fragment prints it, off `Value.RECORD`'s row."""
+def record_value(whole: WholeRecord) -> models.Record:
+    """One archived record as its fragment prints it, with its citation as the footer's line."""
     return models.Record(
-        line_no=row["line_no"],
-        type=row["type"],
-        uuid=row["uuid"],
-        timestamp=row["timestamp"],
-        raw_chars=row["raw_chars"],
-        raw=row["raw"],
-        citation=citation,
+        line_no=whole.line_no,
+        type=whole.type,
+        uuid=whole.uuid,
+        timestamp=whole.timestamp,
+        raw_chars=whole.raw_chars,
+        raw=whole.raw,
+        citation=library.citation(*whole.citation),
     )

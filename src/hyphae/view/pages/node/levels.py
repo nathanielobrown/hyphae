@@ -8,12 +8,13 @@ so nothing memoized here outlives the store it was read over.
 
 from hyphae.models.citation import ParamValue
 from hyphae.store.handle import Store
-from hyphae.store.pages import Library, Row, cursorless_rows, page_rows
+from hyphae.store.pages import Page, Row, page_rows
+from hyphae.store.paging import cursorless_rows
 
 # What a read is answered by: the query, the cursor and cap a cursorless read adds, and
 # everything the statement bound. The store is not in the key because a `Levels` belongs to
 # one request, and so does the store every read of it runs over.
-Asked = tuple[Library, str | None, int | None, tuple[tuple[str, ParamValue], ...]]
+Asked = tuple[Page, str | None, int | None, tuple[tuple[str, ParamValue], ...]]
 
 
 class Levels:
@@ -26,7 +27,7 @@ class Levels:
     def __init__(self) -> None:
         self.asked: dict[Asked, list[Row]] = {}
 
-    def rows(self, store: Store, page: Library, **bindings: ParamValue) -> list[Row]:
+    def rows(self, store: Store, page: Page, **bindings: ParamValue) -> list[Row]:
         """`store.page_rows`, run once per question this request asks."""
         key: Asked = (page, None, None, tuple(sorted(bindings.items())))
         if key not in self.asked:
@@ -36,12 +37,12 @@ class Levels:
     def cursorless(
         self,
         store: Store,
-        page: Library,
+        page: Page,
         cursor: str,
         limit: int,
         **bindings: ParamValue,
     ) -> list[Row]:
-        """`store.cursorless_rows`, run once per question this request asks."""
+        """`paging.cursorless_rows`, run once per question this request asks."""
         key: Asked = (page, cursor, limit, tuple(sorted(bindings.items())))
         if key not in self.asked:
             self.asked[key] = cursorless_rows(store, page, cursor, limit, **bindings)

@@ -1,24 +1,36 @@
-"""The node page's reads: one node's header whole, and one of its fat values whole.
+"""The node page's reads: a node's header and values, its children, its numbers, its record.
 
 `NodeRepository` is the seam: the page and an expansion call `header` with the model of the
 kind they read and the keys its statement binds, at the surface's widths and the sizes the
 URL asked; a detail's fetch calls `value` with the header's model and the field the header
-cut, and reads the whole of it back with the citation the fragment's footer quotes.
+cut, and reads the whole of it back with the citation the fragment's footer quotes. A
+children log pages through `children` and the two timelines, a NavTree row's popover reads
+its numbers, and the pane joins a turn to its transcript line and reads one line whole.
 """
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-from hyphae.models.citation import Citation
+from hyphae.models.citation import Citation, ParamValue
+from hyphae.models.listing import Answer, Listed
 from hyphae.models.node import (
     CallHeader,
+    CallRow,
+    CompactionNumbers,
+    CompactionRow,
     NodeHeader,
+    NodeNumbers,
     RunHeader,
+    TimelineRow,
     ToolHeader,
+    ToolNumbers,
+    ToolRow,
     TurnHeader,
+    TurnRecord,
     WholeValue,
 )
-from hyphae.store import library
+from hyphae.models.record import WholeRecord
+from hyphae.store import library, paging
 
 if TYPE_CHECKING:
     # The handle hands out this repository, and this repository holds the handle: the one cycle
@@ -51,6 +63,26 @@ VALUES: dict[tuple[type[NodeHeader], str], str] = {
     (ToolHeader, "result"): "view_tool_result",
     (ToolHeader, "command"): "view_tool_command",
 }
+
+# The statement that pages one shape of children log, by the row model it lists, and what
+# that statement calls its page size: the api calls under a turn — or, at `turn_id` NULL,
+# under a thread's bucket — and the tool calls under an api call. Each limits itself, so
+# its rows carry the level's count and `paging.listed` reads it off them.
+CHILDREN: dict[type[CallRow | ToolRow], tuple[str, str]] = {
+    CallRow: ("view_turn_calls", "page_calls"),
+    ToolRow: ("view_call_tools", "page_tools"),
+}
+
+# The two timelines, one per thread kind, shared with `hp query`: neither limits itself,
+# because a report cites the rows whole, so a page is cut around them (`store/paging.py`).
+TIMELINE = "session_timeline"
+RUN_TIMELINE = "run_timeline"
+COMPACTIONS = "view_compactions"
+NUMBERS = "view_numbers"
+TOOL_NUMBERS = "view_numbers_tool"
+COMPACTION_NUMBERS = "view_numbers_compaction"
+TURN_RECORDS = "view_turn_records"
+RECORD = "view_record"
 
 
 class NodeRepository:
@@ -97,3 +129,133 @@ class NodeRepository:
         bindings = library.bind(statement, widths, {}, **keys)
         row = library.one(self.store, statement, bindings)
         return None if row is None else WholeValue(citation=Citation(statement, bindings), **row)
+
+    # --- the children logs ---------------------------------------------------------------
+
+    def children[C: CallRow | ToolRow](
+        self,
+        model: type[C],
+        keys: Mapping[str, ParamValue],
+        *,
+        skipped: int,
+        size: int,
+        widths: Mapping[str, int],
+    ) -> Listed[C]:
+        """One numbered page of the children a log lists under a node, with the level counted.
+
+        `skipped` and `size` bind beside the keys rather than as sizes, because the statement
+        pages itself and the footer quotes them where the keys are.
+        """
+        statement, page_size = CHILDREN[model]
+        bindings = library.bind(statement, widths, {}, **keys, skipped=skipped, **{page_size: size})
+        rows = library.fetch(self.store, library.load(statement), bindings)
+        return paging.listed([model(**row) for row in rows], Citation(statement, bindings))
+
+    def timeline(
+        self, *, session_id: str, skipped: int, size: int, widths: Mapping[str, int]
+    ) -> Listed[TimelineRow]:
+        """One page of the main thread's turns, cut around the timeline a report cites."""
+        bindings = library.bind(TIMELINE, widths, {}, session_id=session_id)
+        return self._windowed(TIMELINE, bindings, skipped, size)
+
+    def run_timeline(
+        self, *, session_id: str, source: str, skipped: int, size: int, widths: Mapping[str, int]
+    ) -> Listed[TimelineRow]:
+        """One page of an agent run's own turns, keyed by the run id its rows carry as source."""
+        bindings = library.bind(RUN_TIMELINE, widths, {}, session_id=session_id, source=source)
+        return self._windowed(RUN_TIMELINE, bindings, skipped, size)
+
+    def _windowed(
+        self, statement: str, bindings: Mapping[str, ParamValue], skipped: int, size: int
+    ) -> Listed[TimelineRow]:
+        rows = paging.window(self.store, statement, paging.TURN_CURSOR, skipped, size, **bindings)
+        # The offset and the limit after the statement's own bindings: what the page composed
+        # around the query is as much a part of what produced it as a bound parameter.
+        cited = Citation(statement, {**bindings, "offset": skipped, "limit": size})
+        return paging.listed([TimelineRow(**row) for row in rows], cited)
+
+    def compactions(
+        self, *, session_id: str, source: str, widths: Mapping[str, int]
+    ) -> Answer[CompactionRow]:
+        """Every compaction of one thread, in order: what the NavTree marks and a compaction's
+        own page is picked out of."""
+        bindings = library.bind(COMPACTIONS, widths, {}, session_id=session_id, source=source)
+        rows = library.fetch(self.store, library.load(COMPACTIONS), bindings)
+        return Answer([CompactionRow(**row) for row in rows], Citation(COMPACTIONS, bindings))
+
+    # --- the popovers --------------------------------------------------------------------
+
+    def numbers(
+        self,
+        *,
+        kind: str,
+        session_id: str,
+        source: str,
+        node_id: str,
+        widths: Mapping[str, int],
+    ) -> NodeNumbers:
+        """The numbers behind one NavTree row of a node made of api calls.
+
+        `kind` names which api calls the node is, in the statement's words; `source` is the
+        thread its window is read on. The statement aggregates, so a node the store never held
+        answers as readily as one it did — a reading of nothing, never None.
+        """
+        bindings = library.bind(
+            NUMBERS, widths, {}, session_id=session_id, source=source, node_id=node_id, kind=kind
+        )
+        (row,) = library.fetch(self.store, library.load(NUMBERS), bindings)
+        return NodeNumbers(citation=Citation(NUMBERS, bindings), **row)
+
+    def tool_numbers(
+        self, *, session_id: str, source: str, tool_call_id: str, widths: Mapping[str, int]
+    ) -> ToolNumbers | None:
+        """The numbers behind one NavTree row of a tool call, or None where the store holds none."""
+        bindings = library.bind(
+            TOOL_NUMBERS,
+            widths,
+            {},
+            session_id=session_id,
+            source=source,
+            tool_call_id=tool_call_id,
+        )
+        row = library.one(self.store, TOOL_NUMBERS, bindings)
+        return (
+            None if row is None else ToolNumbers(citation=Citation(TOOL_NUMBERS, bindings), **row)
+        )
+
+    def compaction_numbers(
+        self, *, session_id: str, source: str, compaction_id: str, widths: Mapping[str, int]
+    ) -> CompactionNumbers | None:
+        """The numbers behind one NavTree row of a compaction; None where the store holds none."""
+        bindings = library.bind(
+            COMPACTION_NUMBERS,
+            widths,
+            {},
+            session_id=session_id,
+            source=source,
+            compaction_id=compaction_id,
+        )
+        row = library.one(self.store, COMPACTION_NUMBERS, bindings)
+        if row is None:
+            return None
+        return CompactionNumbers(citation=Citation(COMPACTION_NUMBERS, bindings), **row)
+
+    # --- the records behind a thread -----------------------------------------------------
+
+    def turn_records(self, *, session_id: str, source: str) -> Answer[TurnRecord]:
+        """Which transcript line each turn of one thread was read from.
+
+        Read for the whole thread because that is what the statement answers; the pane keeps
+        the one row it is about.
+        """
+        bindings = library.bind(TURN_RECORDS, {}, {}, session_id=session_id, source=source)
+        rows = library.fetch(self.store, library.load(TURN_RECORDS), bindings)
+        return Answer([TurnRecord(**row) for row in rows], Citation(TURN_RECORDS, bindings))
+
+    def record(self, *, session_id: str, source: str, line_no: int) -> WholeRecord | None:
+        """One archived record whole, at the line the citation names, or None past the thread."""
+        bindings = library.bind(
+            RECORD, {}, {}, session_id=session_id, source=source, line_no=line_no
+        )
+        row = library.one(self.store, RECORD, bindings)
+        return None if row is None else WholeRecord(citation=Citation(RECORD, bindings), **row)

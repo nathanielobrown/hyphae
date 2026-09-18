@@ -7,11 +7,9 @@ link on the page carries, so a reader who narrowed the NavTree keeps it as they 
 controls live here too: a page number is the one knob a children log adds to that suffix.
 """
 
-from collections.abc import Sequence
 from typing import NamedTuple
 from urllib.parse import urlencode
 
-from hyphae.store.pages import Listed, Row
 from hyphae.view import bounds, nodes
 from hyphae.view.models import Pager, Step
 from hyphae.view.pages.node.models import PresetChoice
@@ -84,13 +82,3 @@ def pager(url: str, knobs: Knobs, page: int, pages: int) -> Pager | None:
 def skipped(page: int, size: int) -> int:
     """How many children the pages before this one held — what a numbered page binds to skip."""
     return (page - 1) * size
-
-
-def sliced(items: Sequence[Row], page: int, size: int) -> Listed:
-    """One numbered page of rows already in memory, cut the way a query's OFFSET cuts one.
-
-    The unattached runs are the case: they arrive with the session's runs, which every level of
-    the NavTree needs anyway, so paging them is slicing rather than a second read.
-    """
-    start = skipped(page, size)
-    return Listed(list(items[start : start + size]), len(items))

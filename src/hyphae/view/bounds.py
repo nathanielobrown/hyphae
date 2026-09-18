@@ -20,9 +20,9 @@ would pin a preference to an arithmetic that never chose it.
 
 Three responses sit outside the page bound on purpose, each priced where it is named: a fetch
 of one whole value, bound by the largest single value in the store rather than by a page of
-them (`store/pages.py:Value`); the tail row's fetch, bound by the level it stands in (`KIN`);
-and a query's citation page, which is the size of a file we ship rather than of anything a
-corpus or a reader moves (`tests/view/test_bounds.py`).
+them (`store/nodes.py:VALUES`, `record`); the tail row's fetch, bound by the level it stands in
+(`KIN`); and a query's citation page, which is the size of a file we ship rather than of
+anything a corpus or a reader moves (`tests/view/test_bounds.py`).
 
 The widths below the ceilings are the other half of the same question: a size is what a reader
 may ask a page for, and a width is what one surface of that page prints store text at. The
@@ -34,7 +34,7 @@ from typing import NamedTuple
 
 from hyphae.models.citation import ParamValue
 from hyphae.store import library
-from hyphae.store.pages import Library
+from hyphae.store.pages import Page
 
 
 class Bound(NamedTuple):
@@ -404,7 +404,7 @@ ENRICHMENT_WIDTHS = Enrichment(
 CRUMB_CHARS = 40
 
 
-def bound(page: Library, widths: Widths, /, **keys: ParamValue) -> dict[str, ParamValue]:
+def bound(page: Page, widths: Widths, /, **keys: ParamValue) -> dict[str, ParamValue]:
     """What one read binds: its keys and the surface's widths, and nothing a reader typed.
 
     `library.bind` keyed by a query member and a surface, which is how a page still spells a

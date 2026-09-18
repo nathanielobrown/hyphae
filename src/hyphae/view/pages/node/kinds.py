@@ -16,21 +16,28 @@ from collections.abc import Callable, Mapping
 from dataclasses import asdict
 from typing import NamedTuple
 
-from hyphae.models.citation import Citation, ParamValue
 from hyphae.models.listing import SessionHeader
-from hyphae.models.node import CallHeader, NodeHeader, RunHeader, ToolHeader, TurnHeader
+from hyphae.models.node import (
+    CallHeader,
+    CallRow,
+    NodeHeader,
+    RunHeader,
+    TimelineRow,
+    ToolHeader,
+    ToolRow,
+    TurnHeader,
+)
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import Store
-from hyphae.store.pages import TURN_CURSOR, Fragment, Page, Row, listed, page_rows, window
+from hyphae.store.pages import Row
 from hyphae.view import bounds, builders, detail, nodes
-from hyphae.view.bounds import bound
 from hyphae.view.citation import Ran
 from hyphae.view.detail import Detail, details, preview
 from hyphae.view.enrichment import Descriptions, Enrichment
 from hyphae.view.nodes import Kind, Node, Ref
 from hyphae.view.pages.node import nav_tree, reads
 from hyphae.view.pages.node.columns import Shape
-from hyphae.view.pages.node.knobs import skipped, sliced
+from hyphae.view.pages.node.knobs import skipped
 from hyphae.view.pages.node.models import Logged
 
 
@@ -203,15 +210,11 @@ def _compaction_header(
     A compaction has no header query of its own: the thread's whole set is what the NavTree
     beside it renders anyway, so the read is shared and the pick is a filter in Python.
     """
-    bindings = bound(
-        Page.COMPACTIONS, reading.widths, session_id=corpus.session_id, source=str(at.source)
+    answer = store.nodes.compactions(
+        session_id=corpus.session_id, source=str(at.source), widths=reading.widths._asdict()
     )
-    found = [
-        row
-        for row in page_rows(store, Page.COMPACTIONS, **bindings)
-        if row["compaction_id"] == at.node_id
-    ]
-    return Found(found[0], [Citation(Page.COMPACTIONS.value, bindings)]) if found else None
+    found = [row for row in answer.rows if row.compaction_id == at.node_id]
+    return Found(asdict(found[0]), [answer.citation]) if found else None
 
 
 def _own(at: Ref, row: Row) -> list[Ref]:
@@ -242,7 +245,7 @@ def _compaction_trail(at: Ref, row: Row) -> list[Ref]:
     return [*([Ref(Kind.TURN, at.source, turn_id)] if turn_id is not None else []), at]
 
 
-def _turn_rows(corpus: nav_tree.Corpus, source: str, rows: list[Row]) -> list[Logged]:
+def _turn_rows(corpus: nav_tree.Corpus, source: str, rows: list[TimelineRow]) -> list[Logged]:
     """A page of one thread's timeline as a children log reads it: a row per turn."""
     return [
         reads.logged(
@@ -256,34 +259,31 @@ def _turn_rows(corpus: nav_tree.Corpus, source: str, rows: list[Row]) -> list[Lo
             ),
             row,
         )
-        for row in rows
+        for row in map(asdict, rows)
     ]
 
 
 def _timeline_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: int) -> Log:
     """The main thread's turns, which is what a session's own children log lists."""
-    offset = skipped(page, size)
-    binds = bound(Page.TIMELINE, bounds.LOG_WIDTHS, session_id=corpus.session_id)
-    turns = window(store, Page.TIMELINE, TURN_CURSOR, offset, size, **binds)
-    return Log(
-        _turn_rows(corpus, MAIN_SOURCE, turns.rows),
-        turns.total,
-        [Citation(Page.TIMELINE.value, binds | {"offset": offset, "limit": size})],
+    turns = store.nodes.timeline(
+        session_id=corpus.session_id,
+        skipped=skipped(page, size),
+        size=size,
+        widths=bounds.LOG_WIDTHS._asdict(),
     )
+    return Log(_turn_rows(corpus, MAIN_SOURCE, turns.rows), turns.total, [turns.citation])
 
 
 def _run_timeline_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: int) -> Log:
     """An agent run's own thread of turns, keyed by the run id its rows carry as their source."""
-    offset = skipped(page, size)
-    binds = bound(
-        Page.RUN_TIMELINE, bounds.LOG_WIDTHS, session_id=corpus.session_id, source=at.node_id
+    turns = store.nodes.run_timeline(
+        session_id=corpus.session_id,
+        source=at.node_id,
+        skipped=skipped(page, size),
+        size=size,
+        widths=bounds.LOG_WIDTHS._asdict(),
     )
-    turns = window(store, Page.RUN_TIMELINE, TURN_CURSOR, offset, size, **binds)
-    return Log(
-        _turn_rows(corpus, at.node_id, turns.rows),
-        turns.total,
-        [Citation(Page.RUN_TIMELINE.value, binds | {"offset": offset, "limit": size})],
-    )
+    return Log(_turn_rows(corpus, at.node_id, turns.rows), turns.total, [turns.citation])
 
 
 def _calls_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: int) -> Log:
@@ -293,25 +293,26 @@ def _calls_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: 
     NavTree's level reads by: a call answering no turn sits in its thread's bucket.
     """
     source = str(at.source)
-    binds = bound(
-        Fragment.TURN_CALLS,
-        bounds.LOG_WIDTHS,
-        session_id=corpus.session_id,
-        source=source,
-        turn_id=None if at.kind is Kind.UNATTRIBUTED else at.node_id,
+    calls = store.nodes.children(
+        CallRow,
+        {
+            "session_id": corpus.session_id,
+            "source": source,
+            "turn_id": None if at.kind is Kind.UNATTRIBUTED else at.node_id,
+        },
         skipped=skipped(page, size),
-        page_calls=size,
+        size=size,
+        widths=bounds.LOG_WIDTHS._asdict(),
     )
-    calls = listed(page_rows(store, Fragment.TURN_CALLS, **binds))
     return Log(
         [
             reads.logged(
                 Shape.CALLS, builders.call_node(corpus.session_id, source, row, corpus.held), row
             )
-            for row in calls.rows
+            for row in map(asdict, calls.rows)
         ],
         calls.total,
-        [Citation(Fragment.TURN_CALLS.value, binds)],
+        [calls.citation],
     )
 
 
@@ -322,16 +323,13 @@ def _tools_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: 
     carried the ledger would draw a badge for money it did not spend.
     """
     source = str(at.source)
-    binds = bound(
-        Fragment.CALL_TOOLS,
-        bounds.LOG_WIDTHS,
-        session_id=corpus.session_id,
-        source=source,
-        api_call_id=at.node_id,
+    called = store.nodes.children(
+        ToolRow,
+        {"session_id": corpus.session_id, "source": source, "api_call_id": at.node_id},
         skipped=skipped(page, size),
-        page_tools=size,
+        size=size,
+        widths=bounds.LOG_WIDTHS._asdict(),
     )
-    called = listed(page_rows(store, Fragment.CALL_TOOLS, **binds))
     return Log(
         [
             reads.logged(
@@ -339,17 +337,18 @@ def _tools_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: 
                 builders.tool_node(corpus.session_id, source, row, nodes.NO_LEDGER),
                 row,
             )
-            for row in called.rows
+            for row in map(asdict, called.rows)
         ],
         called.total,
-        [Citation(Fragment.CALL_TOOLS.value, binds)],
+        [called.citation],
     )
 
 
 def _unattached_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: int) -> Log:
     """The runs nothing placed, paged out of the set the corpus already holds — so this is a
     slice rather than a read, and the level cites nothing of its own."""
-    runs = sliced(_loose(corpus), page, size)
+    loose = _loose(corpus)
+    offset = skipped(page, size)
     return Log(
         [
             reads.logged(
@@ -359,9 +358,9 @@ def _unattached_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, s
                 ),
                 row,
             )
-            for row in runs.rows
+            for row in loose[offset : offset + size]
         ],
-        runs.total,
+        len(loose),
         [],
     )
 
@@ -412,11 +411,9 @@ def _turn_record(store: Store, corpus: nav_tree.Corpus, at: Ref) -> tuple[int | 
     per turn, and the pane keeps the one row it is about. Only a turn has one: `turns.id` is a
     record's `uuid`, which is the store's own join down to the bytes Claude Code wrote.
     """
-    thread: dict[str, ParamValue] = {"session_id": corpus.session_id, "source": str(at.source)}
-    archived = {
-        row["turn_id"]: row["line_no"] for row in page_rows(store, Page.TURN_RECORDS, **thread)
-    }
-    return archived.get(at.node_id), [Citation(Page.TURN_RECORDS.value, thread)]
+    answer = store.nodes.turn_records(session_id=corpus.session_id, source=str(at.source))
+    archived = {row.turn_id: row.line_no for row in answer.rows}
+    return archived.get(at.node_id), [answer.citation]
 
 
 def _turn_titled(corpus: nav_tree.Corpus, at: Ref, row: Row) -> Node:

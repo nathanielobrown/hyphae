@@ -11,6 +11,7 @@ import pytest
 
 from hyphae.models.citation import Citation
 from hyphae.store import library
+from tests.store.test_paging import Counted
 
 # The values the library's own comments give the reasons for. `tests/analyze` binds these by
 # name, so a drifted number would pass there and change a report's rows or a page's cut
@@ -41,6 +42,16 @@ def test_names_lists_every_file_in_the_directory_and_nothing_else(
     (tmp_path / "sessions.md").write_text("not one either")
     monkeypatch.setattr(library, "QUERY_DIR", tmp_path)
     assert library.names() == ["planted"]
+
+
+def test_the_count_a_limited_statement_stamps_on_every_row_is_read_once() -> None:
+    """A statement that limits itself answers how many matched on every row alike, so the
+    first row carries it and an empty answer matched nothing; what the LIMIT left off is that
+    count less the rows that came back."""
+    assert library.matched([Counted(7), Counted(7)]) == 7
+    assert library.matched([]) == 0
+    assert library.dropped([Counted(7), Counted(7)]) == 5
+    assert library.dropped([]) == 0
 
 
 def test_a_citation_with_nothing_bound_ends_at_the_query_file() -> None:

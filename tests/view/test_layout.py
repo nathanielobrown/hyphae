@@ -78,6 +78,7 @@ NOT_A_SIZE = frozenset({"FIRST_PAGE"})
 # repositories a page reads its models from. A page names one of these and never the driver.
 STORE = (
     "hyphae.store.pages",
+    "hyphae.store.paging",
     "hyphae.store.sessions",
     "hyphae.store.records",
     "hyphae.store.offloads",

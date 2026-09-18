@@ -12,6 +12,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from hyphae.models.listing import SessionHeader
+from hyphae.models.node import NamedTool
 from hyphae.store.pages import Row
 from hyphae.view.enrichment import Descriptions
 from hyphae.view.nodes import (
@@ -81,7 +82,7 @@ def _named(name: str, fields: Fields | None) -> tuple[str, str]:
     return ("", f"{named.mark} {named.words}") if named.mark else (name, named.words)
 
 
-def tool_titles(called: Sequence[Row]) -> list[str]:
+def tool_titles(called: Sequence[NamedTool]) -> list[str]:
     """A list of tool calls named one at a time, for the surfaces that print them on one line.
 
     An api call's row in a children log says which tools it called, and a tool call's popover

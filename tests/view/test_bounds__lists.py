@@ -18,7 +18,8 @@ from hyphae.models.citation import ParamValue
 from hyphae.models.enrichment import Category, Outcome
 from hyphae.store import library
 from hyphae.store.handle import Store
-from hyphae.store.pages import TURN_CURSOR, Page, cursorless_rows
+from hyphae.store.pages import Page
+from hyphae.store.paging import TURN_CURSOR, cursorless_rows
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.text.format import ELLIPSIS
