@@ -3,11 +3,11 @@
 The four headers are one node read whole for its own page — one per kind that has fields
 of its own; a bucket has none, and a compaction reads out of `view_compactions` — and
 `WholeValue` is one fat value of a node, the rest of what its header cut. Under them are the
-rows a children log lists a page of, a thread's compactions, the numbers a NavTree row's
-popover prints, and the join from a turn to the transcript line it was read from. Each is
-built by column name off the statement that answers it (`store/nodes.py`), under `row.ROW`,
-so a column the statement gains or loses raises at the read and not on a reader's page. The
-rows they are built from stay in the store.
+rows a children log lists a page of, the bucket its timeline lists beside them, a thread's
+compactions, the numbers a NavTree row's popover prints, and the join from a turn to the
+transcript line it was read from. Each is built by column name off the statement that answers
+it (`store/nodes.py`), under `row.ROW`, so a column the statement gains or loses raises at the
+read and not on a reader's page. The rows they are built from stay in the store.
 """
 
 import datetime as dt
@@ -263,6 +263,25 @@ class TimelineRow:
     cost_usd: float
     unpriced_api_calls: int
     matched_rows: int
+
+
+@dataclass(frozen=True, config=ROW)
+class UnattributedRow:
+    """A thread's bucket of api calls that answer no turn, as its timeline lists it: the one
+    `session_timeline` or `run_timeline` row with no turn index, read without a page around it
+    (`store/paging.py:cursorless_rows`). Every turn column but the id and the counts is NULL."""
+
+    turn_index: None
+    turn_id: str
+    prompt: None
+    command_name: None
+    command_args: None
+    started_at: dt.datetime
+    api_calls: int
+    tool_calls: int
+    tool_errors: int
+    cost_usd: float
+    unpriced_api_calls: int
 
 
 @dataclass(frozen=True, config=ROW)

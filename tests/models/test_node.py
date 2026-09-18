@@ -25,6 +25,7 @@ from hyphae.models.node import (
     ToolRow,
     TurnHeader,
     TurnRecord,
+    UnattributedRow,
     WholeValue,
 )
 from hyphae.models.row import ROW
@@ -38,6 +39,7 @@ ROW_MODELS = [
     CallRow,
     ToolRow,
     TimelineRow,
+    UnattributedRow,
     CompactionRow,
     NodeNumbers,
     ToolNumbers,

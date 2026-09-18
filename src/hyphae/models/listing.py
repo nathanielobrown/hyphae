@@ -36,7 +36,8 @@ class WorkCount(TypedDict):
 @with_config(ROW)
 class Context(TypedDict):
     """Where a thread stood in the model's window: the `context` struct of `view_session_header`,
-    and of `view_compactions`, whose rows carry where the thread stood when it compacted."""
+    of `view_compactions`, whose rows carry where the thread stood when it compacted, and of
+    the NavTree's api call and agent run rows (`models/nav.py`)."""
 
     fill: int | None
     # What a turn grew the window by, which a session has no one answer for: NULL on a session.
