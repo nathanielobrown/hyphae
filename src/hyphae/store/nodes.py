@@ -4,8 +4,9 @@
 kind they read and the keys its statement binds, at the surface's widths and the sizes the
 URL asked; a detail's fetch calls `value` with the header's model and the field the header
 cut, and reads the whole of it back with the citation the fragment's footer quotes. A
-children log pages through `children` and the two timelines, a NavTree row's popover reads
-its numbers, and the pane joins a turn to its transcript line and reads one line whole.
+children log pages through `children` and the two timelines, the NavTree reads the bucket
+row those timelines keep off every page, a NavTree row's popover reads its numbers, and the
+pane joins a turn to its transcript line and reads one line whole.
 """
 
 from collections.abc import Mapping
@@ -27,9 +28,11 @@ from hyphae.models.node import (
     ToolRow,
     TurnHeader,
     TurnRecord,
+    UnattributedRow,
     WholeValue,
 )
 from hyphae.models.record import WholeRecord
+from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store import library, paging
 
 if TYPE_CHECKING:
@@ -173,6 +176,24 @@ class NodeRepository:
         # around the query is as much a part of what produced it as a bound parameter.
         cited = Citation(statement, {**bindings, "offset": skipped, "limit": size})
         return paging.listed([TimelineRow(**row) for row in rows], cited)
+
+    def unattributed(
+        self, *, session_id: str, source: str, cap: int, widths: Mapping[str, int]
+    ) -> Answer[UnattributedRow]:
+        """A thread's bucket row — its calls that answer no turn — which no window reaches.
+
+        Read off whichever timeline the thread has, outside every page, and capped at what
+        the page rendering it budgeted: more rows than `cap` raises (`paging.cursorless_rows`).
+        The citation is the timeline's own bindings; the cap is the page's, not the query's.
+        """
+        if source == MAIN_SOURCE:
+            statement = TIMELINE
+            bindings = library.bind(statement, widths, {}, session_id=session_id)
+        else:
+            statement = RUN_TIMELINE
+            bindings = library.bind(statement, widths, {}, session_id=session_id, source=source)
+        rows = paging.cursorless_rows(self.store, statement, paging.TURN_CURSOR, cap, **bindings)
+        return Answer([UnattributedRow(**row) for row in rows], Citation(statement, bindings))
 
     def compactions(
         self, *, session_id: str, source: str, widths: Mapping[str, int]

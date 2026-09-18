@@ -199,7 +199,7 @@ Elements are written `htpy.div[...]`, never `from htpy import div`: the prefix i
 
 # A read names its surface, not its widths
 
-A read is composed by `bounds.bound`, which takes the query and the surface the rows will be drawn at — `bound(Page.NAV_TREE_TURNS, bounds.NAV_TREE_WIDTHS, session_id=session_id, ...)`. It fills every width the statement declares off the profile and refuses a read that spells one of its own, so what a surface prints at is said once, in `src/hyphae/view/bounds.py`, and a page's footer quotes the widths it bound.
+A read hands a repository the surface the rows will be drawn at — `store.nav.level(NavTurnRow, keys, widths=bounds.NAV_TREE_WIDTHS._asdict())` — and never a number. The repository's binder (`src/hyphae/store/library.py:bind`) fills every width the statement declares off that mapping and refuses a key or width the statement lacks, so what a surface prints at is said once, in `src/hyphae/view/bounds.py`, and a page's footer quotes the widths it bound.
 
 Name the surface the rows are drawn at rather than the widest one that fits. A read at too wide a profile ships green and prints the same bytes, having fetched string nobody shows: the two reads of a session's runs are the pair to copy — a children log row at `LOG_WIDTHS`, the tail row's fetch at `NAV_TREE_WIDTHS` — and `tests/view/test_bounds__widths.py` holds them there. A surface printing at widths no profile carries is a profile to declare, not a number to pass.
 

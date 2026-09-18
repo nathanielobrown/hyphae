@@ -16,17 +16,16 @@ Everything else here is arithmetic over the rows those queries returned.
 
 import datetime as dt
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import NamedTuple
 
-from hyphae.models.citation import Citation, ParamValue
-from hyphae.models.listing import SessionHeader
+from hyphae.models.listing import Answer, SessionHeader
+from hyphae.models.nav import NavCallRow, NavToolRow, NavTurnRow
+from hyphae.models.node import CompactionRow, UnattributedRow
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import Store
-from hyphae.store.pages import Page, Row
-from hyphae.store.paging import TURN_CURSOR
+from hyphae.store.pages import Row
 from hyphae.view import bounds
-from hyphae.view.bounds import bound
 from hyphae.view.builders import (
     call_node,
     compaction_node,
@@ -47,6 +46,12 @@ from hyphae.view.nodes import (
 )
 from hyphae.view.pages.node.levels import Levels
 from hyphae.view.pages.node.models import NavTreeRow
+
+# The one surface every read here is drawn at, as the mapping a repository takes. A bucket row
+# is read off a timeline at this width too: what the NavTree takes from a timeline is titled
+# the way every other row of the tree is, and the pane's children log reads the same query at
+# its own (`pages/node/kinds.py`).
+NAV = bounds.NAV_TREE_WIDTHS._asdict()
 
 
 @dataclass(frozen=True)
@@ -73,7 +78,7 @@ class Corpus:
     source: str
     # Every level this request has already read, so the walk beside the pane asks the store
     # nothing the NavTree already asked (`levels.py`). Read a level through it and never
-    # through `store.page_rows`, or the second reader pays for it again.
+    # off `store.nav` or `store.nodes` directly, or the second reader pays for it again.
     levels: Levels = field(default_factory=Levels, compare=False)
 
     def turn_text(self, source: str, turn_id: str) -> str | None:
@@ -171,13 +176,6 @@ def _run_parents(corpus: Corpus, run_id: str) -> list[Ref]:
     ]
 
 
-class Standing(NamedTuple):
-    """A bucket's own row, beside the query line that produced it."""
-
-    row: Row
-    ran: Citation
-
-
 def home(source: str, turn_id: str | None) -> Ref:
     """Where an api call sits: under the turn it answers, else in its thread's bucket.
 
@@ -189,30 +187,23 @@ def home(source: str, turn_id: str | None) -> Ref:
     return Ref(Kind.TURN, source, turn_id)
 
 
-def _timeline(session_id: str, source: str) -> tuple[Page, dict[str, ParamValue]]:
-    """Which timeline answers for a thread, and what it binds: `main` has one of its own.
+def unattributed(store: Store, corpus: Corpus, source: str) -> Answer[UnattributedRow]:
+    """One thread's calls that answer no turn, as its timeline's own cursorless row reads them.
 
+    No row where every call on the thread answers a turn — and where the thread is not one
+    this session holds, which is the same answer: there is no bucket at that URL either way.
     Read at a NavTree row's width, not a log's: what the NavTree takes from a timeline is the
-    thread's buckets, and a bucket row is titled the way every other row of the tree is. The
+    thread's bucket, and a bucket row is titled the way every other row of the tree is. The
     pane's children log reads the same query at its own width, through `store.nodes.timeline`
     (`pages/node/kinds.py`).
     """
-    if source == MAIN_SOURCE:
-        return Page.TIMELINE, bound(Page.TIMELINE, bounds.NAV_TREE_WIDTHS, session_id=session_id)
-    return Page.RUN_TIMELINE, bound(
-        Page.RUN_TIMELINE, bounds.NAV_TREE_WIDTHS, session_id=session_id, source=source
+    return corpus.levels.read(
+        store.nodes.unattributed,
+        session_id=corpus.session_id,
+        source=source,
+        cap=bounds.CURSORLESS_TURNS,
+        widths=NAV,
     )
-
-
-def unattributed(store: Store, corpus: Corpus, source: str) -> Standing | None:
-    """One thread's calls that answer no turn, as its timeline's own cursorless row reads them.
-
-    None where every call on the thread answers a turn — and where the thread is not one this
-    session holds, which is the same answer: there is no bucket at that URL either way.
-    """
-    timeline, binds = _timeline(corpus.session_id, source)
-    rows = corpus.levels.cursorless(store, timeline, TURN_CURSOR, bounds.CURSORLESS_TURNS, **binds)
-    return Standing(rows[0], Citation(timeline.value, binds)) if rows else None
 
 
 def _thread_level(store: Store, corpus: Corpus, at: Ref) -> Level:
@@ -227,51 +218,39 @@ def _thread_level(store: Store, corpus: Corpus, at: Ref) -> Level:
     thing on a run's `Ref`, and a hand-typed URL may leave `source` off where the id is there.
     """
     source = MAIN_SOURCE if at.kind is Kind.SESSION else at.node_id
-    # One mapping per query, because the two take different widths — and the mapping a query
-    # runs under is the mapping it is cited by, so a reader re-running the line gets this page.
     keys = {"session_id": corpus.session_id, "source": source}
-    listed = bound(Page.NAV_TREE_TURNS, bounds.NAV_TREE_WIDTHS, **keys)
-    chipped = bound(Page.COMPACTIONS, bounds.NAV_TREE_WIDTHS, **keys)
-    turns = corpus.levels.rows(store, Page.NAV_TREE_TURNS, **listed)
-    marks = corpus.levels.rows(store, Page.COMPACTIONS, **chipped)
+    turns = corpus.levels.read(store.nav.level, NavTurnRow, keys, widths=NAV)
+    marks = _compactions(store, corpus, source)
     # The thread's calls that answer no turn, as one group — the bucket's own row, read the
     # same way the bucket's own page reads it.
     standing = unattributed(store, corpus, source)
-    timeline, binds = _timeline(corpus.session_id, source)
     placed = _interleave(
         [
             (
                 turn_node(
                     corpus.session_id,
                     source,
-                    row,
+                    asdict(row),
                     corpus.held,
-                    corpus.turn_text(source, row["turn_id"]),
+                    corpus.turn_text(source, row.turn_id),
                 ),
-                row["started_at"],
+                row.started_at,
             )
-            for row in turns
+            for row in turns.rows
         ],
         [
-            (compaction_node(corpus.session_id, source, row), row["timestamp"])
-            for row in marks
-            if row["turn_id"] is None
+            (compaction_node(corpus.session_id, source, asdict(row)), row.timestamp)
+            for row in marks.rows
+            if row.turn_id is None
         ],
     )
-    if standing is not None:
-        placed.append(unattributed_node(corpus.session_id, source, standing.row, corpus.held))
+    for row in standing.rows:
+        placed.append(unattributed_node(corpus.session_id, source, asdict(row), corpus.held))
     if at.kind is Kind.SESSION:
         loose_runs = [run for run in corpus.runs if run["spawn_source"] is None]
         if loose_runs:
             placed.append(unattached_node(corpus.session_id, loose_runs, corpus.held))
-    return Level(
-        placed,
-        [
-            Citation(Page.NAV_TREE_TURNS.value, listed),
-            Citation(Page.COMPACTIONS.value, chipped),
-            Citation(timeline.value, binds),
-        ],
-    )
+    return Level(placed, [turns.citation, marks.citation, standing.citation])
 
 
 def _interleave[T](
@@ -307,15 +286,20 @@ def _marks(
     """
     if turn_id is None:
         return [], []
-    keyed = bound(
-        Page.COMPACTIONS, bounds.NAV_TREE_WIDTHS, session_id=corpus.session_id, source=source
-    )
-    rows = corpus.levels.rows(store, Page.COMPACTIONS, **keyed)
+    marks = _compactions(store, corpus, source)
     return [
-        (compaction_node(corpus.session_id, source, row), row["timestamp"])
-        for row in rows
-        if row["turn_id"] == turn_id
-    ], [Citation(Page.COMPACTIONS.value, keyed)]
+        (compaction_node(corpus.session_id, source, asdict(row)), row.timestamp)
+        for row in marks.rows
+        if row.turn_id == turn_id
+    ], [marks.citation]
+
+
+def _compactions(store: Store, corpus: Corpus, source: str) -> Answer[CompactionRow]:
+    """One thread's compactions whole, at a NavTree row's width: the thread's level and each
+    of its turns' levels pick their own out of the one read."""
+    return corpus.levels.read(
+        store.nodes.compactions, session_id=corpus.session_id, source=source, widths=NAV
+    )
 
 
 def _runs(corpus: Corpus, rows: Iterable[Row]) -> list[Node]:
@@ -389,23 +373,17 @@ def _calls_level(store: Store, corpus: Corpus, at: Ref) -> Level:
     """
     source = str(at.source)
     turn_id = None if at.kind is Kind.UNATTRIBUTED else at.node_id
-    keyed = bound(
-        Page.NAV_TREE_CALLS,
-        bounds.NAV_TREE_WIDTHS,
-        session_id=corpus.session_id,
-        source=source,
-        turn_id=turn_id,
-    )
-    calls = corpus.levels.rows(store, Page.NAV_TREE_CALLS, **keyed)
+    keys = {"session_id": corpus.session_id, "source": source, "turn_id": turn_id}
+    calls = corpus.levels.read(store.nav.level, NavCallRow, keys, widths=NAV)
     marks, mark_ran = _marks(store, corpus, source, turn_id)
     level = _interleave(
         [
-            (call_node(corpus.session_id, source, row, corpus.held), row["started_at"])
-            for row in calls
+            (call_node(corpus.session_id, source, asdict(row), corpus.held), row.started_at)
+            for row in calls.rows
         ],
         marks,
     )
-    return Level(level, [Citation(Page.NAV_TREE_CALLS.value, keyed), *mark_ran])
+    return Level(level, [calls.citation, *mark_ran])
 
 
 def _tools_level(store: Store, corpus: Corpus, at: Ref) -> Level:
@@ -419,25 +397,23 @@ def _tools_level(store: Store, corpus: Corpus, at: Ref) -> Level:
     source = str(at.source)
     api_call_id = at.node_id if at.kind is Kind.CALL else None
     turn_id = at.node_id if at.kind is Kind.TURN else None
-    keyed = bound(
-        Page.NAV_TREE_TOOLS,
-        bounds.NAV_TREE_WIDTHS,
-        session_id=corpus.session_id,
-        source=source,
-        api_call_id=api_call_id,
-        turn_id=turn_id,
-    )
-    rows = corpus.levels.rows(store, Page.NAV_TREE_TOOLS, **keyed)
+    keys = {
+        "session_id": corpus.session_id,
+        "source": source,
+        "api_call_id": api_call_id,
+        "turn_id": turn_id,
+    }
+    tools = corpus.levels.read(store.nav.level, NavToolRow, keys, widths=NAV)
     under = None if api_call_id is not None else turn_id
     marks, mark_ran = _marks(store, corpus, source, under)
     level = _interleave(
         [
-            (tool_node(corpus.session_id, source, row, corpus.held), row["started_at"])
-            for row in rows
+            (tool_node(corpus.session_id, source, asdict(row), corpus.held), row.started_at)
+            for row in tools.rows
         ],
         marks,
     )
-    return Level(level, [Citation(Page.NAV_TREE_TOOLS.value, keyed), *mark_ran])
+    return Level(level, [tools.citation, *mark_ran])
 
 
 def _unattached_level(store: Store, corpus: Corpus, at: Ref) -> Level:

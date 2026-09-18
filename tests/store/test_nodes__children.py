@@ -2,9 +2,10 @@
 
 Driven against the corpus store as `tests/store/test_nodes.py` is, whose constants this file
 shares: a page of a node's children arrives with the level counted, a timeline page windowed
-around the statement a report cites; a thread's compactions are read whole; a popover's
-numbers and a turn's transcript line read as their models; the methods bind exactly what
-their statements declare; and the table that keys the children names nothing a model lacks.
+around the statement a report cites and its bucket row read outside every page; a thread's
+compactions are read whole; a popover's numbers and a turn's transcript line read as their
+models; the methods bind exactly what their statements declare; and the table that keys the
+children names nothing a model lacks.
 Split from the header file by topic, for the file budget.
 
 The `HYPHAE_LIVE_STORE` leaf at the end is the backstop over real shapes, off by default.
@@ -21,11 +22,19 @@ from typing import Any
 import pytest
 
 from hyphae.models.citation import Citation, ParamValue
-from hyphae.models.node import CallRow, CompactionRow, TimelineRow, ToolRow, TurnRecord
+from hyphae.models.node import (
+    CallRow,
+    CompactionRow,
+    TimelineRow,
+    ToolRow,
+    TurnRecord,
+    UnattributedRow,
+)
 from hyphae.models.record import WholeRecord
 from hyphae.store import library, nodes
 from hyphae.store.handle import Store, open_store
 from hyphae.store.nodes import NodeRepository
+from hyphae.view import bounds
 from tests.conftest import (
     COMPACTED,
     COMPACTED_BOUNDARY,
@@ -36,6 +45,8 @@ from tests.conftest import (
     MAIN,
     NO_WAIT,
     RESUME,
+    SERVER_TOOLS,
+    SERVER_TOOLS_RUN,
     SLASH_TURN,
     SPINE,
     THREE_BAND_TURN,
@@ -157,6 +168,43 @@ def test_a_thread_that_only_holds_calls_no_turn_answers_pages_nothing(
     page = repository.timeline(session_id=RESUME, skipped=0, size=10, widths=LOG)
     assert page.rows == []
     assert page.total == 0
+
+
+def test_a_threads_bucket_row_is_read_without_a_page_around_it(
+    store: Store, repository: NodeRepository
+) -> None:
+    """The row no window reaches — a thread's calls that answer no turn — is read on its own,
+    capped at what the NavTree budgets for it: `RESUME`'s timeline is that row alone, a run's
+    thread reads the same row through `run_timeline`, and the spine's main thread has none.
+    The citation is the statement's own bindings, cap and all not among them: the footer quotes
+    what the timeline was read at, and the cap is the page's."""
+    answer = repository.unattributed(
+        session_id=RESUME, source=MAIN, cap=bounds.CURSORLESS_TURNS, widths=LOG
+    )
+    bindings = library.bind("session_timeline", LOG, {}, session_id=RESUME)
+    assert [asdict(row) for row in answer.rows] == [
+        row
+        for row in rows_of(store, library.load("session_timeline"), bindings)
+        if row["turn_index"] is None
+    ]
+    assert [row.turn_id for row in answer.rows] == [library.UNATTRIBUTED]
+    assert isinstance(answer.rows[0], UnattributedRow)
+    assert answer.citation == Citation("session_timeline", bindings)
+    assert list(bindings) == ["session_id", "log_chars"]
+    # The cap is bound down to zero to reach a boundary no recorded timeline crosses: more of
+    # these rows than the page budgets raises rather than riding a page nothing counted them on.
+    with pytest.raises(ValueError, match="more than 0"):
+        repository.unattributed(session_id=RESUME, source=MAIN, cap=0, widths=LOG)
+    run = repository.unattributed(
+        session_id=SERVER_TOOLS, source=SERVER_TOOLS_RUN, cap=bounds.CURSORLESS_TURNS, widths=LOG
+    )
+    assert [row.turn_id for row in run.rows] == [library.UNATTRIBUTED]
+    assert run.citation.name == "run_timeline"
+    assert list(run.citation.bindings) == ["session_id", "source", "log_chars"]
+    none = repository.unattributed(
+        session_id=SPINE, source=MAIN, cap=bounds.CURSORLESS_TURNS, widths=LOG
+    )
+    assert none.rows == []
 
 
 def test_a_threads_compactions_are_read_whole(store: Store, repository: NodeRepository) -> None:
@@ -410,6 +458,8 @@ def test_every_read_binds_through_the_binder(
     repository.run_timeline(
         session_id=FORK_ORIGIN, source=FORK_ORIGIN_RUN, skipped=0, size=1, widths=LOG
     )
+    repository.unattributed(session_id=RESUME, source=MAIN, cap=1, widths=LOG)
+    repository.unattributed(session_id=SERVER_TOOLS, source=SERVER_TOOLS_RUN, cap=1, widths=LOG)
     repository.compactions(session_id=COMPACTED, source=MAIN, widths=HEADER)
     repository.numbers(
         kind="turn", session_id=SPINE, source=MAIN, node_id=SLASH_TURN, widths=POPOVER
@@ -425,6 +475,8 @@ def test_every_read_binds_through_the_binder(
     assert seen == [
         "view_turn_calls",
         "view_call_tools",
+        "session_timeline",
+        "run_timeline",
         "session_timeline",
         "run_timeline",
         "view_compactions",
@@ -446,10 +498,10 @@ def test_every_page_number_and_record_of_the_real_archive_builds_its_model(
     tmp_path: Path,
 ) -> None:
     """A fixed sample of the archive's threads reads its timeline's first page, its
-    compactions and its turn records; of its turns, api calls and buckets, their first page
-    of children and their numbers; of its runs, sessions, tool calls, compactions and
-    records, their numbers or the record whole — every one as its model under the strict
-    build.
+    compactions and its turn records; of the threads with a bucket, its one row; of its turns,
+    api calls and buckets, their first page of children and their numbers; of its runs,
+    sessions, tool calls, compactions and records, their numbers or the record whole — every
+    one as its model under the strict build.
     Sampled throughout, at 400 rows a shape: every read here is a query of its own, at
     3 to 15 ms apiece over the canonical archive, and the archive's five thousand threads
     alone outrun the suite's timeout.
@@ -490,6 +542,19 @@ def test_every_page_number_and_record_of_the_real_archive_builds_its_model(
             lines = store.nodes.turn_records(**thread)
             assert all(isinstance(row, TurnRecord) for row in lines.rows)
             count("TurnRecord", len(lines.rows))
+        # A bucket row stands on the few threads with a call answering no turn, so those are
+        # sampled by name rather than hoped for among the threads above.
+        buckets = rows_of(
+            store,
+            f"SELECT * FROM (SELECT DISTINCT session_id, source FROM live_api_calls"
+            f" WHERE turn_id IS NULL) {sample}",
+            {},
+        )
+        assert buckets, "the archive holds no unattributed api call, so the bucket arm ran dry"
+        for thread in buckets:
+            bucket = store.nodes.unattributed(**thread, cap=bounds.CURSORLESS_TURNS, widths=LOG)
+            assert [row.turn_id for row in bucket.rows] == [library.UNATTRIBUTED], thread
+            count("UnattributedRow", len(bucket.rows))
         turns = rows_of(
             store, f"SELECT session_id, source, id AS turn_id FROM live_turns {sample}", {}
         )

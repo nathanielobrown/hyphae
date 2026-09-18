@@ -22,6 +22,7 @@ from hyphae.store import macros
 from hyphae.store.analysis import AnalysisRepository
 from hyphae.store.enrichment import EnrichmentRepository
 from hyphae.store.failures import FailureRepository
+from hyphae.store.nav import NavRepository
 from hyphae.store.nodes import NodeRepository
 from hyphae.store.offloads import OffloadRepository
 from hyphae.store.records import RecordRepository
@@ -39,17 +40,15 @@ class Fetched(NamedTuple):
 class Store:
     """One open trace store, for as long as the caller holds it.
 
-    A page gets one per request (`PAGE_WAIT`); a query gets one per run (`CLI_WAIT`). The
-    repositories block below fills in as each phase-4 PR hangs its area off the handle.
-    `connection` is public until the last `rows` caller outside this package is gone.
+    A page gets one per request (`PAGE_WAIT`); a query gets one per run (`CLI_WAIT`). Every
+    area's repository hangs off it as a property below, and a page names the repository it
+    reads. `connection` is public until the last `rows` caller outside this package is gone.
     """
 
     def __init__(self, connection: duckdb.DuckDBPyConnection) -> None:
         self.connection = connection
 
-    # The repositories, one `cached_property` per area as each phase-4 PR lands it, with a
-    # blank line between neighbours so two PRs' edits rebase past each other
-    # (`plans/store-layering/phase-4-repositories.md`).
+    # The repositories, one `cached_property` per area.
 
     @cached_property
     def sessions(self) -> SessionRepository:
@@ -87,7 +86,10 @@ class Store:
         """The node page: one node's header whole, and one of its fat values whole."""
         return NodeRepository(self)
 
-    # the NavTree and the walk
+    @cached_property
+    def nav(self) -> NavRepository:
+        """The NavTree: one level whole, and every agent run of the session."""
+        return NavRepository(self)
 
     def rows(self, sql: str, bindings: Mapping[str, ParamValue]) -> Fetched:
         """Run one statement with every value bound by name, and hand back what it answered.

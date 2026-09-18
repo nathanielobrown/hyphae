@@ -10,17 +10,14 @@ the window trade-off). Framework-free, so the three ways a node page is nothing 
 `Missing` — the route above turns it into the 404 it has always been.
 """
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from math import ceil
 from pathlib import Path
 
-from hyphae.models.citation import Citation, ParamValue
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import open_store
-from hyphae.store.pages import Page, page_rows
 from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds, builders, failures, links, nodes
-from hyphae.view.bounds import bound
 from hyphae.view.citation import Ran, cited
 from hyphae.view.enrichment import Descriptions, described, enrichment_lines
 from hyphae.view.nodes import Kind, Ref
@@ -49,18 +46,18 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
     """
     spec = KINDS[at.kind]
     source = at.source or MAIN_SOURCE
-    # The session's runs are read once and printed twice: as a NavTree row at its width
-    # and as a children log row at the log's. Cut to the wider of the two here, and cut
-    # again at each — a row cut to the narrower would print a line already stopped.
-    runs_bound = bound(Page.RUNS, bounds.LOG_WIDTHS, session_id=session_id)
     with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
         head = store.sessions.header(session_id=session_id, widths=bounds.HEADER_WIDTHS._asdict())
         if head is None:
             raise Missing("No session with that id is in this store.")
         # The session's runs whole, once: a run is placed by the call that spawned it
         # rather than by the thread it ran on, so any level of the NavTree may need any of
-        # them, and both buckets are defined against the same set.
-        runs = page_rows(store, Page.RUNS, **runs_bound)
+        # them, and both buckets are defined against the same set. Read once and printed
+        # twice — as a NavTree row at its width and as a children log row at the log's — so
+        # cut to the wider of the two here, and cut again at each: a row cut to the narrower
+        # would print a line already stopped.
+        ran_runs = store.nav.runs(session_id=session_id, widths=bounds.LOG_WIDTHS._asdict())
+        runs = [asdict(run) for run in ran_runs.rows]
         corpus = nav_tree.Corpus(
             session_id=session_id,
             head=head,
@@ -111,7 +108,7 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
         selection = replace(selection, words=spec.titled(corpus, at, found.row).words)
     ran: Ran = [
         head.citation,
-        Citation(Page.RUNS.value, runs_bound),
+        ran_runs.citation,
         *found.ran,
         *under.ran,
         *recorded,
@@ -255,7 +252,6 @@ def spilled(
     Unbounded on purpose: what comes back is a level less a window, so a node with ten
     thousand children answers with ten thousand rows.
     """
-    keyed: dict[str, ParamValue] = {"session_id": session_id}
     with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
         head = store.sessions.header(session_id=session_id, widths=bounds.HEADER_WIDTHS._asdict())
         if head is None:
@@ -265,7 +261,8 @@ def spilled(
         # would fetch three times the string for a surface printing a third of it. Nothing
         # rendered says which was chosen — the row cuts to its own width whatever arrives —
         # so `tests/view/test_bounds__widths.py` is what holds it.
-        runs = page_rows(store, Page.RUNS, **bound(Page.RUNS, bounds.NAV_TREE_WIDTHS, **keyed))
+        ran_runs = store.nav.runs(session_id=session_id, widths=bounds.NAV_TREE_WIDTHS._asdict())
+        runs = [asdict(run) for run in ran_runs.rows]
         corpus = nav_tree.Corpus(
             session_id=session_id,
             head=head,

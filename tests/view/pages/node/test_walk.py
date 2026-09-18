@@ -25,6 +25,7 @@ from hyphae.models.citation import ParamValue
 from hyphae.store import library
 from hyphae.store.handle import Store
 from hyphae.store.pages import Row
+from hyphae.view.pages.node.levels import Levels
 from tests.conftest import DENSE_TOOL, FORK_ORIGIN, FORK_ORIGIN_RUN, MAIN, SPINE
 from tests.view.conftest import fields, inside, kin, one, plain, under, values
 
@@ -273,12 +274,15 @@ def thread_level_node(client: TestClient) -> str:
 
 
 @pytest.mark.parametrize(
-    "select",
-    [deepest_node, thread_level_node],
+    ("select", "asked"),
+    [(deepest_node, 8), (thread_level_node, 4)],
     ids=["five levels down", "on its thread's own level"],
 )
 def test_the_walk_asks_the_store_nothing_the_nav_tree_already_asked(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, select: Callable[[TestClient], str]
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    select: Callable[[TestClient], str],
+    asked: int,
 ) -> None:
     """A node page runs each of its questions once, however many readers want the answer.
 
@@ -290,19 +294,38 @@ def test_the_walk_asks_the_store_nothing_the_nav_tree_already_asked(
     Two depths, because a level is read two ways: the deep node's is a page of rows, while a
     node standing on its thread's own level shares that level with the calls the thread never
     attributed, which are read cursorless. Only the second holds the cursorless half.
+
+    `asked` is how many repository reads the memo let through for the document: the levels
+    down the open path, the thread's compactions and its bucket. Pinned so a level that comes
+    to be read by two spellings of one question — or by a call around the memo — moves it.
     """
-    # If every statement one page runs is written down...
+    # If every statement one page runs is written down, and every repository read the memo
+    # let through beside it...
     url = select(client)
     ran: list[tuple[str, tuple[tuple[str, ParamValue], ...]]] = []
     read = library.fetch
+    let_through: list[str] = []
+    memo = Levels.read
 
     def watched(store: Store, sql: str, bindings: Mapping[str, ParamValue]) -> list[Row]:
         ran.append((sql, tuple(sorted(bindings.items()))))
         return read(store, sql, bindings)
 
+    def counted[**P, T](
+        self: Levels, method: Callable[P, T], *args: P.args, **kwargs: P.kwargs
+    ) -> T:
+        held = len(self.asked)
+        answer = memo(self, method, *args, **kwargs)
+        if len(self.asked) > held:
+            let_through.append(method.__name__)
+        return answer
+
     monkeypatch.setattr(library, "fetch", watched)
+    monkeypatch.setattr(Levels, "read", counted)
     page = client.get(url)
     assert page.status_code == 200
+    # ...then the memo let through one read per level the document opened, and no more...
+    assert len(let_through) == asked, let_through
 
     # ...then no statement ran twice. A repeat is named by its query's opening line, which is
     # what the library writes at the top of every file.
@@ -315,3 +338,31 @@ def test_the_walk_asks_the_store_nothing_the_nav_tree_already_asked(
     # the memo passes the line above by never having been reached.
     cursorless = [sql for sql, _ in ran if "$cursorless" in sql]
     assert cursorless and len(cursorless) < len(ran)
+
+
+def test_the_memo_tells_two_reads_apart_by_the_method_and_not_only_by_the_arguments() -> None:
+    """Two repository reads asked at identical bindings are two questions, not one.
+
+    Every read the page shares today differs by a model or a cap, so a memo keyed on the
+    arguments alone would answer right by accident — until the first read that spells the same
+    arguments as another and silently gets its rows. The method is part of the key, so two
+    callables asked the same thing are each run once.
+    """
+    levels = Levels()
+    widths = {"title": 40, "prompt": 80}
+
+    # If two reads are asked at the same keys and the same widths, spelt with the mapping in
+    # either order...
+    def turns(keys: dict[str, str], *, widths: Mapping[str, int]) -> str:
+        return "turns"
+
+    def calls(keys: dict[str, str], *, widths: Mapping[str, int]) -> str:
+        return "calls"
+
+    keys = {"session_id": "s", "source": "main"}
+    assert levels.read(turns, keys, widths=widths) == "turns"
+    assert levels.read(calls, keys, widths=dict(reversed(widths.items()))) == "calls"
+    # ...then each was run, and asking either again is answered from what it read.
+    assert len(levels.asked) == 2
+    assert levels.read(turns, keys, widths=widths) == "turns"
+    assert len(levels.asked) == 2

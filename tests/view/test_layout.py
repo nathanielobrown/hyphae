@@ -50,7 +50,7 @@ READS = frozenset({"read", "browser", "fragments"})
 
 # What a value crossing that seam may not be made of: a request, a response, or an element.
 # The store is banned by name below rather than listed here — `duckdb` is not what a raw row
-# arrives as, `store.pages.Row` is.
+# arrives as, `store.pages.Row` (the last shape of the store a builder still takes) is.
 FRAMEWORKS = frozenset({"fastapi", "starlette", "htpy"})
 
 # And the two of those a routes module is the one place for. Split from the set above because
@@ -67,16 +67,18 @@ UNNAMED = frozenset({"logic.py", "utils.py", "helpers.py", "common.py", "misc.py
 # leaves — how one value prints, and the sizes it prints to. `bounds` is a leaf beside `text/`
 # rather than above it because `highlight` and `inline_markdown` read their cuts from it, and a
 # cut is a size (`design.md`, "Decisions"). The store's reads sit below the whole package, in
-# `hyphae.store.pages` and the repositories beside it.
+# the repositories hanging off `hyphae.store.handle`.
 SERVER, PAGE, SHARED, LEAF = 3, 2, 1, 0
 
 # The one number `store/library.py` declares that is not a size: the keyset cursor standing
 # before the first row, which a paged route takes as its default rather than cutting to it.
 NOT_A_SIZE = frozenset({"FIRST_PAGE"})
 
-# The modules of the store a page reads through: the shared queries, bindings and rows, and the
-# repositories a page reads its models from. A page names one of these and never the driver.
+# The modules of the store a page reads through: the handle every read opens, the shared
+# bindings and rows, and the repositories a page reads its models from. A page names one of
+# these and never the driver.
 STORE = (
+    "hyphae.store.handle",
     "hyphae.store.pages",
     "hyphae.store.paging",
     "hyphae.store.sessions",
@@ -85,6 +87,7 @@ STORE = (
     "hyphae.store.failures",
     "hyphae.store.enrichment",
     "hyphae.store.nodes",
+    "hyphae.store.nav",
 )
 
 # What a routes module may still take from the store: the words a session-list URL is written
@@ -481,7 +484,8 @@ def test_no_routes_module_of_a_page_names_the_stores_vocabulary(tmp_path: Path) 
     which is the window `deps.py` exists to close.
 
     `Db` stays legal, because a fragment's lock window is deliberate (`view/deps.py`): what is
-    banned is the query member, the bindings and the raw row, not the store they run on.
+    banned is the query member, the bindings, the raw row, and the handle they run on — a
+    route spells the store it was given as a `Db`, and opening one is a read's job.
     """
     found = [
         path
@@ -501,11 +505,11 @@ def test_no_routes_module_of_a_page_names_the_stores_vocabulary(tmp_path: Path) 
         # ...and none names a query the library declares.
         asked = queried(path)
         assert asked <= NOT_A_SIZE | BINDABLE, f"{dotted(path)} names the library's {sorted(asked)}"
-    # ...and the scan can see that vocabulary where it belongs: the reads run the library
-    # through the store, and fill what they run through the sizes leaf...
+    # ...and the scan can see that vocabulary where it belongs: the reads open the store, and
+    # take the sizes they hand its repositories from the sizes leaf...
     read = {name for path in read_modules() for module in STORE for name in taken(path, module)}
-    assert "page_rows" in read
-    assert "bound" in {name for path in read_modules() for name in taken(path, "bounds")}
+    assert "open_store" in read
+    assert any(whole(path, "hyphae.view.bounds") for path in read_modules())
     # ...and it can see the module taken whole, in either spelling, where a module does.
     for module in STORE:
         package, _, name = module.rpartition(".")

@@ -15,7 +15,6 @@ from pathlib import Path
 import pytest
 
 import hyphae.view
-from hyphae.store.pages import Page
 from hyphae.view import bounds
 
 VIEW = Path(hyphae.view.__file__).parent
@@ -80,22 +79,27 @@ def called(func: ast.expr) -> str:
 
 
 def runs_reads() -> list[tuple[str, str]]:
-    """Every `bound(Page.RUNS, …)` the viewer makes, by module, with the surface it names.
+    """Every `store.nav.runs(…)` the viewer makes, by module, with the surface it names.
 
-    The seam takes its page and its surface positionally (`view/bounds.py:bound`), so the call
-    says which is which without being run. A read that named its surface some other way trips
-    the assertion rather than dropping out of the sweep.
+    The repository takes its surface as the keyword `widths`, spelled as a profile's mapping
+    (`bounds.LOG_WIDTHS._asdict()`), so the call says which surface without being run. A read
+    that named its surface some other way trips the assertion rather than dropping out of the
+    sweep.
     """
     found: list[tuple[str, str]] = []
     for path in sorted(VIEW.rglob("*.py")):
         for node in ast.walk(ast.parse(path.read_text())):
-            if not isinstance(node, ast.Call) or called(node.func) != "bound":
+            if not isinstance(node, ast.Call) or called(node.func) != "runs":
                 continue
-            page, widths = node.args[0], node.args[1]
-            if not isinstance(page, ast.Attribute) or page.attr != Page.RUNS.name:
+            if not isinstance(node.func, ast.Attribute) or called(node.func.value) != "nav":
                 continue
-            assert isinstance(widths, ast.Attribute), ast.unparse(node)
-            found.append((str(path.relative_to(VIEW)), widths.attr))
+            (widths,) = [keyword.value for keyword in node.keywords if keyword.arg == "widths"]
+            assert isinstance(widths, ast.Call) and called(widths.func) == "_asdict", ast.unparse(
+                node
+            )
+            assert isinstance(widths.func, ast.Attribute)
+            assert isinstance(widths.func.value, ast.Attribute), ast.unparse(node)
+            found.append((str(path.relative_to(VIEW)), widths.func.value.attr))
     return sorted(found)
 
 

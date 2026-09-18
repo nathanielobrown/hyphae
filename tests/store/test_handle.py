@@ -180,8 +180,8 @@ def reached() -> set[str]:
     is named `store` (the leaf below holds that), and a type-keyed scan cannot see what
     `enter_context(open_store(...))` binds. The receiver is the bare name or an attribute by it —
     `self.store.rows`, the shape of an object that stashed the handle, as `walk.py`'s reader does.
-    `levels.py:Levels.rows` is a method on another receiver, so neither its definition nor its
-    callers land here.
+    An answer's `rows` (`models/listing.py:Answer`) sits on another receiver, so a page
+    reading a repository's answer never lands here.
     """
     return {
         module

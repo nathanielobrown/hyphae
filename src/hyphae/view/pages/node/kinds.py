@@ -198,8 +198,8 @@ def _unattributed_header(
     store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Read
 ) -> Found | None:
     """One thread's calls that answer no turn, as its timeline's own cursorless row reads them."""
-    standing = nav_tree.unattributed(store, corpus, str(at.source))
-    return Found(standing.row, [standing.ran]) if standing else None
+    answer = nav_tree.unattributed(store, corpus, str(at.source))
+    return Found(asdict(answer.rows[0]), [answer.citation]) if answer.rows else None
 
 
 def _compaction_header(

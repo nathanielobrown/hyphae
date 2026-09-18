@@ -14,17 +14,15 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.models.citation import ParamValue
 from hyphae.models.enrichment import Category, Outcome
 from hyphae.store import library
 from hyphae.store.handle import Store
-from hyphae.store.pages import Page
-from hyphae.store.paging import TURN_CURSOR, cursorless_rows
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.text.format import ELLIPSIS
 from tests.conftest import (
     FORK_ORIGIN,
+    MAIN,
     RESUME,
 )
 from tests.view.budgets import (
@@ -305,10 +303,10 @@ def test_the_timeline_rows_no_window_reaches_are_capped_at_what_a_page_budgets(
     recorded timeline crosses: more of these rows than the ceiling budgets raises rather than
     riding a page nothing counted them on.
     """
-    bound: dict[str, ParamValue] = {"session_id": RESUME, "log_chars": bounds.LOG_WIDTHS.log_chars}
-    rows = cursorless_rows(
-        Store(store), Page.TIMELINE, TURN_CURSOR, bounds.CURSORLESS_TURNS, **bound
+    widths = bounds.LOG_WIDTHS._asdict()
+    answer = Store(store).nodes.unattributed(
+        session_id=RESUME, source=MAIN, cap=bounds.CURSORLESS_TURNS, widths=widths
     )
-    assert [row["turn_id"] for row in rows] == [library.UNATTRIBUTED]
+    assert [row.turn_id for row in answer.rows] == [library.UNATTRIBUTED]
     with pytest.raises(ValueError, match="more than 0"):
-        cursorless_rows(Store(store), Page.TIMELINE, TURN_CURSOR, 0, **bound)
+        Store(store).nodes.unattributed(session_id=RESUME, source=MAIN, cap=0, widths=widths)

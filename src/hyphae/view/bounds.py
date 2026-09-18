@@ -26,15 +26,13 @@ anything a corpus or a reader moves (`tests/view/test_bounds.py`).
 
 The widths below the ceilings are the other half of the same question: a size is what a reader
 may ask a page for, and a width is what one surface of that page prints store text at. The
-profiles at the foot declare each surface's, one field per parameter it binds, and a read names
-the surface instead of the numbers (`bound`, at the foot).
+profiles at the foot declare each surface's, one field per parameter it binds, and a read hands
+a repository the surface's mapping (`NAV_TREE_WIDTHS._asdict()`) instead of the numbers.
 """
 
 from typing import NamedTuple
 
-from hyphae.models.citation import ParamValue
 from hyphae.store import library
-from hyphae.store.pages import Page
 
 
 class Bound(NamedTuple):
@@ -402,14 +400,3 @@ ENRICHMENT_WIDTHS = Enrichment(
 # which node this is, and the node itself is open underneath. Narrow enough that a chain of long
 # titles still fits the line, wide enough that a path or a prompt says which one.
 CRUMB_CHARS = 40
-
-
-def bound(page: Page, widths: Widths, /, **keys: ParamValue) -> dict[str, ParamValue]:
-    """What one read binds: its keys and the surface's widths, and nothing a reader typed.
-
-    `library.bind` keyed by a query member and a surface, which is how a page still spells a
-    read; a repository calls `bind` with the statement's name and the surface's fields, and
-    the one read that binds a size off the URL — the node page's `?detail=` — is its header
-    repository's (`plans/store-layering/phase-4-repositories.md`).
-    """
-    return library.bind(page.value, widths._asdict(), {}, **keys)
