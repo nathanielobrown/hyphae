@@ -10,7 +10,7 @@ Which package under `src/hyphae` may import which, held by a gate and drawn from
 
 ## The forbidden contract
 
-A second contract in the same table says which package may name `duckdb`: only `store`. It lists every other layer as a source and `duckdb` as forbidden, with `allow_indirect_imports` on: the contract is about who imports the driver, not who reaches it, since whatever a source needs from the database it gets from `store` — a page or `hp query` through the `Store` handle `src/hyphae/store/handle.py` hands out, `hp enrich` through the enrichment repository the handle hands out, prepared on a writable one, and `hp export-otlp` through the OTLP ledger, which stays a writer of its own. The same run reports both contracts, and a red one names the module and the line of the import.
+A second contract in the same table says which package may name `duckdb`: only `store`. It lists every other layer as a source and `duckdb` as forbidden, with `allow_indirect_imports` on: the contract is about who imports the driver, not who reaches it, since whatever a source needs from the database it gets from `store` — a page or `hp query` through the `Store` handle `src/hyphae/store/handle.py` hands out, `hp enrich` through the enrichment repository the handle hands out, prepared on a writable one, and `hp export-otlp` through the OTLP ledger, the writer [the store guide](store.md) sets apart. The same run reports both contracts, and a red one names the module and the line of the import.
 
 ## The graph
 
