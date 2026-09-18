@@ -14,8 +14,9 @@ from collections.abc import Sequence
 import duckdb
 from fastapi.testclient import TestClient
 
+from hyphae.models.node import ToolHeader
+from hyphae.store import library, nodes
 from hyphae.store.handle import open_store
-from hyphae.store.pages import Page, page_rows
 from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds
 from hyphae.view.app import build_app
@@ -334,14 +335,15 @@ def test_an_address_names_a_run_of_the_sending_session_and_no_other(
     # The heading is the one of the four that reads its query's first row and drops the rest,
     # so a second row it should never have had leaves nothing on the page to see. That query
     # is read as rows instead: one call, one header.
+    statement = nodes.HEADERS[ToolHeader]
+    bindings = library.bind(
+        statement,
+        bounds.HEADER_WIDTHS._asdict(),
+        {"detail_chars": bounds.DETAIL.default},
+        session_id=str(session_id),
+        source=str(source),
+        tool_call_id=str(tool_id),
+    )
     with open_store(collided, read_only=True, wait=PAGE_WAIT) as reading:
-        header = page_rows(
-            reading,
-            Page.TOOL_HEADER,
-            session_id=str(session_id),
-            source=str(source),
-            tool_call_id=str(tool_id),
-            head_chars=bounds.HEADER_WIDTHS.head_chars,
-            detail_chars=bounds.DETAIL.default,
-        )
+        header = library.fetch(reading, library.load(statement), bindings)
     assert len(header) == 1

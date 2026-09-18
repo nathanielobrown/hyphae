@@ -17,11 +17,13 @@ from dataclasses import asdict
 from typing import NamedTuple
 
 from hyphae.models.citation import Citation, ParamValue
+from hyphae.models.listing import SessionHeader
+from hyphae.models.node import CallHeader, NodeHeader, RunHeader, ToolHeader, TurnHeader
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import Store
 from hyphae.store.pages import TURN_CURSOR, Fragment, Page, Row, listed, page_rows, window
 from hyphae.view import bounds, builders, detail, nodes
-from hyphae.view.bounds import NO_SIZES, bound
+from hyphae.view.bounds import bound
 from hyphae.view.citation import Ran
 from hyphae.view.detail import Detail, details, preview
 from hyphae.view.enrichment import Descriptions, Enrichment
@@ -37,15 +39,15 @@ class Read(NamedTuple):
 
     Two exist. A page reads at `bounds.HEADER_WIDTHS` and passes `?detail=` as a size; an
     expansion reads at `bounds.EXPANSION_WIDTHS`, which declares its own detail width and takes
-    no size. A header whose query has no `detail_chars` to fill ignores the sizes — `bounds.bound`
-    raises on one the query does not declare.
+    no size. Every header statement declares `detail_chars`, and `library.bind` refuses a size
+    one does not.
     """
 
     widths: bounds.Widths
-    sizes: Mapping[str, ParamValue]
+    sizes: Mapping[str, int]
 
 
-EXPANDED = Read(bounds.EXPANSION_WIDTHS, NO_SIZES)
+EXPANDED = Read(bounds.EXPANSION_WIDTHS, {})
 
 
 def paged(size: int) -> Read:
@@ -128,18 +130,30 @@ def _keys(corpus: nav_tree.Corpus, at: Ref, binds: str, threaded: bool) -> dict[
     return keys | {binds: at.node_id}
 
 
-def keyed(page: Page, binds: str, *, threaded: bool = True) -> Header:
+def _found(head: NodeHeader | SessionHeader) -> Found:
+    """A header model as the row the builders read, beside the citation it carries."""
+    row = asdict(head)
+    row.pop("citation")
+    return Found(row, [head.citation])
+
+
+def keyed(model: type[NodeHeader], binds: str, *, threaded: bool = True) -> Header:
     """The header cell of a kind the store answers for by id — five of the eight.
 
-    `binds` is what the header query calls that id. `threaded` is false for the agent run
-    alone: a run's own rows carry its id as their thread, so one key answers both questions
-    and the query takes no source.
+    `model` is what the repository reads the kind's header as, and `binds` is what its
+    statement calls the id. `threaded` is false for the agent run alone: a run's own rows
+    carry its id as their thread, so one key answers both questions and the query takes no
+    source.
     """
 
     def read(store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Read) -> Found | None:
-        bindings = bound(page, reading.widths, reading.sizes, **_keys(corpus, at, binds, threaded))
-        rows = page_rows(store, page, **bindings)
-        return Found(rows[0], [Citation(page.value, bindings)]) if rows else None
+        head = store.nodes.header(
+            model,
+            _keys(corpus, at, binds, threaded),
+            widths=reading.widths._asdict(),
+            sizes=reading.sizes,
+        )
+        return _found(head) if head else None
 
     return read
 
@@ -154,9 +168,7 @@ def _session_header(store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Rea
     the session kind, so an expansion never arrives here.
     """
     assert corpus.head is not None  # noqa: S101  # a narrowing, not a check: see the docstring
-    row = asdict(corpus.head)
-    row.pop("citation")
-    return Found(row, [corpus.head.citation])
+    return _found(corpus.head)
 
 
 def _loose(corpus: nav_tree.Corpus) -> list[Row]:
@@ -448,7 +460,7 @@ KINDS: dict[Kind, KindSpec] = {
         listed_as=None,
     ),
     Kind.TURN: KindSpec(
-        header=keyed(Page.TURN_HEADER, "turn_id"),
+        header=keyed(TurnHeader, "turn_id"),
         missing="No turn with that id is in this thread.",
         in_thread=True,
         trail=_own,
@@ -463,7 +475,7 @@ KINDS: dict[Kind, KindSpec] = {
         listed_as=Shape.TURNS,
     ),
     Kind.RUN: KindSpec(
-        header=keyed(Page.RUN_HEADER, "run_id", threaded=False),
+        header=keyed(RunHeader, "run_id", threaded=False),
         missing="No agent run with that id is in this session.",
         in_thread=False,
         trail=_own,
@@ -478,7 +490,7 @@ KINDS: dict[Kind, KindSpec] = {
         listed_as=Shape.RUNS,
     ),
     Kind.CALL: KindSpec(
-        header=keyed(Page.CALL_HEADER, "api_call_id"),
+        header=keyed(CallHeader, "api_call_id"),
         missing="No api call with that id is in this thread.",
         in_thread=True,
         trail=_call_trail,
@@ -493,7 +505,7 @@ KINDS: dict[Kind, KindSpec] = {
         listed_as=Shape.CALLS,
     ),
     Kind.TOOL: KindSpec(
-        header=keyed(Page.TOOL_HEADER, "tool_call_id"),
+        header=keyed(ToolHeader, "tool_call_id"),
         missing="No tool call with that id is in this thread.",
         in_thread=True,
         trail=_tool_trail,

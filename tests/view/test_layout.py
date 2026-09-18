@@ -82,6 +82,8 @@ STORE = (
     "hyphae.store.records",
     "hyphae.store.offloads",
     "hyphae.store.failures",
+    "hyphae.store.enrichment",
+    "hyphae.store.nodes",
 )
 
 # What a routes module may still take from the store: the words a session-list URL is written

@@ -16,10 +16,8 @@ from collections.abc import Callable, Mapping
 from enum import StrEnum
 from typing import Any, NamedTuple, assert_never
 
-from hyphae.models.citation import Citation
-from hyphae.models.node import WholeValue
+from hyphae.models.node import CallHeader, NodeHeader, RunHeader, ToolHeader, TurnHeader, WholeValue
 from hyphae.store.handle import Store
-from hyphae.store.pages import Value, page_rows
 from hyphae.view import bounds
 from hyphae.view.text import format as fmt
 from hyphae.view.text import highlight
@@ -82,22 +80,12 @@ class Spec(NamedTuple):
     written: Written
 
 
-def fetched(value: Value) -> Fetch:
-    """One per-value statement as the `Fetch` a spec names, until a repository answers it.
-
-    A repository PR replaces each use, and the PR that leaves no caller deletes this
-    (`plans/store-layering/phase-4-repositories.md`).
-    """
+def valued(model: type[NodeHeader], name: str) -> Fetch:
+    """The fetch behind one of a node's own specs: the repository's `value`, at the header
+    model and the field it cut. It prints at the pane's widths, so it names that surface."""
 
     def fetch(store: Store, keys: Mapping[str, str]) -> WholeValue | None:
-        # The statement decides whether a width is bound: only the named-file read declares
-        # `head_chars`, and it is not a cut of the answer — which rides whole — but the bound on
-        # the file suffix beside it. A fetch prints at the pane's widths, so it names its surface.
-        keyed = bounds.bound(value, bounds.HEADER_WIDTHS, **keys)
-        rows = page_rows(store, value, **keyed)
-        if not rows:
-            return None
-        return WholeValue(citation=Citation(value.value, keyed), **rows[0])
+        return store.nodes.value(model, name, keys, widths=bounds.HEADER_WIDTHS._asdict())
 
     return fetch
 
@@ -106,13 +94,13 @@ def fetched(value: Value) -> Fetch:
 TURN_PROMPT = Spec(
     "prompt",
     "/fragment/prompt/session/{session_id}/thread/{source}/turn/{turn_id}",
-    fetched(Value.TURN_PROMPT),
+    valued(TurnHeader, "prompt"),
     Written.MARKDOWN,
 )
 TURN_COMMAND_ARGS = Spec(
     "command_args",
     "/fragment/args/session/{session_id}/thread/{source}/turn/{turn_id}",
-    fetched(Value.TURN_COMMAND_ARGS),
+    valued(TurnHeader, "command_args"),
     Written.MARKDOWN,
 )
 # What an agent run's pane previews: its brief, and the ask and the answer off the call that
@@ -120,32 +108,32 @@ TURN_COMMAND_ARGS = Spec(
 RUN_BRIEF = Spec(
     "brief",
     "/fragment/brief/session/{session_id}/run/{run_id}",
-    fetched(Value.RUN_BRIEF),
+    valued(RunHeader, "brief"),
     Written.MARKDOWN,
 )
 RUN_PROMPT = Spec(
     "prompt",
     "/fragment/prompt/session/{session_id}/run/{run_id}",
-    fetched(Value.RUN_PROMPT),
+    valued(RunHeader, "prompt"),
     Written.MARKDOWN,
 )
 RUN_RESULT = Spec(
     "result",
     "/fragment/result/session/{session_id}/run/{run_id}",
-    fetched(Value.RUN_RESULT),
+    valued(RunHeader, "result"),
     Written.MARKDOWN,
 )
 # What an api call's pane previews: what it said and what it thought, both the model's prose.
 CALL_TEXT = Spec(
     "text",
     "/fragment/text/session/{session_id}/thread/{source}/call/{api_call_id}",
-    fetched(Value.CALL_TEXT),
+    valued(CallHeader, "text"),
     Written.MARKDOWN,
 )
 CALL_THINKING = Spec(
     "thinking",
     "/fragment/thinking/session/{session_id}/thread/{source}/call/{api_call_id}",
-    fetched(Value.CALL_THINKING),
+    valued(CallHeader, "thinking"),
     Written.MARKDOWN,
 )
 # And what a tool call's pane previews. The command first, where the call ran one: it is what
@@ -153,19 +141,19 @@ CALL_THINKING = Spec(
 TOOL_COMMAND = Spec(
     "command",
     "/fragment/command/session/{session_id}/thread/{source}/tool/{tool_call_id}",
-    fetched(Value.TOOL_COMMAND),
+    valued(ToolHeader, "command"),
     Written.BASH,
 )
 TOOL_INPUT = Spec(
     "input",
     "/fragment/input/session/{session_id}/thread/{source}/tool/{tool_call_id}",
-    fetched(Value.TOOL_INPUT),
+    valued(ToolHeader, "input"),
     Written.JSON,
 )
 TOOL_RESULT = Spec(
     "result",
     "/fragment/result/session/{session_id}/thread/{source}/tool/{tool_call_id}",
-    fetched(Value.TOOL_RESULT),
+    valued(ToolHeader, "result"),
     Written.NAMED_FILE,
 )
 # Every Detail of a node's own, and the only place one is declared; what a pass wrote about

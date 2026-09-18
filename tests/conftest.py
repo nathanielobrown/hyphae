@@ -185,6 +185,9 @@ DENSE_TOOL = "toolu_015wiqbosE2nUYZBYdd9urjA"
 # command is read out of a `Bash` call's arguments, and every other tool has none, so a route
 # that serves one has nothing to serve for any other call.
 BASH_TOOL = "toolu_012pdUKAdn6qh1dYSBug3rr9"
+# `SPINE`'s main-thread `Read` of a Markdown file, whose result the store types by the file's
+# suffix: the one recorded `Read` whose `result_type` is not blank.
+MARKDOWN_TOOL = "toolu_01GzkcnijJv7xLcXGBsKivfz"
 # `SPINE`'s one api call that asked for two different tools in the same breath: a tool search
 # beside a `Bash` command. A list of tool calls named row by row reads differently from one
 # named by whatever its first row was, and this pair is what tells the two apart.

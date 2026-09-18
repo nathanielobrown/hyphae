@@ -30,8 +30,6 @@ profiles at the foot declare each surface's, one field per parameter it binds, a
 the surface instead of the numbers (`bound`, at the foot).
 """
 
-from collections.abc import Mapping
-from types import MappingProxyType
 from typing import NamedTuple
 
 from hyphae.models.citation import ParamValue
@@ -406,22 +404,12 @@ ENRICHMENT_WIDTHS = Enrichment(
 CRUMB_CHARS = 40
 
 
-# A read that binds nothing a reader typed, which is most of them: a surface prints at its own
-# widths, and only the node page's `?detail=` reaches into a query from the URL.
-NO_SIZES: Mapping[str, ParamValue] = MappingProxyType({})
-
-
-def bound(
-    page: Library,
-    widths: Widths,
-    sizes: Mapping[str, ParamValue] = NO_SIZES,
-    /,
-    **keys: ParamValue,
-) -> dict[str, ParamValue]:
-    """What one read binds: its keys, the surface's widths, and the sizes a reader asked for.
+def bound(page: Library, widths: Widths, /, **keys: ParamValue) -> dict[str, ParamValue]:
+    """What one read binds: its keys and the surface's widths, and nothing a reader typed.
 
     `library.bind` keyed by a query member and a surface, which is how a page still spells a
-    read; a repository calls `bind` with the statement's name and the surface's fields
-    (`plans/store-layering/phase-4-repositories.md`).
+    read; a repository calls `bind` with the statement's name and the surface's fields, and
+    the one read that binds a size off the URL — the node page's `?detail=` — is its header
+    repository's (`plans/store-layering/phase-4-repositories.md`).
     """
-    return library.bind(page.value, widths._asdict(), sizes, **keys)
+    return library.bind(page.value, widths._asdict(), {}, **keys)

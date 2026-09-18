@@ -620,8 +620,8 @@ def test_a_run_pages_turns_carry_no_description_of_their_own(
 
 
 def test_every_line_is_fetched_through_the_repository() -> None:
-    """Each of the six line specs fetches through `store.enrichment.line`, none through
-    `detail.fetched` — so the node page's own details are the last thing holding that shim."""
+    """Each of the six line specs fetches through `store.enrichment.line`; the node page's own
+    details fetch through `store.nodes` (`tests/view/pages/node/test_node__registry.py`)."""
     # By the closure's own name and the suffix of its path, not the whole path: `mise run mutate`
     # runs the suite over a copy in which every function is renamed.
     assert {spec.whole.__name__ for spec in LINES} == {"fetch"}

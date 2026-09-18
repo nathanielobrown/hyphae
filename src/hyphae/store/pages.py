@@ -48,12 +48,6 @@ class Page(StrEnum):
     # EnrichmentRepository
 
     # NodeRepository
-    # One node read whole, the header of its own page. One per kind that has fields of its
-    # own; a bucket has none, and a compaction reads out of `view_compactions`.
-    RUN_HEADER = "view_run_header"
-    TURN_HEADER = "view_turn_header"
-    CALL_HEADER = "view_call_header"
-    TOOL_HEADER = "view_tool_header"
     # The line each of a thread's turns was read from — what turns a timeline row into a link
     # into the records page.
     TURN_RECORDS = "view_turn_records"
@@ -98,26 +92,6 @@ class Value(StrEnum):
     """
 
     # NodeRepository
-    # The ten values a node's pane previews out of its header and fetches whole here.
-    CALL_TEXT = "view_call_text"
-    CALL_THINKING = "view_call_thinking"
-    # What one tool call was asked and what it returned, one value each rather than the row
-    # whole: a pane previews the two apart, so each has its own way to the rest of it.
-    TOOL_INPUT = "view_tool_input"
-    TOOL_RESULT = "view_tool_result"
-    # And what a `Bash` call ran, which the input holds escaped onto one line: a value of its
-    # own because a shell command is read as shell, not as a string inside JSON.
-    TOOL_COMMAND = "view_tool_command"
-    # What a turn was asked, what followed the command a slash turn ran, and what an agent
-    # run was briefed with. Each is a value a pane previews, cut in the node's header query
-    # and fetched whole here.
-    TURN_PROMPT = "view_turn_prompt"
-    TURN_COMMAND_ARGS = "view_turn_command_args"
-    RUN_BRIEF = "view_run_brief"
-    # And the two a run's page reads off the call that spawned it: what that call asked for,
-    # and what it returned to the agent that made it.
-    RUN_PROMPT = "view_run_prompt"
-    RUN_RESULT = "view_run_result"
     # One raw record whole, as the records page previewed it.
     RECORD = "view_record"
 

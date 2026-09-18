@@ -8,6 +8,7 @@ pane previews under the name, and the URL the pane mints serves the value the pa
 What a Detail *looks* like on either surface is next door in `test_node__details`.
 """
 
+import inspect
 from collections.abc import Callable
 
 import duckdb
@@ -15,6 +16,8 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
+from hyphae.store import nodes
+from hyphae.view import detail
 from hyphae.view.detail import DETAILS, Spec, Written
 from hyphae.view.enrichment import LINES
 from hyphae.view.text.format import ELLIPSIS
@@ -74,6 +77,18 @@ def test_the_registry_declares_every_value_the_viewer_previews_and_fetches(
         for path, scenario in SCENARIOS.items()
         if scenario.group in (Group.VALUES, Group.ENRICHMENT)
     }
+
+
+def test_every_detail_is_fetched_through_the_repository() -> None:
+    """Each of the ten node specs fetches through `store.nodes.value`, and the module holds
+    no other way to build a fetch: the per-value statements are the repository's alone."""
+    # By what each fetch closes over, not by its name: `mise run mutate` runs the suite over a
+    # copy in which every function is renamed. A `valued` closure holds the header model and
+    # the field it cut, and those pairs are exactly the keys the repository's table names.
+    closed = [inspect.getclosurevars(spec.whole).nonlocals for spec in DETAILS]
+    assert {tuple(over) for over in closed} == {("model", "name")}
+    assert {(over["model"], over["name"]) for over in closed} == set(nodes.VALUES)
+    assert not hasattr(detail, "fetched")
 
 
 @pytest.mark.parametrize("spec", [*DETAILS, *LINES], ids=lambda spec: spec.route)

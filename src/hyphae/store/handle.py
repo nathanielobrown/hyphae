@@ -22,6 +22,7 @@ from hyphae.store import macros
 from hyphae.store.analysis import AnalysisRepository
 from hyphae.store.enrichment import EnrichmentRepository
 from hyphae.store.failures import FailureRepository
+from hyphae.store.nodes import NodeRepository
 from hyphae.store.offloads import OffloadRepository
 from hyphae.store.records import RecordRepository
 from hyphae.store.sessions import SessionRepository
@@ -81,7 +82,10 @@ class Store:
         `held` before `described` or `line`; a pass prepares a writable handle first."""
         return EnrichmentRepository(self)
 
-    # nodes
+    @cached_property
+    def nodes(self) -> NodeRepository:
+        """The node page: one node's header whole, and one of its fat values whole."""
+        return NodeRepository(self)
 
     # the NavTree and the walk
 

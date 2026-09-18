@@ -12,9 +12,6 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from hyphae.models.citation import Citation
-from hyphae.store.handle import Store
-from hyphae.store.pages import Value
 from hyphae.view import bounds, detail
 from hyphae.view.app import build_app
 from hyphae.view.detail import Written
@@ -22,16 +19,12 @@ from hyphae.view.text.format import ELLIPSIS
 from hyphae.view.text.highlight import Syntax
 from tests.conftest import (
     ANCESTOR,
-    DENSE_TOOL,
     DENSE_TURN,
-    FORK_ORIGIN,
-    FORK_ORIGIN_RUN,
     MAIN,
     SLASH_TURN,
     SPINE,
 )
 from tests.view.conftest import (
-    MISSING,
     Planter,
     block,
     classed,
@@ -63,45 +56,6 @@ def test_the_one_syntax_rule_refuses_a_row_that_never_said_what_it_holds() -> No
     # that does not answer in prose answers in JSON far more often than anything else.
     assert detail.syntax_of(Written.NAMED_FILE, {"result_type": ".md"}) is Syntax.MARKDOWN
     assert detail.syntax_of(Written.NAMED_FILE, {"result_type": None}) is Syntax.JSON
-
-
-def test_a_fetch_answers_the_value_whole_and_cites_the_statement_that_read_it(
-    store: duckdb.DuckDBPyConnection,
-) -> None:
-    """`detail.fetched` turns one per-value statement into the `Fetch` a spec names.
-
-    The three answers a fetch has, read off the corpus: the value whole with the statement and
-    the keys it ran at, so the fragment can print the footer's line without naming a query; a
-    row the store holds with nothing under it, which is the value `None` the route turns into
-    its 404; and no row at all, which is `None` outright. The one named-file read binds the
-    header's width beside its keys — the suffix that decides its markup is cut in SQL — and
-    it is the only fetch that answers `result_type`, because it is the only statement that
-    selects it (`test_queries.py` holds that from the SQL side).
-    """
-    handle = Store(store)
-    keys = {"session_id": SPINE, "source": MAIN, "turn_id": SLASH_TURN}
-    whole = detail.fetched(Value.TURN_COMMAND_ARGS)(handle, keys)
-    assert whole is not None
-    assert whole.value
-    assert whole.citation == Citation("view_turn_command_args", keys)
-    assert whole.result_type is None
-    # A turn nobody typed a slash at has the row and not the value.
-    blank = detail.fetched(Value.TURN_COMMAND_ARGS)(
-        handle, {"session_id": ANCESTOR, "source": MAIN, "turn_id": DENSE_TURN}
-    )
-    assert blank is not None
-    assert blank.value is None
-    # An id the store never held has no row.
-    assert detail.fetched(Value.TURN_COMMAND_ARGS)(handle, {**keys, "turn_id": MISSING}) is None
-    # And the named-file read, which binds the width its statement declares after the keys.
-    keyed = {"session_id": FORK_ORIGIN, "source": FORK_ORIGIN_RUN, "tool_call_id": DENSE_TOOL}
-    result = detail.fetched(Value.TOOL_RESULT)(handle, keyed)
-    assert result is not None
-    assert result.result_type is not None
-    assert result.citation == Citation(
-        "view_tool_result", {**keyed, "head_chars": bounds.HEADER_WIDTHS.head_chars}
-    )
-    assert list(result.citation.bindings) == [*keyed, "head_chars"]
 
 
 def test_a_pane_previews_a_fat_value_and_offers_the_rest_as_its_own_fetch(
