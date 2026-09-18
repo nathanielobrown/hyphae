@@ -420,45 +420,8 @@ def bound(
 ) -> dict[str, ParamValue]:
     """What one read binds: its keys, the surface's widths, and the sizes a reader asked for.
 
-    The first three are positional so a key can be named anything a statement binds: a read
-    keyed by a column called `sizes` is a store shape away, and it would land here as an
-    argument rather than as a key.
-
-    Every parameter `page` declares is filled from one of the three or this raises, naming the
-    page, the parameter and the surface; a parameter filled twice raises too — a key or a size
-    that names a width is an override, which is a second surface, so declare one above, and a
-    key that names a size is two answers to what the URL asked. DuckDB refuses a read short of
-    a parameter as well, but only once a connection is open and a statement handed over, and
-    its message names neither the surface nor which half should have carried it.
-
-    The mapping comes back in the order it was spelled — keys, then widths, then sizes — which
-    is the order the citation under the page quotes them in (`view/citation.py`).
+    `library.bind` keyed by a query member and a surface, which is how a page still spells a
+    read; a repository calls `bind` with the statement's name and the surface's fields
+    (`plans/store-layering/phase-4-repositories.md`).
     """
-    surface = type(widths).__name__
-    # Off the statement itself, in the order it binds them: what a page declares is what its
-    # file says, and the manifest's production defaults are `hp query`'s business, not a page's.
-    declared = library.parameters(library.statement(page))
-    fields = widths._asdict()
-    # Ahead of the merge, which is where the shadowing would happen: `sizes` is written second
-    # into the mapping, so the reader's number would take the read's silently.
-    if twice := sorted(keys.keys() & sizes.keys()):
-        raise ValueError(
-            f"{page} is passed {', '.join(twice)} twice: a size is what a reader asked the page "
-            f"for, so a read that keys one of its own is answering the URL over the reader"
-        )
-    given = {**keys, **sizes}
-    if claimed := sorted(given.keys() & fields.keys()):
-        raise ValueError(
-            f"{page} takes {', '.join(claimed)} from the {surface} surface: a read that prints "
-            f"at another width names another surface rather than binding one of its own"
-        )
-    if excess := sorted(given.keys() - set(declared)):
-        raise ValueError(
-            f"{page} binds no {', '.join(excess)}: the read passes a key its statement never names"
-        )
-    if missing := [name for name in declared if name not in given and name not in fields]:
-        raise ValueError(
-            f"{page} binds {', '.join(missing)}, which no key carries and the {surface} surface "
-            f"does not declare: pass it as a key, or give the surface the width in view/bounds.py"
-        )
-    return {**keys, **{name: fields[name] for name in fields if name in declared}, **sizes}
+    return library.bind(page.value, widths._asdict(), sizes, **keys)
