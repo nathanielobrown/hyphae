@@ -9,7 +9,7 @@ import datetime as dt
 from collections.abc import Mapping, Sequence
 from typing import NamedTuple
 
-from hyphae.store.library import ParamValue
+from hyphae.models.citation import ParamValue
 from hyphae.view.citation import Cited
 from hyphae.view.models import Count
 

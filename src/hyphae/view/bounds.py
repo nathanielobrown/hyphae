@@ -34,8 +34,8 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import NamedTuple
 
+from hyphae.models.citation import ParamValue
 from hyphae.store import library
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import Library
 
 

@@ -8,8 +8,8 @@ The whole document from one open of the store, closed before anything renders
 from collections.abc import Mapping
 from pathlib import Path
 
+from hyphae.models.citation import Citation, ParamValue
 from hyphae.store.handle import open_store
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import Page, Row, page_rows, sorted_sessions
 from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds
@@ -50,18 +50,24 @@ def sessions(db: Path, params: ListParams) -> SessionsPage:
         more=more,
         citations={
             Page.SESSIONS.value: cited(
-                Page.SESSIONS,
-                # The bindings the query above ran, out of the one mapping it read them from —
-                # including the widths, which are composed around the file like the paging is:
-                # re-running it alone answers with whole titles, paths and skill lists. The
-                # sort and the direction are the composition's own and bind nothing, so they
-                # are stated here.
-                {"sort": params.sort, "direction": params.direction, **listed},
+                Citation(
+                    Page.SESSIONS.value,
+                    # The bindings the query above ran, out of the one mapping it read them
+                    # from — including the widths, which are composed around the file like the
+                    # paging is: re-running it alone answers with whole titles, paths and skill
+                    # lists. The sort and the direction are the composition's own and bind
+                    # nothing, so they are stated here.
+                    {"sort": params.sort, "direction": params.direction, **listed},
+                )
             ),
             # Joined to that page rather than run against it, so it is cited on its own — and
             # only over a store whose enrichment tables exist to join.
             **(
-                {Page.DESCRIBED_SESSIONS.value: cited(Page.DESCRIBED_SESSIONS, joined)}
+                {
+                    Page.DESCRIBED_SESSIONS.value: cited(
+                        Citation(Page.DESCRIBED_SESSIONS.value, joined)
+                    )
+                }
                 if describes
                 else {}
             ),

@@ -15,13 +15,13 @@ Everything else here is arithmetic over the rows those queries returned.
 """
 
 import datetime as dt
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
+from hyphae.models.citation import Citation, ParamValue
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import Store
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import TURN_CURSOR, Library, Page, Row
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
@@ -169,7 +169,7 @@ class Standing(NamedTuple):
     """A bucket's own row, beside the query line that produced it."""
 
     row: Row
-    ran: tuple[Library, Mapping[str, ParamValue]]
+    ran: Citation
 
 
 def home(source: str, turn_id: str | None) -> Ref:
@@ -205,7 +205,7 @@ def unattributed(store: Store, corpus: Corpus, source: str) -> Standing | None:
     """
     timeline, binds = _timeline(corpus.session_id, source)
     rows = corpus.levels.cursorless(store, timeline, TURN_CURSOR, bounds.CURSORLESS_TURNS, **binds)
-    return Standing(rows[0], (timeline, binds)) if rows else None
+    return Standing(rows[0], Citation(timeline.value, binds)) if rows else None
 
 
 def _thread_level(store: Store, corpus: Corpus, at: Ref) -> Level:
@@ -258,7 +258,12 @@ def _thread_level(store: Store, corpus: Corpus, at: Ref) -> Level:
         if loose_runs:
             placed.append(unattached_node(corpus.session_id, loose_runs, corpus.held))
     return Level(
-        placed, [(Page.NAV_TREE_TURNS, listed), (Page.COMPACTIONS, chipped), (timeline, binds)]
+        placed,
+        [
+            Citation(Page.NAV_TREE_TURNS.value, listed),
+            Citation(Page.COMPACTIONS.value, chipped),
+            Citation(timeline.value, binds),
+        ],
     )
 
 
@@ -303,7 +308,7 @@ def _marks(
         (compaction_node(corpus.session_id, source, row), row["timestamp"])
         for row in rows
         if row["turn_id"] == turn_id
-    ], [(Page.COMPACTIONS, keyed)]
+    ], [Citation(Page.COMPACTIONS.value, keyed)]
 
 
 def _runs(corpus: Corpus, rows: Iterable[Row]) -> list[Node]:
@@ -393,7 +398,7 @@ def _calls_level(store: Store, corpus: Corpus, at: Ref) -> Level:
         ],
         marks,
     )
-    return Level(level, [(Page.NAV_TREE_CALLS, keyed), *mark_ran])
+    return Level(level, [Citation(Page.NAV_TREE_CALLS.value, keyed), *mark_ran])
 
 
 def _tools_level(store: Store, corpus: Corpus, at: Ref) -> Level:
@@ -425,7 +430,7 @@ def _tools_level(store: Store, corpus: Corpus, at: Ref) -> Level:
         ],
         marks,
     )
-    return Level(level, [(Page.NAV_TREE_TOOLS, keyed), *mark_ran])
+    return Level(level, [Citation(Page.NAV_TREE_TOOLS.value, keyed), *mark_ran])
 
 
 def _unattached_level(store: Store, corpus: Corpus, at: Ref) -> Level:

@@ -14,10 +14,11 @@ from pathlib import Path
 from typing import Any
 
 from hyphae.analyze import manifest
+from hyphae.models.citation import ParamValue
 from hyphae.projects import project_predicate, resolve_project
 from hyphae.store import library
 from hyphae.store.handle import Store, open_store
-from hyphae.store.library import NoDefault, ParamType, ParamValue, QueryError, Scope
+from hyphae.store.library import NoDefault, ParamType, QueryError, Scope
 from hyphae.store.schema import SchemaVersionError
 from hyphae.store.trace_store import CLI_WAIT, StoreLocked
 

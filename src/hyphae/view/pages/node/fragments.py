@@ -13,9 +13,9 @@ sentence, so a popover and the page for the same node refuse in the same words
 
 from collections.abc import Mapping
 
+from hyphae.models.citation import ParamValue
 from hyphae.store import library
 from hyphae.store.handle import Store
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import Fragment, Row, Value, page_rows
 from hyphae.view import bounds
 from hyphae.view.bounds import bound

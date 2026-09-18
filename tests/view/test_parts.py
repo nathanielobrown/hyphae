@@ -16,6 +16,7 @@ import re
 import htpy
 import pytest
 
+from hyphae.models.citation import Citation
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
 from hyphae.view import bounds
 from hyphae.view.citation import cited
@@ -334,8 +335,8 @@ def test_a_footer_and_a_fragments_list_cite_a_query_the_same_way() -> None:
     two mounts carry the same lines.
     """
     ran = {
-        "session": cited("view_session_header", {"session_id": SPINE, "head_chars": 80}),
-        "runs": cited("view_runs", {"session_id": SPINE}),
+        "session": cited(Citation("view_session_header", {"session_id": SPINE, "head_chars": 80})),
+        "runs": cited(Citation("view_runs", {"session_id": SPINE})),
     }
     folded = str(citation.footer(citations=ran))
     open_lines = str(citation.listed(citations=ran))

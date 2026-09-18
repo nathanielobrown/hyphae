@@ -35,5 +35,5 @@ def errors(db: Path, session_id: str) -> ErrorsPage:
         listed=failed.listed,
         cut=failed.cut,
         held=held,
-        citations={named.value: cited(named, binds) for named, binds in failed.ran},
+        citations={citation.name: cited(citation) for citation in failed.ran},
     )

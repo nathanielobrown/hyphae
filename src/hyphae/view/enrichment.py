@@ -12,11 +12,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
+from hyphae.models.citation import Citation
 from hyphae.models.enrichment import ROWS, Level, Versions
 from hyphae.store.handle import Store
 from hyphae.store.pages import Page, page_rows
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
+from hyphae.view.citation import Ran
 from hyphae.view.text.format import when
 
 # The enrichment tables, by the level whose rows they hold. Read off the rows map rather than
@@ -88,9 +90,10 @@ class Enrichment(NamedTuple):
 class Descriptions:
     """What one page's items were described as, by level, keyed by item id."""
 
-    # Whether the store held the tables to ask at all. What a page cites is what it ran, and
-    # a store with the tables and no rows in them ran the query — an empty answer is one.
-    queried: bool = False
+    # What was run to fill this, for the page's footer: empty when the store held no tables
+    # to ask, and one citation when it did — a store with the tables and no rows in them ran
+    # the query, so an empty answer is cited too.
+    ran: Ran = field(default_factory=list)
     session: Enrichment | None = None
     turns: Mapping[str, Enrichment] = field(default_factory=dict)
     runs: Mapping[str, Enrichment] = field(default_factory=dict)
@@ -139,7 +142,9 @@ def described(store: Store, session_id: str, source: str) -> Descriptions:
         )
     sessions = by_level[Level.session]
     return Descriptions(
-        queried=True,
+        # Cited by its keys alone, as the footer has always quoted it; the widths it ran at
+        # are in `bindings`. Quoting them would change the footer's bytes.
+        ran=[Citation(Page.ENRICHMENT.value, {"session_id": session_id, "source": source})],
         session=sessions.get(session_id),
         turns=by_level[Level.turn],
         runs=by_level[Level.agent_run],

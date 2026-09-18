@@ -19,6 +19,7 @@ import datetime as dt
 from collections.abc import Sequence
 from typing import NamedTuple
 
+from hyphae.models.citation import Citation
 from hyphae.store.handle import Store
 from hyphae.store.pages import Page, dropped, page_rows
 from hyphae.view import bounds
@@ -58,7 +59,7 @@ def failures(store: Store, session_id: str) -> Failures:
     ]
     # Counted by the query before its LIMIT bit, so a page that cut some says how many rather
     # than reading as the whole list.
-    return Failures(listed, dropped(rows), [(Page.SESSION_ERRORS, binds)])
+    return Failures(listed, dropped(rows), [Citation(Page.SESSION_ERRORS.value, binds)])
 
 
 class Step(NamedTuple):

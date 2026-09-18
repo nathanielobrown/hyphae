@@ -14,10 +14,10 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
+from hyphae.models.citation import ParamValue
 from hyphae.models.enrichment import Category, Outcome
 from hyphae.store import library
 from hyphae.store.handle import Store
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import TURN_CURSOR, Page, cursorless_rows
 from hyphae.view import bounds
 from hyphae.view.app import build_app

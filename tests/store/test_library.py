@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from hyphae.models.citation import Citation
 from hyphae.store import library
 
 # The values the library's own comments give the reasons for. `tests/analyze` binds these by
@@ -47,6 +48,18 @@ def test_a_citation_with_nothing_bound_ends_at_the_query_file() -> None:
     # Every shipped query resolves at least one binding, so this is the contract for a caller
     # that composes its own — the viewer builds citations from what it bound, not a manifest.
     assert library.citation("sessions", {}) == "-- queries/sessions.sql"
+
+
+def test_a_citation_a_read_hands_back_is_the_line_the_library_writes() -> None:
+    """A `Citation` is the statement name then its bindings, and the line quotes it in that order.
+
+    A read hands one back beside its rows and a footer writes the line from it, so the two
+    fields are positional: the leaf spells one out and writes the line off it, which is what
+    stops the name and the bindings swapping places without a page noticing.
+    """
+    citation = Citation("view_runs", {"session_id": "abc", "title_chars": 80})
+    assert citation.name == "view_runs"
+    assert library.citation(*citation) == "-- queries/view_runs.sql session_id=abc title_chars=80"
 
 
 @pytest.mark.parametrize(("name", "value"), sorted(SIZES.items()))

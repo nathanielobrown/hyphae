@@ -7,8 +7,8 @@ a store column.
 
 from pathlib import Path
 
+from hyphae.models.citation import Citation, ParamValue
 from hyphae.store.handle import open_store
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import MATCHED_ROWS, Page, page_rows, paged
 from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds
@@ -52,5 +52,5 @@ def records(db: Path, session_id: str, source: str, after: int, size: int) -> Re
         after=page.after,
         more=page.more,
         size=size,
-        citations={Page.RECORDS.value: cited(Page.RECORDS, binds)},
+        citations={Page.RECORDS.value: cited(Citation(Page.RECORDS.value, binds))},
     )

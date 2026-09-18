@@ -15,9 +15,9 @@ the route beside it turns that into the 404 the row's `missing` spells. Every ce
 from collections.abc import Callable, Mapping
 from typing import NamedTuple
 
+from hyphae.models.citation import Citation, ParamValue
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import Store
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import TURN_CURSOR, Fragment, Page, Row, listed, page_rows, window
 from hyphae.view import bounds, builders, detail, nodes
 from hyphae.view.bounds import NO_SIZES, bound
@@ -138,7 +138,7 @@ def keyed(page: Page, binds: str, *, threaded: bool = True) -> Header:
     def read(store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Read) -> Found | None:
         bindings = bound(page, reading.widths, reading.sizes, **_keys(corpus, at, binds, threaded))
         rows = page_rows(store, page, **bindings)
-        return Found(rows[0], [(page, bindings)]) if rows else None
+        return Found(rows[0], [Citation(page.value, bindings)]) if rows else None
 
     return read
 
@@ -153,7 +153,7 @@ def _session_header(store: Store, corpus: nav_tree.Corpus, at: Ref, reading: Rea
     """
     bindings = bound(Page.SESSION_HEADER, reading.widths, session_id=corpus.session_id)
     rows = corpus.levels.rows(store, Page.SESSION_HEADER, **bindings)
-    return Found(rows[0], [(Page.SESSION_HEADER, bindings)]) if rows else None
+    return Found(rows[0], [Citation(Page.SESSION_HEADER.value, bindings)]) if rows else None
 
 
 def _loose(corpus: nav_tree.Corpus) -> list[Row]:
@@ -196,7 +196,7 @@ def _compaction_header(
         for row in page_rows(store, Page.COMPACTIONS, **bindings)
         if row["compaction_id"] == at.node_id
     ]
-    return Found(found[0], [(Page.COMPACTIONS, bindings)]) if found else None
+    return Found(found[0], [Citation(Page.COMPACTIONS.value, bindings)]) if found else None
 
 
 def _own(at: Ref, row: Row) -> list[Ref]:
@@ -253,7 +253,7 @@ def _timeline_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, siz
     return Log(
         _turn_rows(corpus, MAIN_SOURCE, turns.rows),
         turns.total,
-        [(Page.TIMELINE, binds | {"offset": offset, "limit": size})],
+        [Citation(Page.TIMELINE.value, binds | {"offset": offset, "limit": size})],
     )
 
 
@@ -267,7 +267,7 @@ def _run_timeline_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int,
     return Log(
         _turn_rows(corpus, at.node_id, turns.rows),
         turns.total,
-        [(Page.RUN_TIMELINE, binds | {"offset": offset, "limit": size})],
+        [Citation(Page.RUN_TIMELINE.value, binds | {"offset": offset, "limit": size})],
     )
 
 
@@ -296,7 +296,7 @@ def _calls_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: 
             for row in calls.rows
         ],
         calls.total,
-        [(Fragment.TURN_CALLS, binds)],
+        [Citation(Fragment.TURN_CALLS.value, binds)],
     )
 
 
@@ -327,7 +327,7 @@ def _tools_log(store: Store, corpus: nav_tree.Corpus, at: Ref, page: int, size: 
             for row in called.rows
         ],
         called.total,
-        [(Fragment.CALL_TOOLS, binds)],
+        [Citation(Fragment.CALL_TOOLS.value, binds)],
     )
 
 
@@ -401,7 +401,7 @@ def _turn_record(store: Store, corpus: nav_tree.Corpus, at: Ref) -> tuple[int | 
     archived = {
         row["turn_id"]: row["line_no"] for row in page_rows(store, Page.TURN_RECORDS, **thread)
     }
-    return archived.get(at.node_id), [(Page.TURN_RECORDS, thread)]
+    return archived.get(at.node_id), [Citation(Page.TURN_RECORDS.value, thread)]
 
 
 def _turn_titled(corpus: nav_tree.Corpus, at: Ref, row: Row) -> Node:

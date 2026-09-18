@@ -7,8 +7,8 @@ a store column.
 
 from pathlib import Path
 
+from hyphae.models.citation import Citation, ParamValue
 from hyphae.store.handle import open_store
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import Page, page_rows
 from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view.citation import cited
@@ -45,5 +45,5 @@ def offload(db: Path, session_id: str, name: str, after: int, size: int) -> Offl
         file=file,
         after=served if served < file.content_chars else None,
         size=size,
-        citations={Page.OFFLOAD.value: cited(Page.OFFLOAD, binds)},
+        citations={Page.OFFLOAD.value: cited(Citation(Page.OFFLOAD.value, binds))},
     )

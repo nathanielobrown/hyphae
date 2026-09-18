@@ -15,8 +15,8 @@ from typing import Annotated, assert_never
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
+from hyphae.models.citation import ParamValue
 from hyphae.store import library
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import DIRECTIONS, FILTERS, SORTS
 from hyphae.view import bounds
 from hyphae.view.components import Html

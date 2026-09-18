@@ -18,10 +18,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, NamedTuple
 
+from hyphae.models.citation import ParamValue
 from hyphae.projects import project_predicate
 from hyphae.store import library
 from hyphae.store.handle import Store
-from hyphae.store.library import ParamValue
 
 Row = dict[str, Any]
 

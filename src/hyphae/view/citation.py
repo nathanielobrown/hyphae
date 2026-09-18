@@ -5,22 +5,20 @@ writes one of those both ways, and `view/components/citation.py` prints them —
 comment says was bound and what the link binds are one thing (`docs/viewer.md`).
 """
 
-from collections.abc import Mapping
 from typing import NamedTuple
 from urllib.parse import urlencode
 
+from hyphae.models.citation import Citation
 from hyphae.store import library
-from hyphae.store.library import ParamValue
-from hyphae.store.pages import Library
 
 # Where the SQL behind a page is read. Every citation in a footer links here, so the path is
 # written once and the route below takes the query's name from it.
 QUERY_URL = "/query"
 
-# What a page ran and what it bound, in the order it ran them. A page accumulates one of these
-# while it reads and hands it to its footer, so a query answered on the way to a page is cited
-# whether or not the page kept anything from it.
-Ran = list[tuple[Library, Mapping[str, ParamValue]]]
+# What a page ran, in the order it ran it. A page accumulates one of these while it reads and
+# hands it to its footer, so a query answered on the way to a page is cited whether or not the
+# page kept anything from it.
+Ran = list[Citation]
 
 
 class Cited(NamedTuple):
@@ -30,12 +28,13 @@ class Cited(NamedTuple):
     url: str
 
 
-def cited(name: str, bindings: Mapping[str, ParamValue]) -> Cited:
+def cited(citation: Citation) -> Cited:
     """What produced a page, both ways a reader follows it.
 
     The line is what a report quotes and a shell re-runs; the URL is the same query as a page,
     bindings and all. Both spell a binding the one way `library.shown` does, so the link a
     footer carries and the comment beside it cannot disagree about what was bound.
     """
+    name, bindings = citation
     written = {key: library.shown(value) for key, value in bindings.items()}
     return Cited(library.citation(name, bindings), f"{QUERY_URL}/{name}?{urlencode(written)}")

@@ -32,7 +32,7 @@ The mapping step in a page's `read.py` (the node page's `reads.py`) stays: a pag
 src/hyphae/
   store/
     handle.py            ~ 4.0: a repositories block, one placeholder comment per area separated by blank lines; each PR replaces its own with a `cached_property`
-    library.py           ~ 4.0: Citation(name, bindings) NamedTuple; bind(name, widths, sizes, **keys) — the body of view/bounds.py:bound, keyed by statement name
+    library.py           ~ 4.0: bind(name, widths, sizes, **keys) — the body of view/bounds.py:bound, keyed by statement name; ParamValue moves out to models/citation.py
     sessions.py          + 4.1 SessionRepository: SESSIONS, PROJECTS, PROJECT_ROLLUPS, DESCRIBED_SESSIONS, SESSION_HEADER; absorbs pages.py's sorted_sessions, SHOWN, SORTS
     records.py           + 4.2 RecordRepository: RECORDS
     offloads.py          + 4.2 OffloadRepository: OFFLOAD
@@ -44,6 +44,7 @@ src/hyphae/
     nav.py               + 4.8 NavRepository: NAV_TREE_TURNS, NAV_TREE_CALLS, NAV_TREE_TOOLS, RUNS; nav_tree.py's reads of TIMELINE, RUN_TIMELINE, COMPACTIONS move onto 4.7's methods and the members die here
     pages.py             ~ 4.0 regroups the enum members under one comment heading per repository; each PR deletes the members under its heading, leaves the heading, and deletes the helpers whose last caller it moved; phase 5 deletes the file
   models/
+    citation.py          + 4.0 Citation(name, bindings) NamedTuple, and ParamValue beside it
     node.py              + 4.0 WholeValue; 4.6 headers; 4.7 Numbers, Logged rows
     listing.py           + 4.1 Listing, SessionRollup(Session), ProjectRollup, SessionHeader, the filter and sort types
     record.py            + 4.2 Record, RecordSlice, Offload
@@ -65,7 +66,7 @@ tests/store/test_handle.py        + 4.0 the outside-callers ratchet; phase 5 pin
 tests/store/test_<repository>.py  + one per repository
 ```
 
-The import graph does not change. `models` sits on the contract's bottom line (`pyproject.toml:279`) and `store/trace_store.py`, `trace_reader.py`, `enrichment.py` already import `hyphae.models.*`, so `store → models` needs no layers line and no forbidden-contract line changes (verified against `pyproject.toml` 2026-09-17). Only the payload crossing `view → store` changes: models instead of rows.
+The import graph does not change. `models` sits on the contract's bottom line (`pyproject.toml:279`) and `store/trace_store.py`, `trace_reader.py`, `enrichment.py` already import `hyphae.models.*`, so `store → models` needs no layers line and no forbidden-contract line changes (verified against `pyproject.toml` 2026-09-17). That bottom line is also why `Citation` lives in `models/citation.py` rather than `store/library.py`: `models/node.py:WholeValue` carries one, and `models` may not import `store`. `ParamValue` goes with it, since a citation's bindings are typed by it. Only the payload crossing `view → store` changes: models instead of rows.
 
 ## Key contracts
 
@@ -97,7 +98,7 @@ A fetch builds `WholeValue(citation=…, **row)`, so a statement answering a col
 
 **Widths are bindings, not model fields.** `view/bounds.py` keeps declaring every surface's `Widths`; the footer still quotes what was bound.
 
-**Every read carries its citation.** `store/library.py:Citation(name, bindings)`; `Ran = list[Citation]`; `view/citation.py:cited(citation) -> Cited`. A repository method whose statement a footer cites returns the `Citation` beside its rows (`Listing.citation`, `WholeValue.citation`, `Descriptions.ran`), and the page appends what it was handed. No page names a query.
+**Every read carries its citation.** `models/citation.py:Citation(name, bindings)`; `Ran = list[Citation]`; `view/citation.py:cited(citation) -> Cited`. A repository method whose statement a footer cites returns the `Citation` beside its rows (`Listing.citation`, `WholeValue.citation`, `Descriptions.ran`), and the page appends what it was handed. No page names a query.
 
 **The NavTree reads each level once.** `pages/node/nav_tree.py:Corpus` and `levels.py:Levels` stay in the viewer. 4.8 re-keys the memo on the repository method name and its bindings instead of the enum member; the `SESSION_HEADER` read leaves the memo in 4.1, when `Corpus` carries a `SessionHeader` model.
 
@@ -121,7 +122,7 @@ Leaves that reach into `store.pages` move with their member: `tests/view/budgets
 PR 4.0 lands first; 4.1 second, alone. The rest fan out from `main` after 4.1: 4.2, 4.3, 4.4, 4.5 and the node stack 4.6 → 4.7 → 4.8 are siblings. Independence is a file claim: no two siblings touch the same file, except `store/pages.py` and `store/handle.py`, where each edits only its own group and leaves its heading standing — git rebases two edits cleanly only when an unchanged line stands between them, and in `pages.py` the heading is that line: a blank alone is not, because ruff folds two blanks in a class body into one, so the pre-commit hook pulls one into each deletion and two adjacent groups' deletions touch (probed 2026-09-18 in a scratch repo: adjacent blank-separated deletions conflict, adjacent heading-separated ones merge clean in either order). In `handle.py` a placeholder comment becomes a `cached_property` in place, so the blank lines around it stay unchanged — `cli.py`, where 4.4 edits `_query` and 4.5 edits `_enrich`, sixty lines apart — and `tests/analyze/test_queries.py`, which imports `analyze.manifest` (4.4's) and `view/enrichment.py:LINES` (4.5's): it is 4.4's file, and 4.5 leaves `LINES` a tuple of `Spec`s so the leaf parametrized over it needs no edit. The ratchet in `tests/store/test_handle.py` is not a fourth: 4.0 pins its set with `==` and no sibling edits that literal; 4.4 and 4.5 each add a `not in` leaf in their own repository test file, and phase 5 sets the literal to `set()`. Rendered bytes: **none** in any PR, except a `.sql` comment rewrite, which goes in its own commit and changes only that statement's Query page (the phase-3 precedent).
 
 0. **PR 4.0, the detail registry names its fetch** (enabling refactor, one PR, commits in this order):
-   1. `Citation` NamedTuple in `store/library.py`; `Ran = list[Citation]`; `cited(citation)`; every `(Page.X, binds)` pair in `browser.py`, `kinds.py`, `nav_tree.py`, `walk.py`, `view/failures.py`, `errors/read.py` becomes `Citation(Page.X.value, binds)`; `Descriptions` gains `ran: Ran` and `browser.py:130` appends `corpus.described.ran`
+   1. `Citation` NamedTuple in `models/citation.py`, with `ParamValue`; `Ran = list[Citation]`; `cited(citation)`; every `(Page.X, binds)` pair in `browser.py`, `kinds.py`, `nav_tree.py`, `walk.py`, `view/failures.py`, `errors/read.py` becomes `Citation(Page.X.value, binds)`; `Descriptions.queried` becomes `ran: Ran`, which `browser.py` extends its own with. The enrichment citation keeps quoting keys alone, as the footer always has, though `described` binds widths too — a byte-changing fix for its own commit, not this PR
    2. `library.bind(name, widths, sizes, **keys)` takes `bounds.bound`'s body; `bound` becomes `bind(page.value, widths._asdict(), …)`; `test_bounds__binding.py` becomes `tests/store/test_library__bind.py` over the catalog; the fat-column scans go over the catalog; `tests/store/test_catalog.py`
    3. `Spec(name, route, whole: Fetch, written)`; `models/node.py:WholeValue`; `detail.fetched(value: Value) -> Fetch` (bind at `HEADER_WIDTHS`, `page_rows`, `WholeValue(citation=…, **rows[0])`); the six line specs move to `view/enrichment.py:LINES` with `fetched(Value.TURN_DESCRIPTION)` etc.; `routes/details.py` registers `(*DETAILS, *LINES)` without `name=` (nothing calls `url_for`, so no leaf can pin the drop; the render diff is the evidence); `fragments.detailed` calls `spec.whole(store, keys)`; the three DETAILS leaves parametrize over both; `test_queries.py:362` reshaped as above
    4. `handle.py` repositories block and `pages.py` regrouped by repository; `tests/store/test_handle.py` ratchet, an AST scan: every `Attribute` whose receiver spells `store` — the bare name or `self.store` — and whose attr is `rows` or `connection`, in any module outside `store/`, `== {"analyze/runner.py", "view/enrichment.py"}`. The receiver is keyed by name, not type, because a type-keyed scan misses `runner.py:117-118` (`store = opened.enter_context(open_store(...))`), and `levels.py:Levels.rows` is a decoy no `store.` receiver reaches; the spelling convention the scan leans on — every `Store` parameter and every opened handle outside the store is named `store` — gets its own leaf beside it

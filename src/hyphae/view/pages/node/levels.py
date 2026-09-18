@@ -6,8 +6,8 @@ page's query time, spent twice. A `Levels` is held by the request's `Corpus` and
 so nothing memoized here outlives the store it was read over.
 """
 
+from hyphae.models.citation import ParamValue
 from hyphae.store.handle import Store
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import Library, Row, cursorless_rows, page_rows
 
 # What a read is answered by: the query, the cursor and cap a cursorless read adds, and

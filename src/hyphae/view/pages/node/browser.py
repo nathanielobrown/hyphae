@@ -14,9 +14,9 @@ from dataclasses import replace
 from math import ceil
 from pathlib import Path
 
+from hyphae.models.citation import Citation, ParamValue
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.handle import open_store
-from hyphae.store.library import ParamValue
 from hyphae.store.pages import Page, page_rows
 from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds, builders, failures, links, nodes
@@ -116,8 +116,8 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
     if spec.titled is not None:
         selection = replace(selection, words=spec.titled(corpus, at, found.row).words)
     ran: Ran = [
-        (Page.SESSION_HEADER, header_bound),
-        (Page.RUNS, runs_bound),
+        Citation(Page.SESSION_HEADER.value, header_bound),
+        Citation(Page.RUNS.value, runs_bound),
         *found.ran,
         *under.ran,
         *recorded,
@@ -126,8 +126,7 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
     ]
     # Only when the store held the tables to ask: a page cites what it ran, and over an
     # un-enriched store this query is not one of them.
-    if corpus.described.queried:
-        ran.append((Page.ENRICHMENT, {"session_id": session_id, "source": source}))
+    ran.extend(corpus.described.ran)
     # The same rule for the stepper's own read: a page cites what it ran, and most node
     # pages do not run this one.
     if failed is not None:
@@ -178,7 +177,7 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
             total=under.total,
             pager=pager(selection.url, knobs, page, ceil(under.total / knobs.log)),
         ),
-        citations={named.value: cited(named, binding) for named, binding in ran},
+        citations={citation.name: cited(citation) for citation in ran},
         # What every href on the page carries, so a click serves the URL it displays.
         suffix=knobs.suffix,
     )
@@ -198,7 +197,6 @@ def opened(db: Path, session_id: str, at: Ref, log: int) -> Expansion:
     if spec.listed_as is None or spec.titled is None:
         raise Missing("No expansion is served for that kind of node.")
     source = str(at.source)
-    keyed: dict[str, ParamValue] = {"session_id": session_id, "source": source}
     with open_store(db, read_only=True, wait=PAGE_WAIT) as store:
         # An expansion prices nothing and lists no runs: every node it builds carries the empty
         # ledger, and what it wants of a corpus is the session it is in and the words a pass
@@ -226,9 +224,7 @@ def opened(db: Path, session_id: str, at: Ref, log: int) -> Expansion:
             if spec.opens and spec.log is not None
             else Log([], 0, [])
         )
-    ran: Ran = [*found.ran, *under.ran]
-    if corpus.described.queried:
-        ran.append((Page.ENRICHMENT, keyed))
+    ran: Ran = [*found.ran, *under.ran, *corpus.described.ran]
     node = spec.titled(corpus, at, found.row)
     return Expansion(
         node=node,
@@ -238,7 +234,7 @@ def opened(db: Path, session_id: str, at: Ref, log: int) -> Expansion:
         # the kind has one to count.
         children=found.row[spec.counts] if spec.counts else None,
         rows=under.rows,
-        citations={named.value: cited(named, binding) for named, binding in ran},
+        citations={citation.name: cited(citation) for citation in ran},
         # An expansion arrives as a row of the log it opened under, spanning every column
         # that log fills. A kind lists in one shape of log wherever it lists at all, which
         # is what makes the width answerable from the child alone.

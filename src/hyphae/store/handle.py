@@ -15,8 +15,8 @@ from typing import Any, NamedTuple
 
 import duckdb
 
+from hyphae.models.citation import ParamValue
 from hyphae.store import macros
-from hyphae.store.library import ParamValue
 from hyphae.store.trace_store import open_trace_store
 
 

@@ -7,6 +7,7 @@ or a store column.
 
 from pathlib import Path
 
+from hyphae.models.citation import Citation
 from hyphae.store.handle import open_store
 from hyphae.store.pages import Page, Row, dropped, page_rows
 from hyphae.store.trace_store import PAGE_WAIT
@@ -36,7 +37,7 @@ def projects(db: Path) -> ProjectsPage:
         # What the page cut, which the query counted before its LIMIT: a landing page that
         # silently dropped projects would be a corpus a reader cannot see.
         cut=dropped(rows),
-        citations={Page.PROJECT_ROLLUPS.value: cited(Page.PROJECT_ROLLUPS, binds)},
+        citations={Page.PROJECT_ROLLUPS.value: cited(Citation(Page.PROJECT_ROLLUPS.value, binds))},
     )
 
 

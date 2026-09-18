@@ -11,12 +11,13 @@ binds is not here: it belongs to the surface that prints at it (`view/bounds.py`
 is the exception, and it is a timeline's own default for the `hp query` runs no page serves.
 """
 
-import datetime as dt
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum, StrEnum
 from pathlib import Path
+
+from hyphae.models.citation import ParamValue
 
 QUERY_DIR = Path(__file__).parent / "queries"
 
@@ -64,10 +65,6 @@ class NoDefault(Enum):
 
 
 REQUIRED = NoDefault.REQUIRED
-
-# What a bound parameter can be. NULL is a real default — `$since` unset means the whole
-# corpus — so absence cannot stand in for "required", which is why `REQUIRED` is a marker.
-ParamValue = str | int | dt.date | None
 
 
 @dataclass(frozen=True)
