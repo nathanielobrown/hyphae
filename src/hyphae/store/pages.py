@@ -46,9 +46,6 @@ class Page(StrEnum):
     # FailureRepository
 
     # EnrichmentRepository
-    # What an enrichment pass said about the session, its turns and its runs. Absent from a
-    # store no pass has written to, for the same reason as `sessions.DESCRIBED_SESSIONS`.
-    ENRICHMENT = "view_enrichment"
 
     # NodeRepository
     # One node read whole, the header of its own page. One per kind that has fields of its
@@ -125,16 +122,6 @@ class Value(StrEnum):
     RECORD = "view_record"
 
     # EnrichmentRepository
-    # The two lines an enrichment pass wrote about an item, at each of the three levels it
-    # writes at. Fat for the same reason the rest are — a pass writes as much as it wants
-    # to — and one query each, because a fetch serves one value and a reader opens whichever
-    # of the two ran past the width.
-    TURN_DESCRIPTION = "view_turn_description"
-    TURN_FRICTION = "view_turn_friction"
-    RUN_DESCRIPTION = "view_run_description"
-    RUN_FRICTION = "view_run_friction"
-    SESSION_DESCRIPTION = "view_session_description"
-    SESSION_FRICTION = "view_session_friction"
 
 
 # Any of the three, for the fetch helper they share.

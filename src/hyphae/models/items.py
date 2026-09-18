@@ -4,13 +4,17 @@ An item is one thing that gets one enrichment row. The store reads these out of 
 store (`store/enrichment.py`), the renders turn them into prompt text (`enrich/prompts.py`), and
 the enricher carries them between the two. Nothing here renders or queries, and nothing here
 imports outside `models` — so the store can select a row into its type without importing the
-pass that describes it. The render's size limits are the render's own (`enrich/prompts.py:Budgets`).
+pass that describes it. Every model is built under `row.ROW`: strict, so a column whose type
+drifted raises at the read rather than rendering as text, and no extras. The render's size
+limits are the render's own (`enrich/prompts.py:Budgets`).
 """
 
-from dataclasses import dataclass
 from typing import override
 
+from pydantic.dataclasses import dataclass
+
 from hyphae.models.enrichment import Level
+from hyphae.models.row import ROW
 
 # Between an item key's fields. Absent from every value it joins: a session id is a uuid, a turn
 # id is the prompt record's uuid (`model.Turn.id`), a run id is the hex stem of the run's own
@@ -18,7 +22,7 @@ from hyphae.models.enrichment import Level
 SEPARATOR = "|"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, config=ROW)
 class ToolCallRow:
     """One tool call as a prompt sees it: what was asked, and how big the answer was.
 
@@ -39,7 +43,7 @@ class ToolCallRow:
     spawned: str | None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, config=ROW)
 class ApiCallRow:
     """One model response and the tools it asked for. `thinking` is deliberately absent."""
 
@@ -50,7 +54,7 @@ class ApiCallRow:
     tool_calls: tuple[ToolCallRow, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, config=ROW)
 class RunSection:
     """One stretch of a run's transcript: one instruction, and the calls it drove."""
 
@@ -60,7 +64,7 @@ class RunSection:
     api_calls: tuple[ApiCallRow, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, config=ROW)
 class SessionChild:
     """One thing a session did, as that thing's own enrichment described it.
 
@@ -111,7 +115,7 @@ def level_of(key: str) -> Level:
     return Level(key.split(SEPARATOR, 1)[0])
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, config=ROW)
 class TurnItem(Item):
     """One main turn: the prompt a person wrote, and the work it drove."""
 
@@ -140,7 +144,7 @@ class TurnItem(Item):
         return (self.session_id, self.source, self.turn_id)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, config=ROW)
 class AgentRunItem(Item):
     """One subagent run: what it was asked, in sequence, and what it did about it."""
 
@@ -160,7 +164,7 @@ class AgentRunItem(Item):
         return (self.session_id, self.agent_run_id)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, config=ROW)
 class SessionItem(Item):
     """One whole session: what it cost, and what its children were described as doing."""
 

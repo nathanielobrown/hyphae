@@ -2,29 +2,27 @@
 
 Enrichment rows are written by a pass that may never have run (`docs/enrichment.md`), and the
 tables themselves are created by that pass rather than by the exporter — so a store the viewer
-opens read-only may not hold them. `described()` asks the catalog first and hands back an empty
-answer when they are absent, which is what makes a page over an un-enriched store render the
-same as a page over an item the pass has not reached yet: nothing beside the item.
+opens read-only may not hold them. `described()` asks the repository whether it holds them
+first and hands back an empty answer when they are absent, which is what makes a page over an
+un-enriched store render the same as a page over an item the pass has not reached yet: nothing
+beside the item. The reads are the repository's (`store/enrichment.py`); what is here is the
+presentation of them — the tuple a pane prints, the map a page keys, and the six line specs.
 """
 
 import datetime as dt
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import NamedTuple, assert_never
 
 from hyphae.models.citation import Citation
-from hyphae.models.enrichment import ROWS, Level, Versions
+from hyphae.models.enrichment import Level, Versions
+from hyphae.models.node import WholeValue
+from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.handle import Store
-from hyphae.store.pages import Page, Value, page_rows
 from hyphae.view import bounds
-from hyphae.view.bounds import bound
 from hyphae.view.citation import Ran
-from hyphae.view.detail import Detail, Spec, Written, fetched, preview
+from hyphae.view.detail import Detail, Spec, Written, preview
 from hyphae.view.text.format import when
-
-# The enrichment tables, by the level whose rows they hold. Read off the rows map rather than
-# listed, so a fourth level is asked about here too.
-TABLES = {level: rows.table for level, rows in ROWS.items()}
 
 # What marks a string a model wrote rather than a session, written once so that every surface
 # showing it reads the character from here.
@@ -103,13 +101,7 @@ class Descriptions:
 def enriched(store: Store) -> bool:
     """Whether this store holds the enrichment tables at all — a pass creates them, not the
     exporter, so a store nothing has enriched holds none of them."""
-    held = {
-        row[0]
-        for row in store.rows(
-            "SELECT table_name FROM duckdb_tables() WHERE schema_name = 'main'", {}
-        ).rows
-    }
-    return set(TABLES.values()) <= held
+    return EnrichmentStore(store).held()
 
 
 def described(store: Store, session_id: str, source: str) -> Descriptions:
@@ -119,37 +111,48 @@ def described(store: Store, session_id: str, source: str) -> Descriptions:
     page. An item with no row is absent from the mapping rather than present and empty, so a
     component asks `.get(id)` and gets a description or nothing.
     """
-    if not enriched(store):
+    repository = EnrichmentStore(store)
+    if not repository.held():
         return Descriptions()
-    bindings = bound(
-        Page.ENRICHMENT, bounds.ENRICHMENT_WIDTHS, session_id=session_id, source=source
+    answer = repository.described(
+        session_id=session_id, source=source, widths=bounds.ENRICHMENT_WIDTHS._asdict()
     )
     by_level: dict[Level, dict[str, Enrichment]] = {level: {} for level in Level}
-    for row in page_rows(store, Page.ENRICHMENT, **bindings):
-        level = Level(row["level"])
-        by_level[level][row["item_id"]] = Enrichment(
+    for row in answer.rows:
+        level = Level(row.level)
+        by_level[level][row.item_id] = Enrichment(
             level=level,
-            item_id=row["item_id"],
-            description=row["description"],
-            description_chars=row["description_chars"],
-            category=row["category"],
-            outcome=row["outcome"],
-            friction=row["friction"],
-            friction_chars=row["friction_chars"],
-            model=row["model"],
-            enriched_at=row["enriched_at"],
-            prompt_version=row["prompt_version"],
-            taxonomy_version=row["taxonomy_version"],
+            item_id=row.item_id,
+            description=row.description,
+            description_chars=row.description_chars,
+            category=row.category,
+            outcome=row.outcome,
+            friction=row.friction,
+            friction_chars=row.friction_chars,
+            model=row.model,
+            enriched_at=row.enriched_at,
+            prompt_version=row.prompt_version,
+            taxonomy_version=row.taxonomy_version,
         )
     sessions = by_level[Level.session]
+    # Cited by the two keys the read bound, as the footer has always quoted it; the widths
+    # beside them in `answer.citation` would change the footer's bytes.
+    cited = {key: answer.citation.bindings[key] for key in ("session_id", "source")}
     return Descriptions(
-        # Cited by its keys alone, as the footer has always quoted it; the widths it ran at
-        # are in `bindings`. Quoting them would change the footer's bytes.
-        ran=[Citation(Page.ENRICHMENT.value, {"session_id": session_id, "source": source})],
+        ran=[Citation(answer.citation.name, cited)],
         session=sessions.get(session_id),
         turns=by_level[Level.turn],
         runs=by_level[Level.agent_run],
     )
+
+
+def line(level: Level, name: str) -> Callable[[Store, Mapping[str, str]], WholeValue | None]:
+    """The fetch behind one line's spec: the repository's `line`, at the level and column."""
+
+    def fetch(store: Store, keys: Mapping[str, str]) -> WholeValue | None:
+        return EnrichmentStore(store).line(level, name, keys)
+
+    return fetch
 
 
 # The two lines a pass wrote about an item, at each of the three levels it writes at: a Detail
@@ -159,37 +162,37 @@ def described(store: Store, session_id: str, source: str) -> Descriptions:
 TURN_DESCRIPTION = Spec(
     "description",
     "/fragment/description/session/{session_id}/thread/{source}/turn/{turn_id}",
-    fetched(Value.TURN_DESCRIPTION),
+    line(Level.turn, "description"),
     Written.LINE,
 )
 TURN_FRICTION = Spec(
     "friction",
     "/fragment/friction/session/{session_id}/thread/{source}/turn/{turn_id}",
-    fetched(Value.TURN_FRICTION),
+    line(Level.turn, "friction"),
     Written.LINE,
 )
 RUN_DESCRIPTION = Spec(
     "description",
     "/fragment/description/session/{session_id}/run/{run_id}",
-    fetched(Value.RUN_DESCRIPTION),
+    line(Level.agent_run, "description"),
     Written.LINE,
 )
 RUN_FRICTION = Spec(
     "friction",
     "/fragment/friction/session/{session_id}/run/{run_id}",
-    fetched(Value.RUN_FRICTION),
+    line(Level.agent_run, "friction"),
     Written.LINE,
 )
 SESSION_DESCRIPTION = Spec(
     "description",
     "/fragment/description/session/{session_id}",
-    fetched(Value.SESSION_DESCRIPTION),
+    line(Level.session, "description"),
     Written.LINE,
 )
 SESSION_FRICTION = Spec(
     "friction",
     "/fragment/friction/session/{session_id}",
-    fetched(Value.SESSION_FRICTION),
+    line(Level.session, "friction"),
     Written.LINE,
 )
 # Every line a pass wrote that a pane previews, served by the same routes as `DETAILS`.

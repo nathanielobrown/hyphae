@@ -4,20 +4,24 @@ These tables live in the same DuckDB file as the trace store but outside the pip
 per-session replace, so a re-extraction never touches them. They attach to the pipeline's
 natural keys, which come from the data and survive re-extraction with it.
 
-`EnrichmentStore` is a value over one open handle (`store/handle.py`). A pass opens the
-store writable, calls `prepare` once, then asks it for the items of a level and hands back
-rows to render; a level's `Stamp`s are what each stored row was written under, for
-`enrich/stamp.py` to judge. A page holds a read-only handle and never prepares.
+`EnrichmentStore` is a value over one open handle (`store/handle.py`), for both of its
+readers. A pass opens the store writable, calls `prepare` once, then asks it for the items of
+a level and hands back rows to render; a level's `Stamp`s are what each stored row was
+written under, for `enrich/stamp.py` to judge. A page holds a read-only handle, never
+prepares, and reads what the pass wrote: `held` says whether the tables are there at all,
+`described` reads one session's rows at every level, and `line` reads one of them whole.
 """
 
 import datetime as dt
+from collections.abc import Mapping
 from dataclasses import astuple, dataclass, fields
 from typing import TYPE_CHECKING, Any
 
 import duckdb
 
+from hyphae.models.citation import Citation
 from hyphae.models.enrichment import COLUMNS as STAMP_COLUMNS
-from hyphae.models.enrichment import ROWS, Enrichment, Level, Stamp
+from hyphae.models.enrichment import ROWS, Described, DescribedItem, Enrichment, Level, Stamp
 from hyphae.models.items import (
     AgentRunItem,
     ApiCallRow,
@@ -29,8 +33,10 @@ from hyphae.models.items import (
     TurnItem,
     item_key,
 )
+from hyphae.models.node import WholeValue
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.projects import project_predicate
+from hyphae.store import library
 from hyphae.store.schema import check_shape
 
 if TYPE_CHECKING:
@@ -130,6 +136,22 @@ _STDOUT_BODY = f"(?s)<{_STDOUT_TAG}>(.*)</{_STDOUT_TAG}>"
 # clause here and binds what it needs; nothing else may write either half.
 _PROJECT_SCOPE = "{project}"
 
+# What a pass said about one session, its threads' turns and its runs: the rows a page shows
+# beside each item. Absent from a store no pass has prepared, which is what `held` asks first.
+ENRICHMENT = "view_enrichment"
+# The two lines a pass wrote about an item, whole, at each of the three levels it writes at:
+# one statement each, because a fetch serves one value and a reader opens whichever of the two
+# ran past the width. Keyed by the level and the column, which is how a page's detail spec
+# names the one it previews.
+LINE_STATEMENTS: dict[tuple[Level, str], str] = {
+    (Level.turn, "description"): "view_turn_description",
+    (Level.turn, "friction"): "view_turn_friction",
+    (Level.agent_run, "description"): "view_run_description",
+    (Level.agent_run, "friction"): "view_run_friction",
+    (Level.session, "description"): "view_session_description",
+    (Level.session, "friction"): "view_session_friction",
+}
+
 
 @dataclass(frozen=True)
 class RunLink:
@@ -174,6 +196,44 @@ class EnrichmentStore:
         """
         check_shape(self.connection, _SCHEMA)
         self.connection.execute(_SCHEMA)
+
+    # --- what a page reads -------------------------------------------------------------------
+
+    def held(self) -> bool:
+        """Whether the store holds every enrichment table — a pass creates them, not the
+        exporter, and a read-only handle cannot, so a page asks before `described` or `line`."""
+        catalog = "SELECT table_name FROM duckdb_tables() WHERE schema_name = 'main'"
+        tables = {name for (name,) in self.store.rows(catalog, {}).rows}
+        return {rows.table for rows in ROWS.values()} <= tables
+
+    def described(self, *, session_id: str, source: str, widths: Mapping[str, int]) -> Described:
+        """What a pass wrote about one session, one thread's turns and the session's runs, cut.
+
+        `source` is the thread whose turns are wanted: `main` on a session page, the run's id
+        on a run page. A session no pass reached is an empty answer, cited — the statement ran.
+        """
+        bindings = library.bind(ENRICHMENT, widths, {}, session_id=session_id, source=source)
+        rows = [
+            DescribedItem(**row)
+            for row in library.fetch(self.store, library.load(ENRICHMENT), bindings)
+        ]
+        return Described(rows, Citation(ENRICHMENT, bindings))
+
+    def line(self, level: Level, field: str, keys: Mapping[str, str]) -> WholeValue | None:
+        """One line a pass wrote about one item, whole: its `description` or its `friction`.
+
+        `keys` are the level's own primary key by column name, which is what the fetch route
+        carries; a key the level's statement does not bind is refused by name. None where no
+        pass wrote a row under those keys.
+        """
+        name = LINE_STATEMENTS[level, field]
+        bindings = library.bind(name, {}, {}, **keys)
+        rows = library.fetch(self.store, library.load(name), bindings)
+        if not rows:
+            return None
+        return WholeValue(citation=Citation(name, bindings), **rows[0])
+
+    # --- what a pass reads -------------------------------------------------------------------
 
     def _select(self, sql: str, project: str | None, *extra: object) -> list[tuple[Any, ...]]:
         """Run one project-scoped read: every row, with `_PROJECT_SCOPE` narrowed and bound.

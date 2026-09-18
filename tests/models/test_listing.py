@@ -14,6 +14,7 @@ import pytest
 from pydantic import ValidationError
 
 from hyphae.models.citation import Citation
+from hyphae.models.enrichment import DescribedItem
 from hyphae.models.listing import (
     DescribedSessionRollup,
     Project,
@@ -35,6 +36,7 @@ ROW_MODELS = [
     ProjectRollup,
     SessionHeader,
     WholeValue,
+    DescribedItem,
 ]
 # One row as a statement answers it: a dict by column name, typed the way a store row is.
 A_PROJECT: dict[str, Any] = {"project_dir": "/repo", "sessions": 1}

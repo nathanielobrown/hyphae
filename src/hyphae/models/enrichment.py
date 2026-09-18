@@ -1,6 +1,6 @@
 """The enrichment vocabulary: what gets described, the closed words it is described in, where
-each level's rows live, the versions this build writes them under, and the row a store holds
-— an `Enrichment` and the `Stamp` it was written under.
+each level's rows live, the versions this build writes them under, the row a store holds — an
+`Enrichment` and the `Stamp` it was written under — and the row a page reads back, cut.
 
 `Level` names the three things that get an enrichment row. `Category` and `Outcome` are the
 taxonomy every level is written in — closed and code-resident on purpose: `GROUP BY category`
@@ -16,9 +16,16 @@ row's shape, and neither `view` nor the store imports `enrich`. The prompts stay
 that turns an answer into an `Enrichment` (`enrich/validation.py`).
 """
 
+import datetime as dt
 from collections.abc import Mapping
 from dataclasses import dataclass, fields
 from enum import StrEnum
+from typing import NamedTuple
+
+from pydantic.dataclasses import dataclass as row_model
+
+from hyphae.models.citation import Citation
+from hyphae.models.row import ROW
 
 
 class Level(StrEnum):
@@ -207,3 +214,41 @@ class Stamp:
 # The stamp's columns, in field order. A writer binds `astuple(stamp)` against this and a
 # reader unpacks `Stamp(*row)` from it, so the two cannot drift from the fields above.
 COLUMNS: tuple[str, ...] = tuple(field.name for field in fields(Stamp))
+
+
+@row_model(frozen=True, config=ROW)
+class DescribedItem:
+    """One item as a pass described it, cut for a page: a `view_enrichment` row.
+
+    Built by column name off the statement (`store/enrichment.py:described`), under `row.ROW`,
+    so a column the statement gains or loses raises at the read.
+    """
+
+    # Which level's table the row came from, as the statement spells it — the `Level` value.
+    # A string rather than the enum because the row config is strict, and strict mode reads
+    # a value into an enum only from a member.
+    level: str
+    # The turn, run or session the row is about: the level's last key column.
+    item_id: str
+    # The head, one character past the width — the cut-and-mark protocol every fat value
+    # rides (`view/text/format.py:cut`) — beside how long the whole runs.
+    description: str
+    description_chars: int
+    category: str
+    outcome: str
+    # None where the model saw no friction, which is most items.
+    friction: str | None
+    friction_chars: int | None
+    # Which model wrote the row and when, and the two versions it was written under: what a
+    # page judges `stale` from, and what its provenance line prints.
+    model: str
+    enriched_at: dt.datetime
+    prompt_version: int
+    taxonomy_version: int
+
+
+class Described(NamedTuple):
+    """What a pass wrote about one session at every level, and the read that answered it."""
+
+    rows: list[DescribedItem]
+    citation: Citation

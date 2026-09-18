@@ -20,11 +20,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
-from hyphae.store.pages import Page
+from hyphae.store.enrichment import ENRICHMENT
 from hyphae.store.sessions import DESCRIBED_SESSIONS, SESSIONS
 from hyphae.view import bounds
 from hyphae.view.app import build_app
-from hyphae.view.enrichment import GLYPH, GLYPH_CLASS
+from hyphae.view.enrichment import GLYPH, GLYPH_CLASS, LINES
 from hyphae.view.nodes import BODY_URL, Kind
 from hyphae.view.text.format import cut, when
 from tests.conftest import SPINE, SPINE_RUN
@@ -85,7 +85,7 @@ def test_a_session_page_shows_what_the_model_said_about_the_session(
         outcome,
     )
     # ...and the query behind it is cited like every other query the page ran.
-    assert Page.ENRICHMENT.value in fields(page, "id", "citation")
+    assert ENRICHMENT in fields(page, "id", "citation")
     # The pass's words head the pane once it has reached the session, and they are the only
     # name on it: the pane prints no fact row for the name the session was recorded under, so
     # a described session heads itself with what a model said it did and nothing repeats.
@@ -301,7 +301,7 @@ def test_the_enrichment_citation_names_the_thread_the_page_read_for(
     bound, and what a page owes a reader for the three widths it leaves off is settled in
     `tests/view/pages/query/test_query.py`, not here.
     """
-    cited = bound(fields(enriched_client.get(url).text, *mount)[Page.ENRICHMENT.value])
+    cited = bound(fields(enriched_client.get(url).text, *mount)[ENRICHMENT])
     assert cited["session_id"] == SPINE
     assert cited["source"] == SPINE_RUN
 
@@ -617,3 +617,12 @@ def test_a_run_pages_turns_carry_no_description_of_their_own(
     assert not {key.removeprefix("turn:") for key in turns} & set(values(page, "data-enrichment"))
     # The run's own description is there, which is what covers them.
     assert SPINE_RUN in values(page, "data-enrichment")
+
+
+def test_every_line_is_fetched_through_the_repository() -> None:
+    """Each of the six line specs fetches through `store.enrichment.line`, none through
+    `detail.fetched` — so the node page's own details are the last thing holding that shim."""
+    # By the closure's own name and the suffix of its path, not the whole path: `mise run mutate`
+    # runs the suite over a copy in which every function is renamed.
+    assert {spec.whole.__name__ for spec in LINES} == {"fetch"}
+    assert all(spec.whole.__qualname__.endswith("<locals>.fetch") for spec in LINES)
