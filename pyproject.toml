@@ -254,9 +254,8 @@ containers = ["hyphae"]
 exhaustive = true
 layers = [
   "cli",
-  "view | enrich",
-  # Peers: neither has ever imported the other; both read the store.
-  "analyze | export",
+  # Peers: none imports another; all four read the store, and each is one thing done with it.
+  "view | enrich | analyze | export",
   # Peers: the reader rebuilds a trace from rows and never parses, and the parser touches no
   # database. Each imports only `pipeline` and the leaves below it.
   "store | extract",
@@ -289,6 +288,15 @@ forbidden_modules = ["duckdb"]
 # The contract is about who names the driver, not who reaches it: every package above reaches
 # `duckdb` through `store`, and following chains would make that the break.
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Nothing above the store parses a transcript"
+type = "forbidden"
+# The edge the layers cannot say: `extract` sits below the four, so a page or a pass importing
+# the parser would be legal by the line above. Only `cli` builds an extractor, and it hands the
+# session traces to the pipeline; everything above the store reads them back through `store`.
+source_modules = ["hyphae.view", "hyphae.enrich", "hyphae.analyze", "hyphae.export"]
+forbidden_modules = ["hyphae.extract"]
 
 [tool.mutmut]
 # What `mise run mutate` mutates when it is given no scope of its own. mutmut copies the tree

@@ -40,6 +40,7 @@ def numbers(text: str) -> list[int]:
 # tells two contracts of one type apart.
 LAYERS = "Layers"
 DRIVER = "Only the store speaks DuckDB"
+PARSER = "Nothing above the store parses a transcript"
 
 
 def contracts() -> list[dict]:

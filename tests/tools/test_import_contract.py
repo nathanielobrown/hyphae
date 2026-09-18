@@ -15,12 +15,15 @@ from pathlib import Path
 
 import pytest
 
-from tests.tools.conftest import DRIVER, contract, contract_layers, contracts
+from tests.tools.conftest import DRIVER, PARSER, contract, contract_layers, contracts
 
 ROOT = Path(__file__).resolve().parents[2]
 
 # What a green run over every contract says; every kept case pins the count as well as the code.
-KEPT = "Contracts: 2 kept, 0 broken"
+KEPT = "Contracts: 3 kept, 0 broken"
+
+# The four packages that share the line under `cli`: each is one thing done with the store.
+PEERS = {"view", "enrich", "analyze", "export"}
 
 
 def peer_line(layers: list[str], peers: set[str]) -> int:
@@ -32,7 +35,7 @@ def peer_line(layers: list[str], peers: set[str]) -> int:
 
 
 def store_above_view(layers: list[str]) -> list[str]:
-    """`store` lifted off its line to above `view | enrich`, so every import of it points up."""
+    """`store` lifted off its line to above the four peers, so every import of it points up."""
     holding = [layer for layer in layers if "store" in layer.split(" | ")]
     assert holding, "no line holds `store`; retarget this case"
     (line,) = holding
@@ -42,7 +45,7 @@ def store_above_view(layers: list[str]) -> list[str]:
         for layer in layers
         if layer != line or peers
     ]
-    at = layers.index("view | enrich")
+    at = peer_line(layers, PEERS)
     return [*layers[:at], "store", *layers[at:]]
 
 
@@ -53,14 +56,16 @@ def without_user_settings(layers: list[str]) -> list[str]:
 
 
 def enrich_above_view(layers: list[str]) -> list[str]:
-    """`enrich` lifted onto its own line above `view`: strictly tighter than `view | enrich`.
+    """`enrich` lifted onto its own line above the other three: strictly tighter than the
+    shipped line.
 
-    The shipped line says neither imports the other; this says `view` may not import `enrich`
-    while `enrich` could import `view`. Kept green, it is the lasting proof that the viewer
-    reads the enrichment vocabulary from `models` and nothing from `enrich`.
+    The shipped line says none of the four imports another; this says `view` may not import
+    `enrich` while `enrich` could import `view`. Kept green, it is the lasting proof that the
+    viewer reads the enrichment vocabulary from `models` and nothing from `enrich`.
     """
-    at = peer_line(layers, {"view", "enrich"})
-    return [*layers[:at], "enrich", "view", *layers[at + 1 :]]
+    at = peer_line(layers, PEERS)
+    below = " | ".join(name for name in layers[at].split(" | ") if name != "enrich")
+    return [*layers[:at], "enrich", below, *layers[at + 1 :]]
 
 
 def store_above_extract(layers: list[str]) -> list[str]:
@@ -180,7 +185,20 @@ def test_the_forbidden_contract_names_the_store_when_it_is_a_source(tmp_path: Pa
     assert "hyphae.store.trace_store -> duckdb" in done.stdout, done.stdout
 
 
-@pytest.mark.reads_the_repo  # reads the two contracts in `pyproject.toml`
+@pytest.mark.reads_the_repo  # the same subprocess, over a forbidden contract wider than written
+def test_the_parser_contract_names_the_cli_when_it_is_a_source(tmp_path: Path) -> None:
+    # If the entry point joins the packages that may not parse a transcript...
+    sources = contract(PARSER)["source_modules"]
+    assert "hyphae.cli" not in sources, "the cli is a source now; retarget this case"
+    done = run_contract(contract_layers(), tmp_path, sources={PARSER: [*sources, "hyphae.cli"]})
+    # ...the run is red for that reason and no other: the report names the entry point, which
+    # builds the extractor it hands the pipeline, and the count says the other two still hold.
+    assert done.returncode != 0, done.stdout
+    assert "hyphae.cli is not allowed to import hyphae.extract:" in done.stdout, done.stdout
+    assert "Contracts: 2 kept, 1 broken" in done.stdout, done.stdout
+
+
+@pytest.mark.reads_the_repo  # reads two of the contracts in `pyproject.toml`
 def test_the_forbidden_contract_lists_every_layer_but_the_store() -> None:
     """A module the layers contract places is a forbidden source unless it is the store.
 

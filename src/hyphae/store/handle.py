@@ -2,12 +2,12 @@
 one private verb they run SQL by.
 
 The driver stays inside this package: a caller holds a `Store` rather than a connection and
-names one of the repositories below, and the forbidden contract holds every package outside
-the store to that (`docs/layering.md`). The enrichment tables' writer is the `enrichment`
-repository, prepared on a writable handle by the pass that owns it; which writers stand
-outside the handle, `docs/store.md` says. `_rows` hands back columns and tuples because its
-two consumers want different shapes from them — the page reads want dicts, `hp query` a header
-and a body — and a cursor is the driver's type.
+names one of the repositories below, and the contract that lets only the store speak DuckDB
+holds every package outside it to that (`docs/layering.md`). The enrichment tables' writer is
+the `enrichment` repository, prepared on a writable handle by the pass that owns it; which
+writers stand outside the handle, `docs/store.md` says. `_rows` hands back columns and tuples
+because its two consumers want different shapes from them — the page reads want dicts,
+`hp query` a header and a body — and a cursor is the driver's type.
 """
 
 from collections.abc import Generator, Mapping
