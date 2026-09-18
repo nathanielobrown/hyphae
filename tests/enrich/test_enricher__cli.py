@@ -23,7 +23,7 @@ from hyphae.enrich.enricher import (
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION
 from hyphae.pricing import SYNTHETIC_MODEL
 from hyphae.store.enrichment import EnrichmentStore
-from tests.conftest import MYCELIA
+from tests.conftest import MYCELIA, enriching
 from tests.enrich.conftest import (
     CURRENT,
     MODEL,
@@ -61,6 +61,7 @@ def logged_in(monkeypatch: pytest.MonkeyPatch) -> None:
 # before either branch of `_enrich` is reached.
 @pytest.mark.parametrize("extra", [(), ("--dry-run",)])
 def test_an_unpriced_model_is_refused_at_the_door(
+    db: Path,
     store: EnrichmentStore,
     model: str,
     extra: tuple[str, ...],
@@ -74,7 +75,7 @@ def test_an_unpriced_model_is_refused_at_the_door(
     """
     # If a person names a model no rate exists for...
     with pytest.raises(SystemExit) as refusal:
-        cli.main("enrich", "--db", str(store.path), "--model", model, *extra)
+        cli.main("enrich", "--db", str(db), "--model", model, *extra)
     # ...then the command exits on argparse's usage error rather than running...
     assert refusal.value.code == 2
     # ...naming the model it would not accept, so the typo is visible in the message...
@@ -86,7 +87,10 @@ def test_an_unpriced_model_is_refused_at_the_door(
 
 
 def test_a_dry_run_asks_no_auth_question(
-    store: EnrichmentStore, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    db: Path,
+    store: EnrichmentStore,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Quoting a run asks nothing about auth; a run that would spend asks before it renders.
 
@@ -95,7 +99,7 @@ def test_a_dry_run_asks_no_auth_question(
     so a dry run that checked would raise here instead of printing a quote.
     """
     # If a store is priced with `preflight` left alone...
-    cli.main("enrich", "--db", str(store.path), "--dry-run")
+    cli.main("enrich", "--db", str(db), "--dry-run")
     # ...then it quotes the plan and writes no row...
     assert "at most 7 item(s) would be sent" in capsys.readouterr().out
     assert stored(store) == []
@@ -109,17 +113,17 @@ def test_a_dry_run_asks_no_auth_question(
 
     monkeypatch.setattr(cli, "preflight", lambda: order.append("preflight"))
     monkeypatch.setattr(cli, "build_client", client)
-    cli.main("enrich", "--db", str(store.path), "--limit", "1")
+    cli.main("enrich", "--db", str(db), "--limit", "1")
     assert order == ["preflight", "client"]
 
 
-def test_the_removed_batch_flag_is_rejected(store: EnrichmentStore) -> None:
+def test_the_removed_batch_flag_is_rejected(db: Path, store: EnrichmentStore) -> None:
     """`--no-batch` is gone: a script still passing it stops rather than silently batching.
 
     There is one path now, and it is neither of the two the flag chose between.
     """
     with pytest.raises(SystemExit):
-        cli.main("enrich", "--db", str(store.path), "--no-batch")
+        cli.main("enrich", "--db", str(db), "--no-batch")
 
 
 def test_a_dry_run_creates_the_enrichment_tables_it_finds_missing(
@@ -148,11 +152,11 @@ def test_a_dry_run_creates_the_enrichment_tables_it_finds_missing(
 
 
 def test_a_dry_run_writes_nothing_and_sends_nothing(
-    store: EnrichmentStore, capsys: pytest.CaptureFixture[str]
+    db: Path, store: EnrichmentStore, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """`--dry-run` says how much a run would send, broken down by level."""
     # If a dry run is asked for...
-    cli.main("enrich", "--db", str(store.path), "--dry-run")
+    cli.main("enrich", "--db", str(db), "--dry-run")
     # ...then it reports the two stale runs, the four stale turns and the session, and writes
     # no row.
     printed = capsys.readouterr().out
@@ -162,7 +166,10 @@ def test_a_dry_run_writes_nothing_and_sends_nothing(
 
 
 def test_a_dry_run_scoped_to_a_project_places_a_relative_path(
-    store: EnrichmentStore, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    db: Path,
+    store: EnrichmentStore,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """`--project` names a repository from any working directory, relative spelling included."""
     # If the project is named the way a shell in its parent directory would name it — and a
@@ -171,7 +178,7 @@ def test_a_dry_run_scoped_to_a_project_places_a_relative_path(
     cli.main(
         "enrich",
         "--db",
-        str(store.path),
+        str(db),
         "--dry-run",
         "--project",
         str(Path(MYCELIA).relative_to("/")),
@@ -179,13 +186,13 @@ def test_a_dry_run_scoped_to_a_project_places_a_relative_path(
     relative = capsys.readouterr().out
     # ...then it prices what the absolute spelling prices, rather than the nothing an
     # unresolved path finds.
-    cli.main("enrich", "--db", str(store.path), "--dry-run", "--project", MYCELIA)
+    cli.main("enrich", "--db", str(db), "--dry-run", "--project", MYCELIA)
     assert relative == capsys.readouterr().out
     assert "at most 7 item(s) would be sent" in relative
 
 
 def test_a_dry_run_counts_the_ancestors_of_what_is_stale(
-    store: EnrichmentStore, capsys: pytest.CaptureFixture[str]
+    db: Path, store: EnrichmentStore, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """One stale leaf is quoted as four items: itself and everything that embeds it.
 
@@ -207,12 +214,12 @@ def test_a_dry_run_counts_the_ancestors_of_what_is_stale(
         turn_key(store, "818588ad"),
         session_key(store, SPINE),
     }
-    cli.main("enrich", "--db", str(store.path), "--dry-run")
+    cli.main("enrich", "--db", str(db), "--dry-run")
     assert "at most 4 item(s) would be sent" in capsys.readouterr().out
 
 
 def test_a_dry_run_quotes_a_price_it_computed_itself(
-    store: EnrichmentStore, capsys: pytest.CaptureFixture[str]
+    db: Path, store: EnrichmentStore, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The quoted dollars are arithmetic over the prompts, checkable without a network.
 
@@ -221,7 +228,7 @@ def test_a_dry_run_quotes_a_price_it_computed_itself(
     """
     # If a dry run reports on a store nothing has enriched...
     planned = plan(store, MODEL, versions=CURRENT, project=None, limit=None)
-    cli.main("enrich", "--db", str(store.path), "--dry-run")
+    cli.main("enrich", "--db", str(db), "--dry-run")
     printed = capsys.readouterr().out
     # ...then the price it printed is the one `estimate` derives from the same prompts —
     # one figure now, because there is one way to send an item...
@@ -248,12 +255,12 @@ def test_the_cli_writes_what_the_library_writes(
         copy.write_bytes(spine_store.read_bytes())
     monkeypatch.setattr(cli, "build_client", lambda model, *, concurrency: FakeClient())
     cli.main("enrich", "--db", str(through_cli))
-    with EnrichmentStore(direct) as store:
+    with enriching(direct) as store:
         enrich(store, FakeClient(), versions=CURRENT)
         expected = stored(store) + [row[:3] for row in stored_runs(store)] + stored_sessions(store)
     # ...then both stores hold the same rows at every level, `enriched_at` aside — the one
     # column a second run cannot reproduce...
-    with EnrichmentStore(through_cli) as store:
+    with enriching(through_cli) as store:
         assert (
             stored(store) + [row[:3] for row in stored_runs(store)] + stored_sessions(store)
             == expected
@@ -268,12 +275,12 @@ def test_the_cli_writes_what_the_library_writes(
 
 
 def test_the_cli_limits_what_it_sends(
-    store: EnrichmentStore, logged_in: None, monkeypatch: pytest.MonkeyPatch
+    db: Path, store: EnrichmentStore, logged_in: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`--limit N` sends at most N items, which is what makes a dev run cheap."""
     client = FakeClient()
     monkeypatch.setattr(cli, "build_client", lambda model, *, concurrency: client)
-    cli.main("enrich", "--db", str(store.path), "--limit", "2")
+    cli.main("enrich", "--db", str(db), "--limit", "2")
     assert len(client.keys) == 2
     # The limit is spent from the deepest round outwards, so it buys the two agent runs
     # before it reaches a turn.
@@ -282,7 +289,7 @@ def test_the_cli_limits_what_it_sends(
 
 
 def test_the_concurrency_flag_reaches_the_client(
-    store: EnrichmentStore, logged_in: None, monkeypatch: pytest.MonkeyPatch
+    db: Path, store: EnrichmentStore, logged_in: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`--concurrency N` sets how many `claude` processes a round runs at once, defaulting to 4."""
     # If the one place a client is built is asked for one, it answers with the real client,
@@ -298,7 +305,7 @@ def test_the_concurrency_flag_reaches_the_client(
         return FakeClient()
 
     monkeypatch.setattr(cli, "build_client", record)
-    cli.main("enrich", "--db", str(store.path), "--limit", "1")
-    cli.main("enrich", "--db", str(store.path), "--limit", "1", "--concurrency", "2")
+    cli.main("enrich", "--db", str(db), "--limit", "1")
+    cli.main("enrich", "--db", str(db), "--limit", "1", "--concurrency", "2")
     assert asked == [DEFAULT_CONCURRENCY, 2]
     assert DEFAULT_CONCURRENCY == 4

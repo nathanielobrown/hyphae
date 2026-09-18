@@ -26,7 +26,7 @@ from hyphae.enrich.stamp import input_hash
 from hyphae.enrich.validation import FailureKind
 from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
 from hyphae.store.enrichment import EnrichmentStore
-from tests.conftest import MODEL_ONLY, build_store, fixture_transcripts
+from tests.conftest import MODEL_ONLY, build_store, enriching, fixture_transcripts
 from tests.enrich.conftest import (
     AUDITOR_RUN,
     CURRENT,
@@ -74,7 +74,7 @@ def forest(forest_store: Path, tmp_path: Path) -> Iterator[EnrichmentStore]:
     """A private copy of the three-session store, open for enrichment."""
     copy = tmp_path / "forest.duckdb"
     copy.write_bytes(forest_store.read_bytes())
-    with EnrichmentStore(copy) as opened:
+    with enriching(copy) as opened:
         yield opened
 
 
@@ -155,7 +155,7 @@ def test_a_pass_never_sends_a_gated_session_and_reports_the_row_it_deleted(
     """
     path = tmp_path / "gated.duckdb"
     build_store(path, fixture_transcripts("spine", "model_only"))
-    with EnrichmentStore(path) as store:
+    with enriching(path) as store:
         # If a store holds a session whose turns drove no api call, described by an earlier
         # pass that had no gate...
         store.upsert(session_item(MODEL_ONLY), enrichment(), stamp())
@@ -310,6 +310,7 @@ def test_a_failed_request_leaves_its_item_stale(store: EnrichmentStore, tmp_path
 
 
 def test_the_auth_blob_never_reaches_the_output(
+    db: Path,
     store: EnrichmentStore,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -334,7 +335,7 @@ def test_the_auth_blob_never_reaches_the_output(
 
     monkeypatch.setattr(cli, "build_client", failing)
     with pytest.raises(EnrichmentFailed) as failure:
-        cli.main("enrich", "--db", str(store.path))
+        cli.main("enrich", "--db", str(db))
     # ...then no value the envelope carried is in what the run said, or in what it raised.
     printed = capsys.readouterr()
     said = printed.out + printed.err + str(failure.value)

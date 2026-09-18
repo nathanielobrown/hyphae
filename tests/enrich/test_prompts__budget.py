@@ -19,7 +19,7 @@ from hyphae.enrich.levels import LEVELS, render
 from hyphae.enrich.prompts import render_run, render_session, render_turn
 from hyphae.enrich.stamp import input_hash
 from hyphae.models.enrichment import Level
-from hyphae.store.enrichment import EnrichmentStore
+from tests.conftest import enriching
 from tests.enrich.conftest import (
     SERVER_TOOLS,
     SPINE,
@@ -54,7 +54,7 @@ def test_a_long_command_result_is_capped_and_still_ends_with_how_it_ended(
     next `/context` can beat that. Rendered at the real `total`, so the cap is the subject and
     not the elision.
     """
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         # If a command printed 100,000 characters, against the recorded `/model` turn...
         store.connection.execute(
             "UPDATE raw_records SET raw = ? WHERE session_id = ? AND line_no = 8",
@@ -85,7 +85,7 @@ def test_thinking_reaches_no_prompt(mutable_db: Path) -> None:
     """Extended thinking is excluded from every prompt, whatever it holds."""
     # If a sentinel is planted into the thinking of a real `spine/` api call — invented
     # content in a recorded row, because redaction leaves every real string identical...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         store.connection.execute(
             "UPDATE api_calls SET thinking = ? WHERE session_id = ?", [SENTINEL, SPINE]
         )
@@ -99,7 +99,7 @@ def test_thinking_reaches_no_prompt(mutable_db: Path) -> None:
 def test_a_tool_result_reaches_no_prompt_but_its_size_does(mutable_db: Path) -> None:
     """A successful tool's output never travels — only how big it was."""
     # If a sentinel is planted into the result of a real, non-error `spine/` tool call...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         store.connection.execute(
             "UPDATE tool_calls SET result = ? WHERE id = 'toolu_015dP3eMe5GZn7BzFipupZwS'",
             [SENTINEL],
@@ -116,7 +116,7 @@ def test_a_tool_result_reaches_no_prompt_but_its_size_does(mutable_db: Path) -> 
 def test_an_error_result_tail_is_the_one_exception(fixture_db: Path) -> None:
     """A failed tool call carries the tail of its error, which is where friction shows."""
     # If `server_tools/`'s one recorded failing call is rendered...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         item = turn(store, SERVER_TOOLS, "9ae45aaa")
         rendered = render(item)
         # ...then its line is flagged and carries the error text...
@@ -134,7 +134,7 @@ def test_an_error_result_tail_is_the_one_exception(fixture_db: Path) -> None:
 def test_the_tool_input_head_is_the_head(fixture_db: Path) -> None:
     """A tool line names what the tool was called on, by carrying the head of its input."""
     # If `workflow/`'s `Workflow` call is rendered...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         item = turn(store, WORKFLOW, "cd7adeae")
         rendered = render(item)
         # ...then the line carries the input's own first characters — the workflow's name
@@ -149,7 +149,7 @@ def test_the_tool_input_head_is_the_head(fixture_db: Path) -> None:
 
 def test_input_hash_reads_the_rendered_content_and_nothing_else(mutable_db: Path) -> None:
     """The staleness hash moves when the prompt does, and only then."""
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         # If the same turn is rendered twice, the hash is the same...
         before = input_hash(render(turn(store, SPINE, "818588ad")))
         assert before == input_hash(render(turn(store, SPINE, "818588ad")))
@@ -173,7 +173,7 @@ def test_an_over_budget_turn_drops_the_middle_of_its_work(fixture_db: Path) -> N
     # If `spine/`'s longest turn — three tool calls between two responses — is rendered at a
     # budget of 300 characters, under two thirds of the 487 it needs (injected, because
     # redaction leaves no fixture within two orders of magnitude of the real 30K)...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         item = turn(store, SPINE, "30aad8e5")
         elided = render_turn(item, dataclasses.replace(TURN_BUDGETS, total=300))
     # ...then the render fits, and what it kept is the prompt, the start of the work and the
@@ -207,7 +207,7 @@ def test_each_instruction_is_capped_on_its_own(fixture_db: Path) -> None:
     """Every prompt of a run gets the whole per-prompt budget, not a share of one."""
     # If the two-instruction run is rendered at a per-prompt cap of four characters
     # (injected: redaction leaves each recorded prompt at ten, so the real 4K cannot bite)...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         capped = render_run(run(store, TEAM_RUN), dataclasses.replace(RUN_BUDGETS, prompt=4))
     # ...then both instructions are still there, and each was truncated to four characters of
     # its own rather than to four between them.
@@ -220,7 +220,7 @@ def test_an_over_budget_run_drops_the_middle_of_its_work(fixture_db: Path) -> No
     # If `spine/`'s subagent run is rendered at 300 characters, half what it needs
     # (injected — 209 of 2,458 real runs hit the real 30K cap, and no fixture comes near
     # it)...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         elided = render_run(run(store, SPINE_RUN), dataclasses.replace(RUN_BUDGETS, total=300))
     # ...then the task and the start of the work survive, the last thing the run did
     # survives, the gap between them counts itself, and the `Ended:` line rides the tail.
@@ -246,7 +246,7 @@ def test_an_over_budget_session_drops_the_middle_of_its_work(mutable_db: Path) -
     """Past its budget a session keeps its first and last child and says how many went."""
     # If `spine/`'s four described turns are rendered at a budget that fits two of them
     # (injected: real sessions reach 92 children, and no fixture comes near the real cap)...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         for item in store.turn_items():
             if item.session_id == SPINE:
                 describe(store, item, f"Did thing {item.index}.")
@@ -295,7 +295,7 @@ def test_no_real_item_renders_past_its_budget(tmp_path: Path) -> None:
     the cap, so this is the only check that the default budgets hold on real text — including
     the command result block, which adds up to 2,054 characters to a turn's protected head.
     """
-    with EnrichmentStore(live_store_copy(tmp_path)) as store:
+    with enriching(live_store_copy(tmp_path)) as store:
         turn_items, run_items = store.turn_items(), store.run_items()
     assert turn_items, f"{LIVE_STORE} names a store with no turns in it"
     assert run_items, f"{LIVE_STORE} names a store with no agent runs in it"
@@ -319,7 +319,7 @@ def test_every_real_command_turn_is_classified(tmp_path: Path) -> None:
     """
     # If the real store's turns are read — which raises on any record the shape guard cannot
     # classify, so reaching the next line is the guard's verdict on the whole corpus...
-    with EnrichmentStore(live_store_copy(tmp_path)) as store:
+    with enriching(live_store_copy(tmp_path)) as store:
         commands = [item for item in store.turn_items() if item.command_name is not None]
         # ...and both carriers really are in use, so the `coalesce` is load-bearing rather
         # than a branch the corpus never takes — 279 and 37 recorded instances.

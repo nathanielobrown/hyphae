@@ -19,7 +19,6 @@ from hyphae.models.trace import LiveRows
 from hyphae.store.delivery import _DELIVERY_SCHEMA as DELIVERY_SCHEMA
 from hyphae.store.delivery import DeliveryLedger
 from hyphae.store.enrichment import _SCHEMA as ENRICHMENT_SCHEMA
-from hyphae.store.enrichment import EnrichmentStore
 from hyphae.store.schema import (
     SCHEMA_VERSION,
     SchemaShapeError,
@@ -29,7 +28,7 @@ from hyphae.store.schema import (
 )
 from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
 from hyphae.store.trace_store import TABLES, DuckDbExporter, open_trace_store
-from tests.conftest import NO_WAIT, opens_elsewhere
+from tests.conftest import NO_WAIT, enriching, opens_elsewhere
 
 
 @pytest.fixture
@@ -161,13 +160,14 @@ def test_a_renamed_enrichment_column_is_refused_the_same_way(db: Path) -> None:
     """
     # If the enrichment tables exist and one of them has drifted from its DDL...
     DuckDbExporter(db, wait=NO_WAIT)
-    EnrichmentStore(db).close()
+    with enriching(db):
+        pass
     with duckdb.connect(str(db)) as connection:
         connection.execute("ALTER TABLE turn_enrichments RENAME friction TO struggle")
 
     # ...then enrichment refuses the store by name...
-    with pytest.raises(SchemaShapeError) as refused:
-        EnrichmentStore(db)
+    with pytest.raises(SchemaShapeError) as refused, enriching(db):
+        pass
     assert "turn_enrichments" in str(refused.value)
     assert "friction" in str(refused.value)
 

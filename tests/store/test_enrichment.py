@@ -15,8 +15,16 @@ from hyphae.models.enrichment import ROWS, Level
 from hyphae.models.items import TurnItem, item_key, level_of
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.store.enrichment import _SCHEMA, PAYLOAD_COLUMNS, EnrichmentStore
+from hyphae.store.handle import open_store
 from hyphae.store.schema import SchemaVersionError, declared_shape
-from tests.conftest import MODEL_ONLY, MYCELIA, build_store, fixture_transcripts
+from tests.conftest import (
+    MODEL_ONLY,
+    MYCELIA,
+    NO_WAIT,
+    build_store,
+    enriching,
+    fixture_transcripts,
+)
 from tests.enrich.conftest import (
     DUP_UUID,
     FORK_BYREF,
@@ -40,7 +48,7 @@ def spine_turns(store: EnrichmentStore) -> list[TurnItem]:
 
 def test_turn_items_are_the_live_main_turns(fixture_db: Path) -> None:
     """The enrichable turns are the session's own main turns, each with its calls attached."""
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         items = spine_turns(store)
     # If `spine/` recorded four main turns, two of them slash commands...
     assert [item.turn_id[:8] for item in items] == ["5b848af7", "30aad8e5", "818588ad", "8cdceb31"]
@@ -71,7 +79,7 @@ def test_the_second_carrier_and_the_empty_body_both_arrive(fixture_db: Path) -> 
     The two states nothing else tells apart: `None` is a turn no record answered, and `""` is
     a record that answered with nothing. Collapsing them puts the model back to inferring.
     """
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         items = {
             item.command_name: item for item in store.turn_items() if item.session_id == MODEL_ONLY
         }
@@ -97,7 +105,7 @@ def test_output_archived_against_a_plain_turn_belongs_to_no_turn(fixture_db: Pat
     against plain turns — so the read has to drop them, and the shape guard has to let them go
     without a word.
     """
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         items = [item for item in store.turn_items() if item.session_id == RESUME_ANCESTOR]
     # If the ancestor's one main turn ran no command, then the stdout record naming it as
     # `parentUuid` is not its prompt's to carry.
@@ -112,7 +120,7 @@ def test_output_archived_over_several_records_reads_in_line_order(mutable_db: Pa
     because every redacted fixture body is the same ten characters and could not show an
     order at all.
     """
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         # If two more records are archived against `spine/`'s `/model` turn, whose own
         # recorded answer sits at line 8 — inserted later line first, so a read that trusted
         # the row order DuckDB returns would put them back to front...
@@ -172,7 +180,7 @@ def test_a_command_output_the_archive_cannot_read_crashes(mutable_db: Path, shap
     tolerable: a dropped record loses the one fact the prompt gained, and a body that reads as
     empty tells the model the command printed nothing, which is the absence the fix removes.
     """
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         plant_record(store, SPINE, 900, UNREADABLE_CARRIERS[shape])
         # The error names where to look: the session, and the line of the transcript.
         with pytest.raises(ValueError, match=f"{SPINE}.*line 900"):
@@ -186,7 +194,7 @@ def test_a_multi_line_command_output_survives_whole(mutable_db: Path) -> None:
     flattens every string to `[redacted]`, so no fixture body can hold a newline. A reader
     that stopped at the first line would extract nothing at all and report an empty body.
     """
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         store.connection.execute(
             "UPDATE raw_records SET raw = ? WHERE session_id = ? AND line_no = 8",
             [
@@ -216,13 +224,13 @@ def test_a_project_filter_narrows_the_items(fixture_db: Path, mutable_db: Path) 
     """
     # If a project nothing was recorded under is asked for, it has no items, while the store
     # as a whole has plenty...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         assert store.turn_items(project="/no/such/repo") == []
         assert store.turn_items() != []
     # ...and since no recorded fixture ran in a worktree, one session's `project_dir` is
     # planted under `<project>/.claude/worktrees/` and another's under a checkout that merely
     # shares the prefix — the two values invented, the sessions under them recorded...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         for session_id, project_dir in (
             (LEGACY_TITLE, f"{MYCELIA}/.claude/worktrees/planted"),
             (TEAMMATE, f"{MYCELIA}-old"),
@@ -257,7 +265,7 @@ def test_every_reader_narrows_to_the_project_it_was_given(mutable_db: Path) -> N
     # If one recorded session is planted under a neighbouring checkout — a path sharing this
     # project's prefix, which the filter must not annex (the path invented, the session
     # recorded)...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         store.connection.execute(
             "UPDATE sessions SET project_dir = ? WHERE id = ?", [f"{MYCELIA}-old", TEAMMATE]
         )
@@ -293,7 +301,7 @@ def test_a_run_naming_no_parent_agent_hangs_off_the_transcript_that_spawned_it(
     112 of 2,459 recorded runs are in this shape. Reading `parent_agent_id` alone calls every
     one of them a root and sends it before the parent whose prompt embeds its description.
     """
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         parents = store.item_parents()
         # If `spine/`'s leaf run — which names a parent agent *and* was spawned by a call
         # inside that agent's transcript — loses the named parent (planted, and labeled
@@ -319,7 +327,7 @@ def test_an_item_key_and_a_parent_link_are_written_in_one_format(fixture_db: Pat
     stamp, so every item is enriched again on every pass and every parent link points at an
     item that does not exist.
     """
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         items = {level: store.items(level) for level in Level}
         turns = store.turn_items()
         parents = store.item_parents()
@@ -351,21 +359,21 @@ def test_an_item_key_and_a_parent_link_are_written_in_one_format(fixture_db: Pat
 def test_the_tables_survive_a_re_export(mutable_db: Path) -> None:
     """A re-extraction of the same session leaves its enrichment rows exactly as they were."""
     # If a turn of `spine/` is enriched...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         store.upsert(spine_turns(store)[0], enrichment(), stamp())
         before = store.connection.execute("SELECT * FROM turn_enrichments").fetchall()
     # ...and the pipeline then replaces every row that session owns...
     build_store(mutable_db, fixture_transcripts("spine"))
     # ...then the enrichment row is untouched, down to its timestamp: the per-session replace
     # never reaches these tables.
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         assert store.connection.execute("SELECT * FROM turn_enrichments").fetchall() == before
         assert len(before) == 1
 
 
 def test_a_second_upsert_replaces_the_row(mutable_db: Path) -> None:
     """Enriching the same item twice leaves one row, holding the second answer."""
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         item = spine_turns(store)[0]
         store.upsert(item, enrichment("The first answer."), stamp("hash-1"))
         store.upsert(item, enrichment("The second answer."), stamp("hash-2"))
@@ -381,7 +389,7 @@ def test_a_second_upsert_replaces_the_row(mutable_db: Path) -> None:
 def test_enriched_turns_left_joins(mutable_db: Path) -> None:
     """An un-enriched turn still appears in the view, with empty enrichment columns."""
     # If two of `spine/`'s four main turns are enriched...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         for item in spine_turns(store)[:2]:
             store.upsert(item, enrichment(), stamp())
         # ...then the view returns all four, and says plainly which two carry no description.
@@ -411,7 +419,7 @@ def test_staleness_returns_the_rows_whose_key_moved(
     mutable_db: Path, mutation: dict[str, object]
 ) -> None:
     """A row is stale when any of the four staleness fields differs from today's value."""
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         items = spine_turns(store)
         planned = {item.key: stamp() for item in items}
         # If every turn is enriched under the same stamp, the store hands each one back
@@ -436,7 +444,7 @@ def test_staleness_returns_the_rows_whose_key_moved(
 
 def test_an_item_with_no_row_is_stale(mutable_db: Path) -> None:
     """A turn nothing has enriched yet is stale, which is how a first pass finds work."""
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         planned = {item.key: stamp() for item in spine_turns(store)}
         assert stale(planned, store.stamps(Level.turn)) == list(planned)
 
@@ -444,7 +452,7 @@ def test_an_item_with_no_row_is_stale(mutable_db: Path) -> None:
 def test_a_zombie_enrichment_is_swept(mutable_db: Path) -> None:
     """An enrichment whose turn no longer exists is deleted, not left to haunt the views."""
     # If every main turn of `spine/` is enriched...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         items = spine_turns(store)
         for item in items:
             store.upsert(item, enrichment(), stamp())
@@ -465,7 +473,7 @@ def test_a_session_with_no_turn_and_no_run_is_never_enriched(fixture_db: Path) -
     102 of 575 recorded sessions are in this state — compactions and duplicate-uuid records
     with no work of their own — which leaves 473 holding work, and 428 after the api-call gate.
     """
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         described = {item.session_id for item in store.session_items()}
         # If a session in the store recorded no main turn and no agent run...
         empty = {
@@ -488,7 +496,7 @@ def test_an_api_call_carries_the_stop_reason_as_recorded(fixture_db: Path) -> No
     A null is a recorded state, not a missing row — 26 of the 69 stop reasons in the fixtures
     are null — so the render can say "not recorded" rather than say nothing.
     """
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         # If a turn's three recorded calls stopped `end_turn`, `tool_use` and nothing...
         item = next(item for item in store.turn_items() if item.turn_id.startswith("9ae45aaa"))
     # ...then the items carry all three values in the order they were recorded, so no render
@@ -502,7 +510,7 @@ def test_a_session_whose_turns_drove_no_api_call_is_never_enriched(fixture_db: P
     45 of the 473 sessions with work in them are in this state — `/model` and `/effort` turns
     that the CLI answered by itself — and every description written for one was invented.
     """
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         described = {item.session_id for item in store.session_items()}
         # If the recorded `/model` session drove no api call under any of its three turns —
         # `/model`, `/clear` and `/reload-skills`, all answered by the CLI itself...
@@ -527,7 +535,7 @@ def test_a_session_whose_turns_drove_no_api_call_is_never_enriched(fixture_db: P
 
 def test_a_row_already_written_for_a_gated_session_is_swept(mutable_db: Path) -> None:
     """An enrichment of a session nothing will describe again is deleted, not left as current."""
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         # If a row was written for a gated session before the gate existed — as 45 were...
         store.upsert(session_item(MODEL_ONLY), enrichment(), stamp())
         # ...then the sweep takes it, because a row no pass will ever refresh is a zombie by
@@ -545,7 +553,7 @@ def test_the_gate_and_the_sweep_read_one_population(mutable_db: Path) -> None:
     Two names for the population would bill a row every night: the pass describes a session
     and the next sweep deletes it, forever, and no coverage number would ever show it.
     """
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         # If every session in the store is enriched, gated or not...
         for (session_id,) in store.connection.execute("SELECT id FROM sessions").fetchall():
             store.upsert(session_item(session_id), enrichment(), stamp())
@@ -562,7 +570,7 @@ def test_the_gate_and_the_sweep_read_one_population(mutable_db: Path) -> None:
 def test_the_run_and_session_views_left_join_too(mutable_db: Path) -> None:
     """Every level's view returns un-enriched rows with empty enrichment columns."""
     # If one of `spine/`'s two agent runs is enriched, and neither session is...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         runs = [item for item in store.run_items() if item.session_id == SPINE]
         store.upsert(runs[0], enrichment("Read one file."), stamp())
         # ...then the runs view returns both, saying which carries no description...
@@ -590,7 +598,7 @@ def test_the_run_and_session_views_left_join_too(mutable_db: Path) -> None:
 def test_zombies_are_swept_at_all_three_levels(mutable_db: Path) -> None:
     """An enrichment of any level whose base row is gone is deleted with it."""
     # If a turn, a run and a session are each enriched...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         turn_item = spine_turns(store)[0]
         run_item = next(item for item in store.run_items() if item.session_id == SPINE)
         session_item = next(item for item in store.session_items() if item.session_id == SPINE)
@@ -610,7 +618,7 @@ def test_zombies_are_swept_at_all_three_levels(mutable_db: Path) -> None:
 
 def test_opening_a_store_creates_every_enrichment_table(mutable_db: Path) -> None:
     """The enrichment schema is created on open, whatever the store held before."""
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         names = {
             name
             for (name,) in store.connection.execute(
@@ -627,6 +635,22 @@ def test_opening_a_store_creates_every_enrichment_table(mutable_db: Path) -> Non
     assert "enriched_turns" in views
 
 
+def test_a_read_only_handle_reads_and_refuses_to_write(mutable_db: Path) -> None:
+    """The split `hp enrich` and a page share: a pass opens the store writable and prepares it;
+    a page holds a read-only handle, skips `prepare`, and reads what the pass left."""
+    # If a pass prepared the store and let go of it...
+    with enriching(mutable_db) as store:
+        item = store.items(Level.session)[0]
+    # ...then over a read-only handle the same repository lists the same items...
+    with open_store(mutable_db, read_only=True, wait=NO_WAIT) as store:
+        reader = EnrichmentStore(store)
+        assert reader.items(Level.session)[0] == item
+        assert reader.connection is store.connection
+        # ...and a write on it is DuckDB's own refusal, not a silent no-op.
+        with pytest.raises(duckdb.InvalidInputException, match="read-only"):
+            reader.upsert(item, enrichment(), stamp())
+
+
 def test_a_store_written_by_another_schema_is_refused(tmp_path: Path) -> None:
     """Enrichment refuses a store whose base tables this build cannot read."""
     path = tmp_path / "old.duckdb"
@@ -634,10 +658,10 @@ def test_a_store_written_by_another_schema_is_refused(tmp_path: Path) -> None:
     connection = duckdb.connect(str(path))
     connection.execute("UPDATE meta SET schema_version = 1")
     connection.close()
-    # The refusal is `open_trace_store`'s, which also lets go of the file — the export tier
-    # holds that half, since nothing in this one may start a process.
-    with pytest.raises(SchemaVersionError, match="schema version"):
-        EnrichmentStore(path)
+    # The refusal is `open_store`'s, which also lets go of the file — the export tier holds
+    # that half, since nothing in this one may start a process.
+    with pytest.raises(SchemaVersionError, match="schema version"), enriching(path):
+        pass
 
 
 def test_a_path_with_no_store_behind_it_creates_nothing(tmp_path: Path) -> None:
@@ -645,8 +669,8 @@ def test_a_path_with_no_store_behind_it_creates_nothing(tmp_path: Path) -> None:
     # If a path names nothing — one character off the store an operator meant...
     path = tmp_path / "tarces.duckdb"
     # ...then enrichment says so...
-    with pytest.raises(FileNotFoundError, match="holds no trace store"):
-        EnrichmentStore(path)
+    with pytest.raises(FileNotFoundError, match="holds no trace store"), enriching(path):
+        pass
     # ...and nothing was created at the typo: opening read-write would leave an empty DuckDB
     # behind, and the next run would read it as a store with nothing to enrich.
     assert not path.exists()

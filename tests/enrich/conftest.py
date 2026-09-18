@@ -23,7 +23,7 @@ from hyphae.models.enrichment import (
 )
 from hyphae.models.items import SessionItem
 from hyphae.store.enrichment import EnrichmentStore
-from tests.conftest import build_store, fixture_transcripts
+from tests.conftest import build_store, enriching, fixture_transcripts
 from tests.enrich.fake_cli import FakeCli, Reply
 
 # The model the fake answers are attributed to, at both doors that write rows.
@@ -116,11 +116,17 @@ def spine_store(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture
-def store(spine_store: Path, tmp_path: Path) -> Iterator[EnrichmentStore]:
-    """A private copy of the `spine/` store, open for enrichment."""
+def db(spine_store: Path, tmp_path: Path) -> Path:
+    """A private copy of the `spine/` store: what a leaf hands `hp enrich --db`."""
     copy = tmp_path / "traces.duckdb"
     copy.write_bytes(spine_store.read_bytes())
-    with EnrichmentStore(copy) as opened:
+    return copy
+
+
+@pytest.fixture
+def store(db: Path) -> Iterator[EnrichmentStore]:
+    """That copy, open for enrichment."""
+    with enriching(db) as opened:
         yield opened
 
 

@@ -46,6 +46,7 @@ from hyphae.pricing import MODELS, SYNTHETIC_MODEL
 from hyphae.projects import encode_project_path, resolve_project
 from hyphae.store.delivery import DeliveryLedger
 from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.handle import open_store
 from hyphae.store.library import REQUIRED, QueryError
 from hyphae.store.trace_reader import StoreSource, UnknownProjectError
 from hyphae.store.trace_store import CLI_WAIT, DuckDbExporter, open_trace_store
@@ -361,15 +362,19 @@ def _enrich(args: argparse.Namespace) -> None:
     project = str(resolve_project(args.project)) if args.project else None
     # One value for the quote and the pass: what the declarations say right now.
     versions = Versions.current()
-    with EnrichmentStore(args.db) as store:
+    with open_store(args.db, read_only=False, wait=CLI_WAIT) as store:
+        # Writable, and prepared before anything reads: the pass creates the enrichment
+        # tables, and a dry run leaves them behind as the one thing it writes.
+        enrichment = EnrichmentStore(store)
+        enrichment.prepare()
         if args.dry_run:
             _report_plan(
-                plan(store, args.model, versions=versions, project=project, limit=args.limit),
+                plan(enrichment, args.model, versions=versions, project=project, limit=args.limit),
                 args.model,
             )
             return
         client = build_client(args.model, concurrency=args.concurrency)
-        report = enrich(store, client, versions=versions, project=project, limit=args.limit)
+        report = enrich(enrichment, client, versions=versions, project=project, limit=args.limit)
     print(f"{report.enriched} item(s) enriched, {report.swept} orphaned row(s) swept")
 
 

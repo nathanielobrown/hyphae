@@ -35,6 +35,7 @@ from hyphae.models.enrichment import (
 from hyphae.models.trace import SessionTrace
 from hyphae.store import macros
 from hyphae.store.enrichment import EnrichmentStore
+from hyphae.store.handle import open_store
 from hyphae.store.schema import table_ddl
 from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
 from hyphae.store.trace_store import DuckDbExporter, open_trace_store
@@ -346,6 +347,19 @@ def exportable_transcripts() -> tuple[Path, ...]:
 # locked wants to say so at once, naming whatever process took it.
 NO_WAIT = 0.0
 
+
+@contextmanager
+def enriching(path: Path) -> Generator[EnrichmentStore]:
+    """`path` open for a pass: writable, with the enrichment tables in place.
+
+    What `hp enrich` does to a store before it reads an item, at the lock budget above.
+    """
+    with open_store(path, read_only=False, wait=NO_WAIT) as store:
+        repository = EnrichmentStore(store)
+        repository.prepare()
+        yield repository
+
+
 # What a writer does to the store: opens it read-write, says so, and holds it for the seconds
 # it was told to. The connection has to stay referenced — an unnamed one is freed at once, and
 # the lock goes with it. The holder announces the lock by touching a file rather than leaving
@@ -438,24 +452,16 @@ def locked(
 ) -> Generator["subprocess.Popen[bytes]"]:
     """Hold a store's lock from another process for the length of the block.
 
-    A subprocess, not a second connection here: DuckDB answers the same process's second
-    open differently from the file lock it takes across processes, so an in-process holder
-    tests the wrong failure. The holder is yielded so a test can name the pid an error
-    message is supposed to carry.
+    A subprocess, not a second connection: DuckDB answers the same process's second open
+    differently from the file lock it takes across processes. The holder is yielded so a
+    test can name the pid an error message carries. `hold` lets go partway through the
+    block, for a test whose subject is the waiting; `read_only` takes the shared read lock a
+    viewer page holds, which shuts a writer out just as the write lock does.
 
-    Pass `hold` to let go partway through the block instead — that is how a test whose
-    subject is the waiting gets a writer that finishes while a caller is queued behind it,
-    with no thread of its own.
-
-    Pass `read_only` for the shared read lock a viewer page takes, which shuts a writer out
-    just as the write lock does; the store has to exist already, because that is the only
-    kind a page can open. The default holder writes.
-
-    The wait for the holder never opens the store. A read-only open takes a shared read
-    lock, and DuckDB refuses a write open while one is held — so a wait that polled by
-    opening could kill the very holder it waited for. It did, on CI run 31903080480. The
-    holder touches `<store>.locked` instead, and a holder that dies first fails the test
-    with what it said.
+    The wait for the holder never opens the store: DuckDB refuses a write open while a read
+    lock is held, so a wait that polled by opening could kill the very holder it waited for
+    (CI run 31903080480). The holder touches `<store>.locked` instead, and one that dies
+    first fails the test with what it said.
     """
     signal = path.with_name(f"{path.name}.locked")
     signal.unlink(missing_ok=True)
@@ -577,25 +583,18 @@ def exportable_db(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> P
 
 def build_enriched_store(path: Path, corpus: Path | None) -> None:
     """Build the fixture corpus at `path` with an enrichment row on all but the last item of
-    each level.
+    each level: the gap coverage reports, and the partly-enriched store the viewer renders.
 
-    The pipeline writes no enrichment row, so anything that reads one — the enrichment
-    queries, the viewer's pages — has nothing to read until a pass has run. Rows go in
-    through `EnrichmentStore.upsert` over the items the store itself lists, so the keys are
-    the ones a real pass writes; only the four model-written fields are invented, and they
-    have to be — no fixture records a model answer. The last item of each level is left
-    undescribed, which is both the gap coverage reports and the partly-enriched store the
-    viewer has to render.
-
-    Pass `corpus` when a corpus store already exists and copying it beats an extraction per
-    transcript, which is what the session fixture below does; `None` builds one into `path`.
-    No default: a caller that has a corpus and does not say so pays for a second build.
+    Rows go in through `upsert` over the items the store itself lists, so only the four
+    model-written fields are invented — no fixture records a model answer. Pass `corpus` when
+    a corpus store already exists and copying it beats an extraction per transcript; `None`
+    builds one. No default: a caller with a corpus that does not say so pays a second build.
     """
     if corpus is None:
         build_store(path, corpus_transcripts())
     else:
         path.write_bytes(corpus.read_bytes())
-    with EnrichmentStore(path) as store:
+    with enriching(path) as store:
         for level in Level:
             for index, item in enumerate(store.items(level)[:-1]):
                 store.upsert(item, planted_enrichment(index), planted_stamp(level, index))

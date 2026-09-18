@@ -28,7 +28,7 @@ from hyphae.enrich.client import (
 from hyphae.enrich.prompts import OUTPUT_SCHEMA
 from hyphae.enrich.validation import FailureKind, validate
 from hyphae.models.enrichment import Category, Enrichment, Outcome
-from hyphae.store.enrichment import EnrichmentStore
+from tests.conftest import enriching
 from tests.enrich.conftest import LIVE_CLI
 from tests.enrich.fake_cli import (
     AUTH_CALL,
@@ -412,7 +412,7 @@ def test_two_real_items_come_back_valid(mutable_db: Path) -> None:
     # If the smallest run that opens the pool is spent on a real store...
     cli.main("enrich", "--db", str(mutable_db), "--limit", "2")
     # ...then two rows landed — the deepest round first, so both are agent runs...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         rows = store.connection.execute(
             "SELECT description, category, outcome, friction FROM agent_run_enrichments"
         ).fetchall()

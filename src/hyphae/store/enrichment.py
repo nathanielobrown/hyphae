@@ -4,17 +4,17 @@ These tables live in the same DuckDB file as the trace store but outside the pip
 per-session replace, so a re-extraction never touches them. They attach to the pipeline's
 natural keys, which come from the data and survive re-extraction with it.
 
-Open a store, ask it for the items of a level, and it hands back rows to render. Ask it for
-a level's `Stamp`s and it hands back what each stored row was written under, for
-`enrich/stamp.py` to judge.
+`EnrichmentStore` is a value over one open handle (`store/handle.py`). A pass opens the
+store writable, calls `prepare` once, then asks it for the items of a level and hands back
+rows to render; a level's `Stamp`s are what each stored row was written under, for
+`enrich/stamp.py` to judge. A page holds a read-only handle and never prepares.
 """
 
 import datetime as dt
-from contextlib import ExitStack
 from dataclasses import astuple, dataclass, fields
-from pathlib import Path
-from types import TracebackType
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+import duckdb
 
 from hyphae.models.enrichment import COLUMNS as STAMP_COLUMNS
 from hyphae.models.enrichment import ROWS, Enrichment, Level, Stamp
@@ -32,7 +32,11 @@ from hyphae.models.items import (
 from hyphae.models.trace import MAIN_SOURCE
 from hyphae.projects import project_predicate
 from hyphae.store.schema import check_shape
-from hyphae.store.trace_store import CLI_WAIT, open_trace_store
+
+if TYPE_CHECKING:
+    # The handle hands out this repository, and this repository holds the handle: the one cycle
+    # the design has, so the name is the checker's only.
+    from hyphae.store.handle import Store
 
 # What one enrichment row is, past its primary key: the model's answer, the stamp it was
 # written under, and when. In the order `upsert` binds them, and the one list the views
@@ -141,43 +145,35 @@ class RunLink:
 
 
 class EnrichmentStore:
-    """Reads enrichable items out of a trace store and writes enrichments back to it."""
+    """Reads enrichable items out of a trace store and writes enrichments back to it.
 
-    def __init__(self, path: Path) -> None:
-        self.path = path
-        # Enrichment reads the pipeline's views by name and column, so a store another schema
-        # wrote is not one this code can enrich, and it opens on the same terms as every
-        # other reader: nothing is created at a path that holds no store. The store outlives
-        # any one `with` block of the opener's, so it holds the block open on a stack and
-        # closes it in `close()`.
-        self._open = ExitStack()
-        self.connection = self._open.enter_context(
-            open_trace_store(path, read_only=False, wait=CLI_WAIT)
-        )
-        try:
-            # Before the DDL: an enrichment table that drifted from it would otherwise be
-            # left alone by `CREATE TABLE IF NOT EXISTS` and fail at the first read below.
-            check_shape(self.connection, _SCHEMA)
-            self.connection.execute(_SCHEMA)
-        except Exception:
-            # Nothing was handed out, so no `with` block will close it, and the write lock
-            # would outlive the refusal.
-            self._open.close()
-            raise
+    Over the handle the caller opened, on the caller's terms: a pass holds it writable and
+    calls `prepare` before anything else; a page holds it read-only, so a write raises in
+    DuckDB rather than landing. A plain class rather than a dataclass: mutmut skips every
+    decorated class.
+    """
 
-    def __enter__(self) -> "EnrichmentStore":
-        return self
+    def __init__(self, store: "Store") -> None:
+        self.store = store
 
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        self.close()
+    @property
+    def connection(self) -> duckdb.DuckDBPyConnection:
+        """The handle's own connection, for the SQL the readers and writers here run on it.
 
-    def close(self) -> None:
-        self._open.close()
+        Phase 5 of the store-layering plan deletes this with `Store.connection`'s privacy; the
+        tests that execute SQL on it move then.
+        """
+        return self.store.connection
+
+    def prepare(self) -> None:
+        """Create the enrichment tables and views, or refuse a store whose tables drifted.
+
+        Once per writable open, before any read: `check_shape` runs ahead of the DDL because
+        `CREATE TABLE IF NOT EXISTS` would leave a drifted table alone, to fail at the first
+        read. A read-only handle skips this and reads whatever a pass left.
+        """
+        check_shape(self.connection, _SCHEMA)
+        self.connection.execute(_SCHEMA)
 
     def _select(self, sql: str, project: str | None, *extra: object) -> list[tuple[Any, ...]]:
         """Run one project-scoped read: every row, with `_PROJECT_SCOPE` narrowed and bound.

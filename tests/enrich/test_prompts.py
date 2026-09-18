@@ -18,8 +18,7 @@ from hyphae.models.enrichment import (
     Level,
     Outcome,
 )
-from hyphae.store.enrichment import EnrichmentStore
-from tests.conftest import MODEL_ONLY
+from tests.conftest import MODEL_ONLY, enriching
 from tests.enrich.conftest import (
     AUDITOR_RUN,
     BYREF_RUN,
@@ -210,7 +209,7 @@ def test_a_plain_main_turn_renders_its_prompt_then_its_calls(fixture_db: Path) -
     # If `spine/`'s third main turn drove four api calls — one asking for a subagent, one
     # asking for two tools at once, one notifying, and one reading a file that the session
     # ended before answering...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         rendered = render(turn(store, SPINE, "818588ad"))
     # ...then the whole prompt is this, with every field's presence, order and label visible:
     # the response text capped but present, and one line per tool call carrying its name, the
@@ -251,7 +250,7 @@ def test_a_turn_says_how_it_ended(fixture_db: Path) -> None:
     "truncated mid-sentence" by the QC pass had in fact stopped `end_turn`; the render had
     simply not said so, and a missing section is what the model reads absence from.
     """
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         # If a turn's last api call recorded why generation stopped, that value is the last
         # line, verbatim — `end_turn` is the one the fix exists for, and `stop_sequence` is
         # the rarest of the recorded values...
@@ -273,7 +272,7 @@ def test_a_turn_says_how_it_ended(fixture_db: Path) -> None:
 
 def test_a_run_says_how_it_ended_once(fixture_db: Path) -> None:
     """A run ends with one line saying how it stopped, after its last section — not per response."""
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         # If a run's calls recorded no stop reason — `spine/`'s outer run made two, both
         # NULL — then the run says so once, after everything it did...
         outer = render(run(store, SPINE_RUN))
@@ -291,7 +290,7 @@ def test_a_slash_turn_renders_the_command_not_its_tags(fixture_db: Path) -> None
     """A slash command renders as the command it ran, never as the tag markup it was stored as."""
     # If both of `spine/`'s slash turns are rendered — one recorded leading with
     # `<command-name>`, one with `<command-message>`, since both orderings occur...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         first = render(turn(store, SPINE, "5b848af7"))
         second = render(turn(store, SPINE, "30aad8e5"))
     # ...then each names its command...
@@ -310,7 +309,7 @@ def test_a_command_turn_carries_what_the_cli_printed(fixture_db: Path) -> None:
     was asked and nothing about what happened — and a reader with no answer in front of it
     infers one. `/model` reads as a question the session never got an answer to.
     """
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         # If `spine/`'s `/model` turn is rendered — the CLI answered it, and the archive kept
         # what it printed — then the whole prompt is this: the answer sits in the head beside
         # the command, ahead of the work, and the `Ended:` line still ends the render.
@@ -343,7 +342,7 @@ def test_a_multi_turn_run_renders_every_instruction_in_sequence(fixture_db: Path
     its lead came back to.
     """
     # If the `teammate/` architect was given a second instruction an hour after the first...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         rendered = render(run(store, TEAM_RUN))
     # ...then the whole prompt is this: the run's type, its task, and then each later
     # instruction with the work it drove, in the order they happened.
@@ -379,7 +378,7 @@ def test_a_zero_turn_run_renders_as_a_continuation(fixture_db: Path) -> None:
     continue — a render that assumes a task prompt lies about every one of them.
     """
     # If `fork_byref/`'s fork, which holds two api calls and not one turn, is rendered...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         rendered = render(run(store, BYREF_RUN))
     # ...then the render says where the task went, and carries both calls in order. The
     # first is the fork's own spawning call, recorded inside the fork: a run does not embed
@@ -410,7 +409,7 @@ def test_a_replayed_turn_is_not_the_runs_task(fixture_db: Path) -> None:
     """
     # If `fork_origin/`'s auditor and the fork it spawned both hold turn `33438141…` — the
     # auditor because it ran it, the fork because forking replays it...
-    with EnrichmentStore(fixture_db) as store:
+    with enriching(fixture_db) as store:
         auditor = render(run(store, AUDITOR_RUN))
         fork = render(run(store, ORIGIN_RUN))
     # ...then the run that ran the turn renders it as its task...
@@ -436,7 +435,7 @@ def test_a_spawned_run_renders_as_its_description(mutable_db: Path) -> None:
     """A run's children reach its prompt as their descriptions, never as their text."""
     # If `spine/`'s leaf run has been enriched, and its parent — the run whose `Agent` call
     # spawned it — is rendered...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         describe(store, run(store, SPINE_LEAF), "Read one file and reported back.")
         rendered = render(run(store, SPINE_RUN))
     # ...then the spawning line carries what the child did, which is how a parent describes
@@ -452,7 +451,7 @@ def test_a_spawning_call_with_no_run_renders_plainly(mutable_db: Path) -> None:
     """An `Agent` call whose run is missing renders as an ordinary tool line."""
     # If the same run is rendered with its one enriched child — its other `Agent` call
     # really spawned no run row, the subagent having left no transcript...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         describe(store, run(store, SPINE_LEAF), "Read one file and reported back.")
         rendered = render(run(store, SPINE_RUN))
     # ...then that call is a tool line like any other, with no description slot and no
@@ -470,7 +469,7 @@ def test_a_spawning_call_with_no_run_renders_plainly(mutable_db: Path) -> None:
 def test_a_session_renders_its_metrics_then_what_it_did(mutable_db: Path) -> None:
     """A session renders what it cost and a line per thing it did, in the order it did them."""
     # If every main turn of `spine/` has been described...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         for item in store.turn_items():
             if item.session_id == SPINE:
                 describe(store, item, f"Did thing {item.index}.")
@@ -502,7 +501,7 @@ def test_a_sessions_children_are_its_turns_and_the_runs_nothing_embeds(mutable_d
     Reading depth-1 runs as the children instead would drop every recorded teammate agent —
     43 of them — out of every session summary, and embed ten other runs twice.
     """
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         # If `teammate/` has one main turn and one run that no tool call spawned...
         describe(store, run(store, TEAM_RUN), "Drew up the plan.")
         for item in store.turn_items():
@@ -528,7 +527,7 @@ def test_a_run_spawned_outside_every_turn_is_still_a_session_child(mutable_db: P
     call that belongs to no turn, and no turn's render can reach them. A rule keyed on the
     spawning call's *existence* rather than on what embeds the run would drop all nine.
     """
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         # If the api call that spawned `spine/`'s subagent belongs to no turn...
         store.connection.execute(
             "UPDATE api_calls SET turn_id = NULL WHERE id ="
@@ -544,7 +543,7 @@ def test_a_run_spawned_outside_every_turn_is_still_a_session_child(mutable_db: P
 def test_a_workflow_line_embeds_its_spawned_run(mutable_db: Path) -> None:
     """A `Workflow` call carries its run's description, exactly as an `Agent` call does."""
     # If the run `workflow/`'s main turn started has been described...
-    with EnrichmentStore(mutable_db) as store:
+    with enriching(mutable_db) as store:
         describe(store, run(store, WORKFLOW_RUN), "Researched the question.")
         rendered = render(turn(store, WORKFLOW, "cd7adeae"))
     # ...then the turn that spawned it reads what it did — the second of the two tools that
