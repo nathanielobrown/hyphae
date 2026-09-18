@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient
 
 from hyphae.view import bounds, nodes
 from hyphae.view.detail import DETAILS, Spec, Written
+from hyphae.view.enrichment import LINES
 from tests.conftest import (
     DENSE_CALL,
     DENSE_TOOL,
@@ -41,7 +42,7 @@ from tests.view.conftest import (
     values,
     viewer_css,
 )
-from tests.view.scenarios import SCENARIOS, path_params
+from tests.view.scenarios import FETCHED, SCENARIOS, path_params
 
 
 def test_a_node_page_cites_every_query_it_ran(client: TestClient) -> None:
@@ -294,7 +295,7 @@ def test_a_per_value_fragment_returns_the_one_value_it_names(
         assert other == DENSE_TOOL or other not in served
 
 
-@pytest.mark.parametrize("spec", DETAILS, ids=lambda spec: f"{spec.whole.name}-{spec.name}")
+@pytest.mark.parametrize("spec", [*DETAILS, *LINES], ids=lambda spec: spec.route)
 def test_a_fragment_cites_the_query_that_fetched_it(
     spec: Spec, enriched_client: TestClient
 ) -> None:
@@ -303,22 +304,23 @@ def test_a_fragment_cites_the_query_that_fetched_it(
     A fragment arrives on a page that has already been served, so it cannot ride the footer
     the pages share: each one carries the line itself. One seam serves all sixteen, so a pin
     through one route alone would still let another cite a key it was not fetched by — hence
-    the sweep, over the registry rather than a list, so a Detail added anywhere lands here.
+    the sweep, over both registries rather than a list, so a Detail added anywhere lands here.
 
     Both halves are built from sources the handler does not read: the query name off
-    `spec.whole`, and the keys off the scenario URL in the order its route template names
-    them. That order is the claim — a handler that reordered `request.path_params` would cite
-    a line nobody can paste back into `hp query`. `head_chars` is the one binding no URL
-    carries, and only `Written.NAMED_FILE` may add it: the file suffix that says how the value
-    is marked up is cut at the header's width, and every other arm knows its markup without
-    asking. No page footer quotes that binding, so this is where the width is held.
+    `scenarios.FETCHED`, since a spec names its fetch and not its query, and the keys off the
+    scenario URL in the order its route template names them. That order is the claim — a
+    handler that reordered `request.path_params` would cite a line nobody can paste back into
+    `hp query`. `head_chars` is the one binding no URL carries, and only `Written.NAMED_FILE`
+    may add it: the file suffix that says how the value is marked up is cut at the header's
+    width, and every other arm knows its markup without asking. No page footer quotes that
+    binding, so this is where the width is held.
     """
     url = SCENARIOS[spec.route].url
     keyed = path_params(spec.route, url)
     if spec.written is Written.NAMED_FILE:
         keyed["head_chars"] = str(bounds.HEADER_WIDTHS.head_chars)
     bound = " ".join(f"{key}={value}" for key, value in keyed.items())
-    expected = f"-- queries/{spec.whole}.sql {bound}"
+    expected = f"-- queries/{FETCHED[spec.route]}.sql {bound}"
     assert values(enriched_client.get(url).text, "data-query") == [expected], url
 
 
@@ -335,20 +337,31 @@ def test_the_record_fragment_cites_the_query_that_fetched_it(client: TestClient)
     assert values(client.get(url).text, "data-query") == [expected]
 
 
-def test_a_fragment_naming_nothing_is_a_404(client: TestClient) -> None:
+@pytest.mark.parametrize(
+    ("url", "absent"),
+    [
+        # A Detail fetch for a tool call the store lacks...
+        (
+            f"/fragment/result/session/{FORK_ORIGIN}/thread/{FORK_ORIGIN_RUN}/tool/{MISSING}",
+            MISSING,
+        ),
+        # ...and the record fetch, which reads through its own path, for a line no thread has.
+        (f"/fragment/record/session/{SPINE}/thread/{SPINE_RUN}/line/424242", "424242"),
+    ],
+    ids=["result", "record"],
+)
+def test_a_fragment_naming_nothing_is_a_404(client: TestClient, url: str, absent: str) -> None:
     """A per-value fragment for an id the store lacks is a 404, not an empty box.
 
     The sentence is pinned because it is all a reader gets: a fetch that answered an empty box
     and a fetch that answered this look the same in a pane until the words are read.
     """
-    response = client.get(
-        f"/fragment/result/session/{FORK_ORIGIN}/thread/{FORK_ORIGIN_RUN}/tool/{MISSING}"
-    )
+    response = client.get(url)
     assert response.status_code == 404
     assert fields(response.text, "id", "error")["message"] == (
         "Nothing in this store is stored under that id."
     )
-    assert MISSING not in response.text
+    assert absent not in response.text
 
 
 def test_an_enrichment_line_is_refused_by_a_store_no_pass_has_written_to(

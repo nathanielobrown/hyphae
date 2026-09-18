@@ -9,16 +9,19 @@ parameter no default covers must appear there, or its leaf fails naming it.
 """
 
 import re
+from pathlib import Path
 
 import pytest
 
 from hyphae.analyze import manifest
 from hyphae.models.enrichment import ROWS
 from hyphae.store import library
+from hyphae.store.handle import open_store
 from hyphae.store.library import PARAM_TYPES, Scope, parameters, relations, statement
 from hyphae.store.pages import SHOWN
-from hyphae.store.trace_store import TABLES
+from hyphae.store.trace_store import PAGE_WAIT, TABLES
 from hyphae.view.detail import DETAILS, Spec, Written
+from hyphae.view.enrichment import LINES
 from tests.analyze.conftest import AS_OF_WHOLE, QueryRunner
 from tests.conftest import (
     ANCESTOR,
@@ -44,6 +47,7 @@ from tests.conftest import (
     SPINE,
     SPINE_RUN,
 )
+from tests.view.scenarios import FETCHED
 
 # What a surface states when it runs a viewer query, at fixture size. No `view_` query
 # declares a default — the surface that prints a value owns its width (`view/bounds.py`) —
@@ -359,30 +363,36 @@ def answered(name: str, run_query: QueryRunner, enriched_query: QueryRunner) -> 
     return header
 
 
-@pytest.mark.parametrize("spec", DETAILS, ids=lambda spec: f"{spec.whole.name}-{spec.name}")
-def test_a_detail_spec_names_a_column_its_header_answers_and_a_whole_query_that_answers_one(
-    spec: Spec, run_query: QueryRunner, enriched_query: QueryRunner
+@pytest.mark.parametrize("spec", [*DETAILS, *LINES], ids=lambda spec: spec.route)
+def test_a_detail_spec_fetches_the_one_column_its_statement_answers(
+    spec: Spec, enriched_db: Path, run_query: QueryRunner, enriched_query: QueryRunner
 ) -> None:
-    """The two queries behind one Detail keep the bargain `Spec` writes down.
+    """The statement behind one Detail keeps the bargain `Spec` writes down.
 
-    `view/detail.py` reads a preview out of the header row by the spec's own name and the
-    length beside it, and hands the fetch back whatever the whole query put under `value`.
-    Six places used to agree on those strings by spelling them the same; this is what stands
-    where that agreement did, and it runs both queries rather than reading them, so a column
-    that stopped being selected fails here and not on a reader's page.
+    A spec names its fetch rather than its query, and the fetch builds `WholeValue` out of the
+    row by column name — so a statement that answered a second column, or stopped answering
+    `value`, raises inside the fetch. This runs each fetch over the corpus, keyed the way the
+    scenario URL keys it, so that construction happens here and not on a reader's page; and it
+    reads the statement's columns off a real run, because the model's own default would let a
+    statement that dropped `result_type` come back as the `None` a suffix-less file reads as.
 
-    The `whole` half is an equality and not a membership: a per-value query answering a second
-    column is one the fetch has to be told which to read, and that is the second declaration
-    `Spec` exists to remove. The one column allowed beside `value` is `result_type`, and only
-    where `Written.NAMED_FILE` says the row is what decides the markup — `detail.syntax_of`
-    subscripts it there, on the fetched row as well as the previewed one. Derived from the
-    spec rather than listed, so the exception stays tied to the arm that needs it.
+    That column is the one allowed beside `value`, and only where `Written.NAMED_FILE` says
+    the row is what decides the markup — `detail.syntax_of` subscripts it there, on the fetched
+    row as well as the previewed one. Derived from the spec rather than listed, so the
+    exception stays tied to the arm that needs it.
     """
-    header = answered(spec.header, run_query, enriched_query)
-    assert spec.name in header, f"{spec.header} stopped answering {spec.name}"
-    assert f"{spec.name}_chars" in header, f"{spec.header} stopped answering {spec.name}_chars"
+    statement = FETCHED[spec.route]
     marks_itself = {"result_type"} if spec.written is Written.NAMED_FILE else set()
-    assert set(answered(spec.whole, run_query, enriched_query)) == {"value"} | marks_itself
+    assert set(answered(statement, run_query, enriched_query)) == {"value"} | marks_itself
+    with open_store(enriched_db, read_only=True, wait=PAGE_WAIT) as store:
+        whole = spec.whole(store, FIXTURE_BINDINGS[statement])
+    # Keyed at a row the corpus holds, so the model is built; whether the row holds a value is
+    # the scenario sweep's claim (`tests/view/pages/node/test_node__registry.py`), not this one's.
+    assert whole is not None, statement
+    assert (whole.result_type is not None) == (spec.written is Written.NAMED_FILE)
+    # And it cites the statement it ran, at the keys it was given: the footer's line.
+    assert whole.citation.name == statement
+    assert dict(whole.citation.bindings).items() >= FIXTURE_BINDINGS[statement].items()
 
 
 def test_every_default_and_param_type_is_bound_by_a_shipped_query() -> None:

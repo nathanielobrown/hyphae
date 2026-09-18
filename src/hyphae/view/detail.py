@@ -3,22 +3,24 @@
 Nothing here decides how much to show — the head arrives already cut, in SQL, at the `?detail=`
 the request asked for. What a `Detail` adds is what the pane needs beside the head: how much
 was left behind, where to fetch it, and how to mark it up. The enrichment lines are the same
-shape, because a pass writes past the width as readily as a transcript does.
+shape, because a pass writes past the width as readily as a transcript does; their specs are
+declared beside the pass's other reads (`view/enrichment.py:LINES`).
 
-`DETAILS` is where each of those values is declared, once: its name, the two queries behind it,
-the URL its whole is fetched from, and how it was written. A pane reads a spec through
+`DETAILS` is where each of a node's values is declared, once: its name, the fetch that answers
+it whole, the URL that fetch serves at, and how it was written. A pane reads a spec through
 `preview` and the fetch reads the same spec, so the six places that used to agree by string
 equality are one entry.
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from enum import StrEnum
 from typing import Any, NamedTuple, assert_never
 
-from hyphae.models.enrichment import Level
-from hyphae.store.pages import Page, Value
+from hyphae.models.citation import Citation
+from hyphae.models.node import WholeValue
+from hyphae.store.handle import Store
+from hyphae.store.pages import Value, page_rows
 from hyphae.view import bounds
-from hyphae.view.enrichment import Enrichment
 from hyphae.view.text import format as fmt
 from hyphae.view.text import highlight
 
@@ -43,20 +45,6 @@ class Detail(NamedTuple):
     markdown: bool
 
 
-class EnrichmentLines(NamedTuple):
-    """The two lines an enrichment pass wrote about a node, as the pane shows them.
-
-    Each is a `Detail` like any other fat value the pane previews: the head the query cut, and
-    the fetch that brings the rest of it back into the block the head stood in. A pass writes
-    as much as it wants to, and nearly every run it describes runs past the width.
-    """
-
-    description: Detail | None
-    # None where the model saw no friction, which is most items, and where it wrote an empty
-    # line — the two are the same nothing to a pane.
-    friction: Detail | None
-
-
 class Written(StrEnum):
     """How a Detail was written, which decides how both surfaces render it."""
 
@@ -75,35 +63,56 @@ class Written(StrEnum):
     LINE = "line"
 
 
+# What answers a Detail whole: the keys off its route in, the value with its citation out, and
+# None where the store holds no row under those keys.
+Fetch = Callable[[Store, Mapping[str, str]], WholeValue | None]
+
+
 class Spec(NamedTuple):
     """One Detail, declared once: what a pane previews and what the fetch behind it serves."""
 
-    # The label key, the pane's `data-detail`, and the column both queries answer under —
-    # `f"{name}_chars"` beside it in the header, holding the whole length the link offers.
+    # The label key, the pane's `data-detail`, and the column the header row previews the
+    # head under — `f"{name}_chars"` beside it, holding the whole length the link offers.
     name: str
     # Where the whole of it is fetched from, as the route template FastAPI is given: the pane
     # mints its link by filling the same template with the keys of the node it is about.
     route: str
-    # The query whose row the pane previews the head out of, and the query that serves the
-    # whole under one column named `value`.
-    header: Page
-    whole: Value
+    # What serves it whole, keyed by what the route carries.
+    whole: Fetch
     written: Written
+
+
+def fetched(value: Value) -> Fetch:
+    """One per-value statement as the `Fetch` a spec names, until a repository answers it.
+
+    A repository PR replaces each use, and the PR that leaves no caller deletes this
+    (`plans/store-layering/phase-4-repositories.md`).
+    """
+
+    def fetch(store: Store, keys: Mapping[str, str]) -> WholeValue | None:
+        # The statement decides whether a width is bound: only the named-file read declares
+        # `head_chars`, and it is not a cut of the answer — which rides whole — but the bound on
+        # the file suffix beside it. A fetch prints at the pane's widths, so it names its surface.
+        keyed = bounds.bound(value, bounds.HEADER_WIDTHS, **keys)
+        rows = page_rows(store, value, **keyed)
+        if not rows:
+            return None
+        return WholeValue(citation=Citation(value.value, keyed), **rows[0])
+
+    return fetch
 
 
 # What a turn's pane previews: what it was asked, and what followed the slash command it ran.
 TURN_PROMPT = Spec(
     "prompt",
     "/fragment/prompt/session/{session_id}/thread/{source}/turn/{turn_id}",
-    Page.TURN_HEADER,
-    Value.TURN_PROMPT,
+    fetched(Value.TURN_PROMPT),
     Written.MARKDOWN,
 )
 TURN_COMMAND_ARGS = Spec(
     "command_args",
     "/fragment/args/session/{session_id}/thread/{source}/turn/{turn_id}",
-    Page.TURN_HEADER,
-    Value.TURN_COMMAND_ARGS,
+    fetched(Value.TURN_COMMAND_ARGS),
     Written.MARKDOWN,
 )
 # What an agent run's pane previews: its brief, and the ask and the answer off the call that
@@ -111,37 +120,32 @@ TURN_COMMAND_ARGS = Spec(
 RUN_BRIEF = Spec(
     "brief",
     "/fragment/brief/session/{session_id}/run/{run_id}",
-    Page.RUN_HEADER,
-    Value.RUN_BRIEF,
+    fetched(Value.RUN_BRIEF),
     Written.MARKDOWN,
 )
 RUN_PROMPT = Spec(
     "prompt",
     "/fragment/prompt/session/{session_id}/run/{run_id}",
-    Page.RUN_HEADER,
-    Value.RUN_PROMPT,
+    fetched(Value.RUN_PROMPT),
     Written.MARKDOWN,
 )
 RUN_RESULT = Spec(
     "result",
     "/fragment/result/session/{session_id}/run/{run_id}",
-    Page.RUN_HEADER,
-    Value.RUN_RESULT,
+    fetched(Value.RUN_RESULT),
     Written.MARKDOWN,
 )
 # What an api call's pane previews: what it said and what it thought, both the model's prose.
 CALL_TEXT = Spec(
     "text",
     "/fragment/text/session/{session_id}/thread/{source}/call/{api_call_id}",
-    Page.CALL_HEADER,
-    Value.CALL_TEXT,
+    fetched(Value.CALL_TEXT),
     Written.MARKDOWN,
 )
 CALL_THINKING = Spec(
     "thinking",
     "/fragment/thinking/session/{session_id}/thread/{source}/call/{api_call_id}",
-    Page.CALL_HEADER,
-    Value.CALL_THINKING,
+    fetched(Value.CALL_THINKING),
     Written.MARKDOWN,
 )
 # And what a tool call's pane previews. The command first, where the call ran one: it is what
@@ -149,73 +153,25 @@ CALL_THINKING = Spec(
 TOOL_COMMAND = Spec(
     "command",
     "/fragment/command/session/{session_id}/thread/{source}/tool/{tool_call_id}",
-    Page.TOOL_HEADER,
-    Value.TOOL_COMMAND,
+    fetched(Value.TOOL_COMMAND),
     Written.BASH,
 )
 TOOL_INPUT = Spec(
     "input",
     "/fragment/input/session/{session_id}/thread/{source}/tool/{tool_call_id}",
-    Page.TOOL_HEADER,
-    Value.TOOL_INPUT,
+    fetched(Value.TOOL_INPUT),
     Written.JSON,
 )
 TOOL_RESULT = Spec(
     "result",
     "/fragment/result/session/{session_id}/thread/{source}/tool/{tool_call_id}",
-    Page.TOOL_HEADER,
-    Value.TOOL_RESULT,
+    fetched(Value.TOOL_RESULT),
     Written.NAMED_FILE,
 )
-# And the two lines a pass wrote about an item, at each of the three levels it writes at. One
-# header query for all six — a page reads what the pass said about everything on it at once —
-# and a whole query each, because a fetch serves one value.
-TURN_DESCRIPTION = Spec(
-    "description",
-    "/fragment/description/session/{session_id}/thread/{source}/turn/{turn_id}",
-    Page.ENRICHMENT,
-    Value.TURN_DESCRIPTION,
-    Written.LINE,
-)
-TURN_FRICTION = Spec(
-    "friction",
-    "/fragment/friction/session/{session_id}/thread/{source}/turn/{turn_id}",
-    Page.ENRICHMENT,
-    Value.TURN_FRICTION,
-    Written.LINE,
-)
-RUN_DESCRIPTION = Spec(
-    "description",
-    "/fragment/description/session/{session_id}/run/{run_id}",
-    Page.ENRICHMENT,
-    Value.RUN_DESCRIPTION,
-    Written.LINE,
-)
-RUN_FRICTION = Spec(
-    "friction",
-    "/fragment/friction/session/{session_id}/run/{run_id}",
-    Page.ENRICHMENT,
-    Value.RUN_FRICTION,
-    Written.LINE,
-)
-SESSION_DESCRIPTION = Spec(
-    "description",
-    "/fragment/description/session/{session_id}",
-    Page.ENRICHMENT,
-    Value.SESSION_DESCRIPTION,
-    Written.LINE,
-)
-SESSION_FRICTION = Spec(
-    "friction",
-    "/fragment/friction/session/{session_id}",
-    Page.ENRICHMENT,
-    Value.SESSION_FRICTION,
-    Written.LINE,
-)
-
-# Every Detail the viewer serves, and the only place one is declared. A route that answers a
-# whole value and is absent from here is not a Detail: nothing previews a head of it
-# (`/fragment/record`, which arrives with a header line of its own).
+# Every Detail of a node's own, and the only place one is declared; what a pass wrote about
+# the node is declared beside the pass (`view/enrichment.py:LINES`), and the routes serve both.
+# A route that answers a whole value and is in neither is not a Detail: nothing previews a
+# head of it (`/fragment/record`, which arrives with a header line of its own).
 DETAILS: tuple[Spec, ...] = (
     TURN_PROMPT,
     TURN_COMMAND_ARGS,
@@ -227,12 +183,6 @@ DETAILS: tuple[Spec, ...] = (
     TOOL_COMMAND,
     TOOL_INPUT,
     TOOL_RESULT,
-    TURN_DESCRIPTION,
-    TURN_FRICTION,
-    RUN_DESCRIPTION,
-    RUN_FRICTION,
-    SESSION_DESCRIPTION,
-    SESSION_FRICTION,
 )
 
 
@@ -289,37 +239,3 @@ def preview(spec: Spec, row: Mapping[str, Any], *, size: int, **keys: str) -> De
 def details(*maybe: Detail | None) -> list[Detail]:
     """The details a pane shows: whichever of the columns it asked for the store held."""
     return [item for item in maybe if item is not None]
-
-
-def enrichment_lines(
-    about: Enrichment | None, session_id: str, source: str
-) -> EnrichmentLines | None:
-    """What a pass wrote about the selection, each line with the way to the rest of it.
-
-    The keys are the level's own: a turn's row is keyed by the thread the page is reading, a
-    run's and a session's by the session. `source` is that thread, which is the same one the
-    descriptions were read for.
-    """
-    if about is None:
-        return None
-    match about.level:
-        case Level.turn:
-            lines = (TURN_DESCRIPTION, TURN_FRICTION)
-            keyed = {"session_id": session_id, "source": source, "turn_id": about.item_id}
-        case Level.agent_run:
-            lines = (RUN_DESCRIPTION, RUN_FRICTION)
-            keyed = {"session_id": session_id, "run_id": about.item_id}
-        case Level.session:
-            lines = (SESSION_DESCRIPTION, SESSION_FRICTION)
-            keyed = {"session_id": about.item_id}
-        case _:
-            assert_never(about.level)
-    # The enrichment reaches here already read, so the row a spec is previewed out of is the
-    # tuple itself rather than a second read of `view_enrichment`.
-    row = about._asdict()
-    return EnrichmentLines(
-        description=preview(
-            lines[0], row, size=bounds.ENRICHMENT_WIDTHS.description_chars, **keyed
-        ),
-        friction=preview(lines[1], row, size=bounds.ENRICHMENT_WIDTHS.description_chars, **keyed),
-    )

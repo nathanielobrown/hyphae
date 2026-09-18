@@ -16,6 +16,7 @@ from hyphae.view import app as view_app
 from hyphae.view import bounds
 from hyphae.view.app import build_app
 from hyphae.view.detail import DETAILS
+from hyphae.view.enrichment import LINES
 from hyphae.view.pages.node import columns as view_columns
 from hyphae.view.text import format as fmt
 from hyphae.view.text.labels import LABELS
@@ -94,8 +95,8 @@ def test_every_fact_a_header_asks_for_has_a_label() -> None:
 
     A header field with no label would reach a reader as a column name, which is the thing
     `LABELS` exists to stop, and an entry nothing asks for is a word nobody sees. Read off the
-    markup, the detail registry and the log's column table rather than listed here, so a fact
-    added to any of them lands in this check. The registry is a source because a previewed
+    markup, the two detail registries and the log's column table rather than listed here, so a
+    fact added to any of them lands in this check. A registry is a source because a previewed
     value is labelled by the name its spec files it under, which no component names; the
     column table is one because a children log heads itself from a variable, which no regex
     over a source file can see. Every module of the view package is scanned for the markup
@@ -113,12 +114,12 @@ def test_every_fact_a_header_asks_for_has_a_label() -> None:
             r"""(?:fact|label)(?:led)?\(\s*(?:name=)?["']([a-z_]+)""", path.read_text()
         )
     }
-    previewed = {spec.name for spec in DETAILS}
+    previewed = {spec.name for spec in (*DETAILS, *LINES)}
     # The markup scan walks the whole view package rather than one directory of it, and both
     # sources have to find something: a scan that matched nothing would agree with the
     # registry by saying nothing, so a `fact()` call that moved into a page's own markup —
     # where a glob over `components/` alone no longer reaches — would drop out of the check
-    # instead of reddening it. `DETAILS` is held to the same rule: a registry that emptied
+    # instead of reddening it. The two registries are held to the same rule: one that emptied
     # itself would take every previewed name out of the comparison and pass.
     assert asked, "no component asks for a label, so the registry has no subject"
     assert previewed, "no pane previews a value, so half this check has no subject"

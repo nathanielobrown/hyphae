@@ -1,10 +1,11 @@
-"""Every Detail the registry declares, read against the app and against the whole corpus.
+"""Every Detail the registries declare, read against the app and against the whole corpus.
 
-`view/detail.py:DETAILS` is where a previewable value is declared once — its name, its two
-queries, its route and how it was written. These leaves sweep that registry rather than a list
-kept beside it, so a Detail added anywhere is covered the moment it is declared: the routes
-exist, the pane previews under the name, and the URL the pane mints serves the value the pane
-previewed. What a Detail *looks* like on either surface is next door in `test_node__details`.
+`view/detail.py:DETAILS` is where a node's previewable values are declared once — each its
+name, its fetch, its route and how it was written — and `view/enrichment.py:LINES` holds the
+six lines a pass wrote the same way. These leaves sweep both rather than a list kept beside
+them, so a Detail added anywhere is covered the moment it is declared: the routes exist, the
+pane previews under the name, and the URL the pane mints serves the value the pane previewed.
+What a Detail *looks* like on either surface is next door in `test_node__details`.
 """
 
 from collections.abc import Callable
@@ -15,6 +16,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from hyphae.view.detail import DETAILS, Spec, Written
+from hyphae.view.enrichment import LINES
 from hyphae.view.text.format import ELLIPSIS
 from hyphae.view.text.labels import LABELS
 from tests.view.conftest import block, classed, fields, pages, values, walled
@@ -48,20 +50,23 @@ def rendered(enriched_client: TestClient) -> Callable[[str], str]:
 def test_the_registry_declares_every_value_the_viewer_previews_and_fetches(
     client: TestClient,
 ) -> None:
-    """`DETAILS` is the whole population of previewable values, read against the app itself.
+    """The two registries are the whole population of previewable values, read against the app.
 
     A Detail used to be declared in six places that agreed only by string equality — the
     pane's call, the fetch route, the two header columns, a `store.Value` and a label key —
     and a hand-kept list in a test was a seventh. This is what replaces them all: every
     spec's route is a route the app answers, and the specs plus the raw record are exactly
-    the value and enrichment fetches the scenario corpus pins.
+    the value and enrichment fetches the scenario corpus pins. The split between the two
+    registries is by what wrote the value: a pass's lines are `LINES` and nothing else is.
 
     Both halves are needed. The route set alone would pass a spec that declared a URL nobody
     can reach; the scenario set alone would pass a route no spec declares. Together with
     `test_bounds.py:test_every_route_the_viewer_exposes_is_in_the_payload_sweep`, which
     equates the app's routes to `SCENARIOS`, no public URL can move without one going red.
     """
-    routes = {spec.route for spec in DETAILS}
+    assert {spec.written is Written.LINE for spec in DETAILS} == {False}
+    assert {spec.written is Written.LINE for spec in LINES} == {True}
+    routes = {spec.route for spec in (*DETAILS, *LINES)}
     exposed = {route.path for route in client.app.routes if isinstance(route, APIRoute)}  # pyrefly: ignore
     assert routes <= exposed
     assert routes | {RECORD_ROUTE} == {
@@ -71,14 +76,14 @@ def test_the_registry_declares_every_value_the_viewer_previews_and_fetches(
     }
 
 
-@pytest.mark.parametrize("spec", DETAILS, ids=lambda spec: f"{spec.whole.name}-{spec.name}")
+@pytest.mark.parametrize("spec", [*DETAILS, *LINES], ids=lambda spec: spec.route)
 def test_every_value_a_pane_previews_is_fetchable_whole_from_its_own_url(
     spec: Spec,
     enriched_client: TestClient,
     enriched_store: duckdb.DuckDBPyConnection,
     rendered: Callable[[str], str],
 ) -> None:
-    """Every Detail the registry declares previews on its node's pane and fetches whole.
+    """Every Detail the registries declare previews on its node's pane and fetches whole.
 
     One route per value rather than one per row: a tool call's input and its result are two
     values a reader opens apart, and a route that served the row whole would send the other
@@ -90,7 +95,7 @@ def test_every_value_a_pane_previews_is_fetchable_whole_from_its_own_url(
     belongs to, so a route minted anywhere else would find no pane here.
 
     What the fetch answers is read against the pane and never against `spec.whole`, which is
-    the query under test — a spec pointing at a sibling's query would otherwise be its own
+    the fetch under test — a spec pointing at a sibling's fetch would otherwise be its own
     oracle and pass. The pane's head comes off the header query instead, so the two agree only
     where the spec named the query answering the column its own header previews.
 

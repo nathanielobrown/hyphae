@@ -332,3 +332,34 @@ def path_params(route: str, url: str) -> dict[str, str]:
     found = path_pattern(route).fullmatch(url)
     assert found, f"{url} is not a {route}"
     return found.groupdict()
+
+
+# The statement each Detail fetch reads its value whole from, by the route that serves it. A
+# spec names its fetch and not its query (`view/detail.py:Spec.whole`), so the name a fragment
+# is expected to cite is held here, where a test can read it without asking the fetch.
+FETCHED: dict[str, str] = {
+    "/fragment/text/session/{session_id}/thread/{source}/call/{api_call_id}": "view_call_text",
+    "/fragment/thinking/session/{session_id}/thread/{source}/call/{api_call_id}": (
+        "view_call_thinking"
+    ),
+    "/fragment/input/session/{session_id}/thread/{source}/tool/{tool_call_id}": "view_tool_input",
+    "/fragment/result/session/{session_id}/thread/{source}/tool/{tool_call_id}": (
+        "view_tool_result"
+    ),
+    "/fragment/command/session/{session_id}/thread/{source}/tool/{tool_call_id}": (
+        "view_tool_command"
+    ),
+    "/fragment/prompt/session/{session_id}/thread/{source}/turn/{turn_id}": "view_turn_prompt",
+    "/fragment/args/session/{session_id}/thread/{source}/turn/{turn_id}": "view_turn_command_args",
+    "/fragment/brief/session/{session_id}/run/{run_id}": "view_run_brief",
+    "/fragment/prompt/session/{session_id}/run/{run_id}": "view_run_prompt",
+    "/fragment/result/session/{session_id}/run/{run_id}": "view_run_result",
+    "/fragment/description/session/{session_id}/thread/{source}/turn/{turn_id}": (
+        "view_turn_description"
+    ),
+    "/fragment/friction/session/{session_id}/thread/{source}/turn/{turn_id}": "view_turn_friction",
+    "/fragment/description/session/{session_id}/run/{run_id}": "view_run_description",
+    "/fragment/friction/session/{session_id}/run/{run_id}": "view_run_friction",
+    "/fragment/description/session/{session_id}": "view_session_description",
+    "/fragment/friction/session/{session_id}": "view_session_friction",
+}

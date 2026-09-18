@@ -22,8 +22,7 @@ from hyphae.store.trace_store import PAGE_WAIT
 from hyphae.view import bounds, builders, failures, links, nodes
 from hyphae.view.bounds import bound
 from hyphae.view.citation import Ran, cited
-from hyphae.view.detail import enrichment_lines
-from hyphae.view.enrichment import Descriptions, described
+from hyphae.view.enrichment import Descriptions, described, enrichment_lines
 from hyphae.view.nodes import Kind, Ref
 from hyphae.view.pages.node import models, nav_tree, reads, walk
 from hyphae.view.pages.node.columns import COLUMNS

@@ -6,8 +6,8 @@ import htpy
 
 from hyphae.view import bounds
 from hyphae.view.components import Html
-from hyphae.view.detail import Detail, EnrichmentLines
-from hyphae.view.enrichment import GLYPH, GLYPH_CLASS, Enrichment
+from hyphae.view.detail import Detail
+from hyphae.view.enrichment import GLYPH, GLYPH_CLASS, Enrichment, EnrichmentLines
 from hyphae.view.models import Count, Pager
 from hyphae.view.text import cuts, highlight, render
 from hyphae.view.text import format as fmt

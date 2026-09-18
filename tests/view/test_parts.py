@@ -21,8 +21,8 @@ from hyphae.models.enrichment import ROWS, TAXONOMY_VERSION, Level
 from hyphae.view import bounds
 from hyphae.view.citation import cited
 from hyphae.view.components import citation, parts
-from hyphae.view.detail import Detail, EnrichmentLines
-from hyphae.view.enrichment import GLYPH, Enrichment
+from hyphae.view.detail import Detail
+from hyphae.view.enrichment import GLYPH, Enrichment, EnrichmentLines
 from hyphae.view.text.highlight import Syntax
 from tests.conftest import SPINE
 from tests.view.conftest import block, classed, plain, prose, values, walled

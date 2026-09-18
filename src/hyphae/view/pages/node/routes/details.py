@@ -2,8 +2,9 @@
 
 Every fat value on a node page is printed to its cut and marked, and the mark links here
 (`docs/viewer-bounds.md`). One handler serves all sixteen, because a Detail declares
-everything the fetch needs (`view/detail.py:DETAILS`): the query behind it, how it was
-written, and the keys its route carries.
+everything the fetch needs (`view/detail.py:DETAILS` for a node's own values,
+`view/enrichment.py:LINES` for what a pass wrote): the fetch behind it, how it was written,
+and the keys its route carries.
 
 One dependency behind each endpoint rather than a read and a markup either side of a typed
 seam: what a fetch reads is a single value, and a model carrying one value is the value
@@ -23,6 +24,7 @@ from fastapi.responses import Response
 from hyphae.view.components import Html
 from hyphae.view.deps import Db, ViewerDep
 from hyphae.view.detail import DETAILS, Spec, Written
+from hyphae.view.enrichment import LINES
 from hyphae.view.pages.node import fragments
 from hyphae.view.pages.node.browser import Missing
 from hyphae.view.pages.node.markup import values
@@ -71,14 +73,14 @@ def serving(spec: Spec) -> Callable[..., Response]:
 
 
 def register(on: APIRouter) -> None:
-    """Every Detail the registry declares, as a route of its own on `on`.
+    """Every Detail the two registries declare, as a route of its own on `on`.
 
-    The public URLs are the registry's own, one route each — not one route under a
+    The public URLs are the registries' own, one route each — not one route under a
     `/fragment/{detail}` segment, which would collide with the popover and expansion
     fragments and move the unknown-name 404 out of the router and into the handler.
     """
-    for spec in DETAILS:
-        on.add_api_route(spec.route, serving(spec), methods=["GET"], name=spec.whole.value)
+    for spec in (*DETAILS, *LINES):
+        on.add_api_route(spec.route, serving(spec), methods=["GET"])
 
 
 register(router)

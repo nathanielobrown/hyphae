@@ -10,15 +10,16 @@ same as a page over an item the pass has not reached yet: nothing beside the ite
 import datetime as dt
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import NamedTuple
+from typing import NamedTuple, assert_never
 
 from hyphae.models.citation import Citation
 from hyphae.models.enrichment import ROWS, Level, Versions
 from hyphae.store.handle import Store
-from hyphae.store.pages import Page, page_rows
+from hyphae.store.pages import Page, Value, page_rows
 from hyphae.view import bounds
 from hyphae.view.bounds import bound
 from hyphae.view.citation import Ran
+from hyphae.view.detail import Detail, Spec, Written, fetched, preview
 from hyphae.view.text.format import when
 
 # The enrichment tables, by the level whose rows they hold. Read off the rows map rather than
@@ -148,4 +149,103 @@ def described(store: Store, session_id: str, source: str) -> Descriptions:
         session=sessions.get(session_id),
         turns=by_level[Level.turn],
         runs=by_level[Level.agent_run],
+    )
+
+
+# The two lines a pass wrote about an item, at each of the three levels it writes at: a Detail
+# each (`view/detail.py`), previewed out of the enrichment row the page already read and
+# fetched whole from a route of its own. Declared here rather than in `DETAILS` because a pass
+# wrote them, and the repository that answers them is the pass's (`docs/enrichment.md`).
+TURN_DESCRIPTION = Spec(
+    "description",
+    "/fragment/description/session/{session_id}/thread/{source}/turn/{turn_id}",
+    fetched(Value.TURN_DESCRIPTION),
+    Written.LINE,
+)
+TURN_FRICTION = Spec(
+    "friction",
+    "/fragment/friction/session/{session_id}/thread/{source}/turn/{turn_id}",
+    fetched(Value.TURN_FRICTION),
+    Written.LINE,
+)
+RUN_DESCRIPTION = Spec(
+    "description",
+    "/fragment/description/session/{session_id}/run/{run_id}",
+    fetched(Value.RUN_DESCRIPTION),
+    Written.LINE,
+)
+RUN_FRICTION = Spec(
+    "friction",
+    "/fragment/friction/session/{session_id}/run/{run_id}",
+    fetched(Value.RUN_FRICTION),
+    Written.LINE,
+)
+SESSION_DESCRIPTION = Spec(
+    "description",
+    "/fragment/description/session/{session_id}",
+    fetched(Value.SESSION_DESCRIPTION),
+    Written.LINE,
+)
+SESSION_FRICTION = Spec(
+    "friction",
+    "/fragment/friction/session/{session_id}",
+    fetched(Value.SESSION_FRICTION),
+    Written.LINE,
+)
+# Every line a pass wrote that a pane previews, served by the same routes as `DETAILS`.
+LINES: tuple[Spec, ...] = (
+    TURN_DESCRIPTION,
+    TURN_FRICTION,
+    RUN_DESCRIPTION,
+    RUN_FRICTION,
+    SESSION_DESCRIPTION,
+    SESSION_FRICTION,
+)
+
+
+class EnrichmentLines(NamedTuple):
+    """The two lines an enrichment pass wrote about a node, as the pane shows them.
+
+    Each is a `Detail` like any other fat value the pane previews: the head the query cut, and
+    the fetch that brings the rest of it back into the block the head stood in. A pass writes
+    as much as it wants to, and nearly every run it describes runs past the width.
+    """
+
+    description: Detail | None
+    # None where the model saw no friction, which is most items, and where it wrote an empty
+    # line — the two are the same nothing to a pane.
+    friction: Detail | None
+
+
+def enrichment_lines(
+    about: Enrichment | None, session_id: str, source: str
+) -> EnrichmentLines | None:
+    """What a pass wrote about the selection, each line with the way to the rest of it.
+
+    The keys are the level's own: a turn's row is keyed by the thread the page is reading, a
+    run's and a session's by the session. `source` is that thread, which is the same one the
+    descriptions were read for.
+    """
+    if about is None:
+        return None
+    match about.level:
+        case Level.turn:
+            lines = (TURN_DESCRIPTION, TURN_FRICTION)
+            keyed = {"session_id": session_id, "source": source, "turn_id": about.item_id}
+        case Level.agent_run:
+            lines = (RUN_DESCRIPTION, RUN_FRICTION)
+            keyed = {"session_id": session_id, "run_id": about.item_id}
+        case Level.session:
+            lines = (SESSION_DESCRIPTION, SESSION_FRICTION)
+            keyed = {"session_id": about.item_id}
+        case _:
+            assert_never(about.level)
+    # The enrichment reaches here already read, so the row a spec is previewed out of is the
+    # tuple itself rather than a second read of `view_enrichment`.
+    row = about._asdict()
+    return EnrichmentLines(
+        description=preview(
+            lines[0], row, size=bounds.ENRICHMENT_WIDTHS.description_chars, **keyed
+        ),
+        friction=preview(lines[1], row, size=bounds.ENRICHMENT_WIDTHS.description_chars, **keyed),
     )

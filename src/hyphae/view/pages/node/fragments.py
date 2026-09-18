@@ -28,6 +28,9 @@ from hyphae.view.pages.node.kinds import KINDS
 from hyphae.view.pages.node.models import Detailed, Measured, Popover, Record, Whole
 from hyphae.view.pages.node.numbers import breakout, charges, spend, wash
 
+# What a fetch for a value the store does not hold says, whether the row or the value is missing.
+NOTHING_THERE = "Nothing in this store is stored under that id."
+
 
 def counted(
     store: Store, kind: Kind, session_id: str, source: str, node_id: str
@@ -110,11 +113,11 @@ def compacted(store: Store, session_id: str, source: str, compaction_id: str) ->
 def detailed(store: Store, spec: Spec, keys: Mapping[str, str]) -> Detailed:
     """One Detail whole, and the syntax it is marked up as.
 
-    `keys` are the path's own, which the spec's route template minted and `library.citation`
-    prints back into the line the fragment carries. A key the query does not bind is a crash
-    here, which is a route registered against the wrong `whole`.
+    `keys` are the path's own, which the spec's route template minted and the fetch cites back
+    into the line the fragment carries. A key the fetch does not bind is a crash here, which is
+    a route registered against the wrong `whole`.
 
-    Nothing asks the row what it is holding except through `syntax_of`, so a pane and its
+    Nothing asks the value what it is holding except through `syntax_of`, so a pane and its
     fetch cannot mark the same value up two ways.
     """
     if spec.written is Written.LINE and not enriched(store):
@@ -124,15 +127,16 @@ def detailed(store: Store, spec: Spec, keys: Mapping[str, str]) -> Detailed:
         # against the store while the viewer is reading it. Ahead of the read, which would
         # otherwise fail on the missing table rather than on the missing line.
         raise Missing("No enrichment pass has written to this store.")
-    # The statement decides which of the sixteen takes a width, not the `Written` arm: only
-    # the named-file read declares `head_chars`, and it is not a cut of the answer — which
-    # rides whole — but the bound on the file suffix beside it, which says how the answer is
-    # marked up. A fetch prints at the pane's widths, so it names the pane's surface.
-    keyed = bound(spec.whole, bounds.HEADER_WIDTHS, **keys)
-    row = _one(store, spec.whole, keyed, "value")
+    whole = spec.whole(store, keys)
+    # A row can exist with nothing under it — a `Read` has no command, a turn no prompt — and
+    # that is a 404 and not an empty page: nothing on a pane links here unless there is a
+    # value to fetch, so a request for one that is not there is a URL somebody typed or a
+    # link somebody kept.
+    if whole is None or whole.value is None:
+        raise Missing(NOTHING_THERE)
     return Detailed(
-        whole=Whole(row["value"], spec.name, library.citation(spec.whole, keyed)),
-        syntax=syntax_of(spec.written, row),
+        whole=Whole(whole.value, spec.name, library.citation(*whole.citation)),
+        syntax=syntax_of(spec.written, vars(whole)),
     )
 
 
@@ -152,12 +156,10 @@ def _one(
 ) -> Row:
     """The one row a per-value fragment is for.
 
-    `column` is where the query puts the value this fragment is for. A row can exist with
-    nothing under it — a `Read` has no command, a turn no prompt — and that is a 404 and not
-    an empty page: nothing on a pane links here unless there is a value to fetch, so a request
-    for one that is not there is a URL somebody typed or a link somebody kept.
+    `column` is where the query puts the value this fragment is for; a row with nothing under
+    it is the same 404 a missing row is (`detailed`).
     """
     rows = page_rows(store, value, **keyed)
     if not rows or rows[0][column] is None:
-        raise Missing("Nothing in this store is stored under that id.")
+        raise Missing(NOTHING_THERE)
     return rows[0]
