@@ -117,7 +117,7 @@ The generators and the gate wrapper: `tools/`; how to write a generator and wher
 - **Cog block** — one splice in one document: the two markers and the generated text between them
 - **Gate** — one task wrapped in `tools/gate.py`: a line when it passes, everything the tool said when it fails
 - **Layers contract** — `[tool.importlinter]` in `pyproject.toml`: the children of `hyphae` top to bottom, each allowed to import only what sits below it; `mise run lint-imports` holds the code to it and `docs/layering.md` draws the result
-- **Forbidden contract** — the second contract in that table: only `store` may import `duckdb`, so a package outside it reaches the database through the `Store` handle (`src/hyphae/store/handle.py`) or a writer the store owns; the same run holds the code to both
+- **Forbidden contract** — one of the two other contracts in that table, each naming an import the layers alone would allow: only `store` may import `duckdb`, so a package outside it reaches the database through the `Store` handle (`src/hyphae/store/handle.py`) or a writer the store owns; and nothing above the store imports `extract`, so a session is read back through the store rather than parsed again; the same run holds the code to all three
 - **Browser tier** — the Playwright specs under `tests/e2e/` that drive the gallery in a real Chromium; every other test the suite runs is the Python tier
 - **Pre-commit hook** — `tools/pre-commit`, installed by `mise run setup`: the staged Python and Markdown held to the gates before a commit lands
 

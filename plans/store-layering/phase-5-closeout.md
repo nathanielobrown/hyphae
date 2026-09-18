@@ -49,10 +49,14 @@ docs/store.md                      ~ `:43`; a "Who reads and writes" paragraph: 
 
 PR 5.3  the contract says what the graph draws
 tests/tools/conftest.py            ~ `contract(name)` selects by contract name, not type (`:39-43` single-unpacks one per type and raises on a second forbidden)
-tests/tools/test_import_contract.py ~ `run_contract` writes all three contracts, the new one's sources overridable as `forbidden_sources` is; `KEPT` counts three; the two lifts retargeted; one new red case
+tests/tools/test_import_contract.py ~ `run_contract` writes every contract the table holds, any one's sources overridable by the contract's name; `KEPT` counts three; the two lifts retargeted; one new red case
 pyproject.toml                     ~ layers: "view | enrich | analyze | export" on one line; a third contract below
 tools/pre-commit                   ~ `lint-imports` beside pyrefly when Python is staged; the header (`:2-4`) says so
 docs/layering.md                   ~ the prose names three contracts and drops "Later phases of the store-layering plan edit the list"
+CONTEXT.md                         ~ **Forbidden contract** covers both forbidden contracts
+mise.toml                          ~ the `lint-imports` description names all three
+tests/view/test_layout.py          ~ the routes leaf denies the store and the root package taken whole, and any `as` name bound under the store; the models leaf denies `nodes` taken whole
+tests/store/test_handle.py         ~ the handle scan sees a copy of a handle, plain, typed or stashed, with a positive leaf per spelling; a public-namespace leaf over the class and a fresh instance
 
 PR 5.4  renames, opened after 5.1–5.3 land
 src/hyphae/store/trace_store.py    ~ DuckDbExporter → StoreExporter
@@ -101,7 +105,7 @@ Every PR renders the same bytes; the oracle table is phase 4's, rebuilt from the
 | `mise run lint-imports` | contracts kept | 2 | 2 | 3 | 3 |
 | `mise run mutate` | — | none: no logic moves | — | — | — |
 
-Leaves that go red on the wrong edit: 5.1's derived `STORE` reds a routes module taking any store module a future PR adds, and a planted `from hyphae.view.nodes import Row` in a page's `models.py` reds the page-models leaf. 5.2's ratchet reds `store._rows` in any module outside the store; `ruff check` reds the same edit in any file outside the two globs, tests included. 5.3's new case widens the third contract's sources to `hyphae.cli`, the one importer of `hyphae.extract` (`rg -l '^(from|import) hyphae\.extract' src/hyphae --glob '!src/hyphae/extract/**'`), and reads `1 broken` — the shape `test_import_contract.py:161` already uses; the two lifts (`store_above_view`, `enrich_above_view`) retarget to the wider line. The hook change has no leaf: `mise run shellcheck` lints the script and nothing runs it; a staged `view/x.py` importing `hyphae.extract` failing the hook is a manual probe the PR body records, with the caveat that grimp reads the tree, not the index, as pyrefly already does there. 5.4 has no leaf but the suite and `rg` for the old names.
+Leaves that go red on the wrong edit: 5.1's derived `STORE` reds a routes module taking any store module a future PR adds, and a planted `from hyphae.view.nodes import Row` in a page's `models.py` reds the page-models leaf. 5.2's ratchet reds `store._rows` in any module outside the store; `ruff check` reds the same edit in any file outside the two globs, tests included. 5.3's new case widens the third contract's sources to `hyphae.cli`, the one importer of `hyphae.extract` (`rg -l '^(from|import) hyphae\.extract' src/hyphae --glob '!src/hyphae/extract/**'`), and reads `1 broken` — the shape `test_import_contract.py:161` already uses; the two lifts (`store_above_view`, `enrich_above_view`) retarget to the wider line. The hook change has no leaf: `mise run lint-shell` lints the script and nothing runs it; a staged `view/x.py` importing `hyphae.extract` failing the hook is a manual probe the PR body records, with the caveat that grimp reads the tree, not the index, as pyrefly already does there. 5.4 has no leaf but the suite and `rg` for the old names.
 
 ## Slices
 
@@ -109,7 +113,7 @@ Independence is a file claim: 5.1 and 5.2 share no file, and 5.3's `pyproject.to
 
 1. **PR 5.1, the alias and the roster** — two commits: (1) `Row` to `view/nodes.py`, the importers re-pointed, `store/pages.py` deleted, the `viewer-ui.md` glob, `STORE` derived and the page-models leaf re-pointed; (2) the two stale comments. Verify: `mise run check`, `mise run e2e`, the four dumps against `main`.
 2. **PR 5.2, the handle's privacy and the documents** — three commits: (1) the underscores, the `per-file-ignores` line, the test sites, the ratchet's `VERBS`; (2) the docstrings, `CONTEXT.md`, `mise run cogs`; (3) `docs/store.md`. Verify: `mise run check`, the four dumps, `mise run e2e`; plant `store._rows` in `view/deps.py` and watch both the ratchet and `ruff check` go red.
-3. **PR 5.3, the contract** — three commits: (1) the harness: `contract(name)`, `run_contract` writing three, `KEPT`; (2) `pyproject.toml` and the new red case; (3) `tools/pre-commit` and `docs/layering.md`. Verify: `mise run lint-imports` says three kept; the hook probe above.
+3. **PR 5.3, the contract** — four commits: (1) the harness: `contract(name)`, `run_contract` writing every contract, green over the two it finds; (2) `pyproject.toml`, `KEPT` to three (a count the harness commit cannot bump ahead of the table) and the new red case; (3) `tools/pre-commit` and `docs/layering.md`; (4) the spellings the 5.1 and 5.2 audits found the AST scans blind to, each held in the leaf that owns the scan: a helper for the alias, a second scan pass for a copied handle with a positive leaf beside it, and a public-namespace leaf reading the class and a fresh instance. Verify: `mise run lint-imports` says three kept; the hook probe above.
 4. **PR 5.4, the renames** — two commits, one per class, each a `fastmod` over `src tests tools docs` with the class docstring reread, the glossary line in the second. Verify: `rg` empty, `mise run check`, the four dumps: a rename cannot reach a row, since `trace.extractor` credits the recorded extractor (`tests/store/test_trace_reader.py:114-118`).
 
 Overview row: `5.1 the alias and the roster; 5.2 the handle's privacy and the documents; 5.3 the contract and the hook; 5.4 the renames — 5.1–5.3 siblings off main, 5.4 after all`.

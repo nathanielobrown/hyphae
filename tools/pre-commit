@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Pre-commit gate: format and lint the staged Python, type-check the project it
-# belongs to, and hold the staged Markdown to every aigarden rule. Tests are
-# deliberately not here — `mise run check` and CI own them.
+# belongs to and hold its imports to the layers contracts, and hold the staged
+# Markdown to every aigarden rule. Tests are deliberately not here —
+# `mise run check` and CI own them.
 #
 # Installed by `mise run setup`, which drops a dispatcher in the shared hooks
 # dir that execs THIS script from the committing worktree. Binaries are called
@@ -25,8 +26,9 @@ unset VIRTUAL_ENV
 venv="$repo_root/.venv"
 ruff="$venv/bin/ruff"
 pyrefly="$venv/bin/pyrefly"
+lint_imports="$venv/bin/lint-imports"
 
-if [[ ! -x "$ruff" || ! -x "$pyrefly" ]]; then
+if [[ ! -x "$ruff" || ! -x "$pyrefly" || ! -x "$lint_imports" ]]; then
   # Fresh clone or worktree: the venv is not synced yet. Bootstrap it once —
   # idempotent, near-instant when already current — so the fast direct-binary
   # path below stays the common case.
@@ -73,6 +75,16 @@ if ((${#staged_py[@]} > 0)); then
   # discovers from cwd — the same shape as `mise run typecheck`. Only invoked
   # because we know Python actually changed.
   VIRTUAL_ENV="$venv" "$pyrefly" check --progress-bar=no
+
+  # The import contracts (`docs/layering.md`), whole-project for the same
+  # reason: an edge is between packages, not inside a file, and like pyrefly
+  # it reads the tree rather than the index. Uncached, as `mise.toml` explains.
+  # A green run prints a logo and a line per contract, so capture and replay
+  # only on a red one.
+  if ! imports_out="$("$lint_imports" --no-cache 2>&1)"; then
+    printf '%s\n' "$imports_out" >&2
+    exit 1
+  fi
 fi
 
 if ((${#staged_md[@]} > 0)); then
