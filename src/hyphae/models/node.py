@@ -1,16 +1,17 @@
 """What a node's reads hand back across the store line, each with the statement that read it.
 
 The values here are what a page renders; the rows they are built from stay in the store. A
-read builds one by column name — `WholeValue(citation=…, **row)` — so a statement answering
-a column the model lacks raises where it is read and not on a reader's page.
+read builds one by column name — `WholeValue(citation=…, **row)` — under `row.ROW`, so a
+statement answering a column the model lacks raises where it is read and not on a reader's page.
 """
 
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 
 from hyphae.models.citation import Citation
+from hyphae.models.row import ROW
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, config=ROW)
 class WholeValue:
     """One fat value of a node, whole: the rest of what a pane previewed at its width."""
 
