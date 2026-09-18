@@ -12,11 +12,11 @@ is the exception, and it is a timeline's own default for the `hp query` runs no 
 """
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum, StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from hyphae.models.citation import ParamValue
 
@@ -263,6 +263,22 @@ def fetch(store: "Store", sql: str, bindings: Mapping[str, ParamValue]) -> list[
     """One statement's rows as dicts by column name: what a row model is built from."""
     columns, rows = store.rows(sql, bindings)
     return [dict(zip(columns, row, strict=True)) for row in rows]
+
+
+class Counted(Protocol):
+    """A row of a statement that limits itself: it carries how many matched before the LIMIT bit."""
+
+    @property
+    def matched_rows(self) -> int: ...
+
+
+def dropped(rows: Sequence[Counted]) -> int:
+    """How many rows the statement's own LIMIT left off: what a page says rather than loses.
+
+    The count is on every row alike, so the first one carries it. Zero on an empty answer: a
+    read that matched nothing lost nothing.
+    """
+    return rows[0].matched_rows - len(rows) if rows else 0
 
 
 def statement(name: str) -> str:

@@ -55,7 +55,6 @@ class RecordRepository:
             page_records=size,
         )
         rows = [Record(**row) for row in library.fetch(self.store, library.load(RECORDS), bindings)]
-        # What the LIMIT cut, off the count every row carries; the cursor is the last line
-        # shown, and only where something is behind it.
-        more = rows[0].matched_rows - len(rows) if rows else 0
+        # The cursor is the last line shown, and only where something is behind it.
+        more = library.dropped(rows)
         return Paged(rows, more, rows[-1].line_no if more else None, Citation(RECORDS, bindings))

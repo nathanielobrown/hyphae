@@ -243,8 +243,7 @@ class SessionRepository:
             ProjectRollup(**row)
             for row in library.fetch(self.store, library.load(PROJECT_ROLLUPS), bindings)
         ]
-        cut = rows[0].matched_rows - len(rows) if rows else 0
-        return ProjectRollups(rows, cut, Citation(PROJECT_ROLLUPS, bindings))
+        return ProjectRollups(rows, library.dropped(rows), Citation(PROJECT_ROLLUPS, bindings))
 
     def header(self, *, session_id: str, widths: Mapping[str, int]) -> SessionHeader | None:
         """One session's header, or None when the store holds no session by that id."""
