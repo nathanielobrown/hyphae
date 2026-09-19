@@ -62,6 +62,7 @@ PR 5.4  renames, opened after 5.1–5.3 land
 src/hyphae/store/trace_store.py    ~ DuckDbExporter → StoreExporter
 src/hyphae/store/trace_reader.py   ~ StoreSource → StoreExtractor; every importer, `rg 'DuckDbExporter|StoreSource' src tests tools docs` empty at head
 CONTEXT.md                         ~ **Extractor**: "reads sessions into the model — an agent's recordings, or the store's own rows"
+src/hyphae/pipeline.py             ~ the `Extractor` protocol, the module and `SessionSource` docstrings say the same widened thing
 ```
 
 ## Key contracts
@@ -109,12 +110,12 @@ Leaves that go red on the wrong edit: 5.1's derived `STORE` reds a routes module
 
 ## Slices
 
-Independence is a file claim: 5.1 and 5.2 share no file, and 5.3's `pyproject.toml` hunk sits sixty lines from 5.2's under another table (`git merge-tree` of the two on a scratch clone: clean), so all three are siblings off `main`. 5.4 touches only the two store modules, `cli.py`, `store/delivery.py`'s comment, `tools/gen_routes.py`, `CONTEXT.md`'s **Extractor** line and the tests that build a writer or reader, and opens last (Decisions, renames last).
+Independence is a file claim: 5.1 and 5.2 share no file, and 5.3's `pyproject.toml` hunk sits sixty lines from 5.2's under another table (`git merge-tree` of the two on a scratch clone: clean), so all three are siblings off `main`. 5.4 touches only the two store modules, `cli.py`, `store/delivery.py`'s comment, `tools/gen_routes.py`, `CONTEXT.md`'s **Extractor** line, `pipeline.py`'s docstrings and the tests that build a writer or reader, and opens last (Decisions, renames last).
 
 1. **PR 5.1, the alias and the roster** — two commits: (1) `Row` to `view/nodes.py`, the importers re-pointed, `store/pages.py` deleted, the `viewer-ui.md` glob, `STORE` derived and the page-models leaf re-pointed; (2) the two stale comments. Verify: `mise run check`, `mise run e2e`, the four dumps against `main`.
 2. **PR 5.2, the handle's privacy and the documents** — three commits: (1) the underscores, the `per-file-ignores` line, the test sites, the ratchet's `VERBS`; (2) the docstrings, `CONTEXT.md`, `mise run cogs`; (3) `docs/store.md`. Verify: `mise run check`, the four dumps, `mise run e2e`; plant `store._rows` in `view/deps.py` and watch both the ratchet and `ruff check` go red.
 3. **PR 5.3, the contract** — four commits: (1) the harness: `contract(name)`, `run_contract` writing every contract, green over the two it finds; (2) `pyproject.toml`, `KEPT` to three (a count the harness commit cannot bump ahead of the table) and the new red case; (3) `tools/pre-commit` and `docs/layering.md`; (4) the spellings the 5.1 and 5.2 audits found the AST scans blind to, each held in the leaf that owns the scan: a helper for the alias, a second scan pass for a copied handle with a positive leaf beside it, and a public-namespace leaf reading the class and a fresh instance. Verify: `mise run lint-imports` says three kept; the hook probe above.
-4. **PR 5.4, the renames** — two commits, one per class, each a `fastmod` over `src tests tools docs` with the class docstring reread, the glossary line in the second. Verify: `rg` empty, `mise run check`, the four dumps: a rename cannot reach a row, since `trace.extractor` credits the recorded extractor (`tests/store/test_trace_reader.py:114-118`).
+4. **PR 5.4, the renames** — two commits, one per class, each a `fastmod` over `src tests tools docs` with the class docstring reread, the glossary line and `pipeline.py`'s docstrings in the second; a third renames the `source` locals the OTLP send and its tests bind a `StoreExtractor` to, since `refresh(sources, *, extractor, exporter)` gives each word one meaning. Verify: `rg` empty, `mise run check`, the four dumps: a rename cannot reach a row, since `trace.extractor` credits the recorded extractor (`tests/store/test_trace_reader.py:114-118`).
 
 Overview row: `5.1 the alias and the roster; 5.2 the handle's privacy and the documents; 5.3 the contract and the hook; 5.4 the renames — 5.1–5.3 siblings off main, 5.4 after all`.
 
@@ -145,5 +146,29 @@ Overview row: `5.1 the alias and the roster; 5.2 the handle's privacy and the do
 ## Open questions
 
 - **Where the fold's plan lives** — `plans/view-row-models/` is the suggestion; Nathaniel decides whether it opens after phase 5 or waits for a page that needs it.
-- **`Nothing above the store parses a transcript`** — worth six lines of TOML and a harness reshape when `test_gen_imports.py` already refuses the edge in the diagram? The design says yes, for the tier and the declaration; the harness reshape is the real cost.
-- **The rename targets** — `StoreExporter`/`StoreExtractor` bend **Extractor**; `TraceWriter`/`TraceReader` leave the glossary alone and nothing else in this document changes.
+- **`Nothing above the store parses a transcript`** — settled by 5.3 (#76): the contract went in, and the harness reshape (`contract(name)`, `run_contract` over every contract) cost one commit.
+- **The rename targets** — settled by 5.4: `StoreExporter`/`StoreExtractor`, with **Extractor** and `pipeline.py`'s docstrings widened to match.
+
+## What the plan leaves open
+
+Every follow-up the phase-5 PR bodies named, consolidated for the close-out. Each PR body holds the evidence; this list only points. The Out of scope list above stands beside it.
+
+From #74 (5.1):
+
+- The builders and `nodes.ledger` on row models instead of `Row`: the viewer design the Decisions defer. (The three alias and whole-package evasions it named were closed by 5.3's fourth commit.)
+
+From #75 (5.2):
+
+- The ratchet's receiver check misses a copied handle when the first hop sits deeper than the second in walk order (`if x: a = store` at one level, `b = a` at the function's); a chain in one scope is seen. (The `rows = _rows` public-namespace gap was closed by 5.3.)
+- `tests/store/**` disables `SLF001`, so a leaf there reaches any `_name` without a lint; review holds it.
+
+From #76 (5.3):
+
+- Two scanner mutations survive: the routes leaf's whole-package loop cut to `for module in STORE:`, and the models leaf's `assert not whole(...)` to `pass`; killing them needs a planted route or model seam the leaves lack.
+- Dynamic imports (`importlib.import_module`, `__import__`) evade every AST scan; no in-tree module does it, and an `rg 'import_module|__import__' src` leaf would bound it.
+- `repo = store.enrichment; repo.connection.execute(...)` passes the ratchet, which watches the handle's private verbs rather than a repository's public `connection`; whether a repository may export its connection is a phase-6 question.
+- The `project=None` passthrough gap (Out of scope above) stays open.
+
+From 5.4's audit, a tooling finding:
+
+- On macOS, `mise run mutate` cannot score a mutant whose forked child reaches a watchfiles-driving test: mutmut runs the clean suite in-process and then `os.fork()`s per mutant, and a child that watches again after the parent has dies with SIGABRT, scored 🤔 — unknown, not killed. `tests/view/test_dev.py`'s reload-stream test is the one in the tree; keep it out of the mutant child (an env guard or a mutmut exclusion), then re-score `trace_store._connect`, where the 🤔 verdicts hide at least one killable mutant and one probable survivor.

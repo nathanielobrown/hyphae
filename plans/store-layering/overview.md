@@ -20,15 +20,15 @@ src/hyphae/
   models/                every type that crosses a package line: the trace entities, their variants, the enrichment vocabulary
   store/                 the trace store: schema, writer, reader, the SQL library, and one repository per area
   extract/               transcripts in, `SessionTrace` out; touches no database
-  export/                OTLP only; reads the store through a repository
+  export/                OTLP only; reads the store back through StoreExtractor and writes its delivery ledger through a writer of the store's own, not a repository (phase-5-closeout.md, Out of scope)
   enrich/                prompts, the LLM client; reads and writes through the enrichment repository
   analyze/               the manifest and runner behind `hp query`; every statement it runs lives in the store
   view/                  pages, page models, markup; every read goes through a repository
   pipeline.py            the extractor ↔ exporter contract, owning the errors it catches
-  projects.py  pricing.py  settings.py  store_path.py    leaves
+  projects.py  pricing.py  settings.py  store_path.py  user_settings.py    leaves
 ```
 
-Arrows run from the importer to what it imports. `cli` imports every package and is left off. Leaf modules that any package may import (`models`, `projects`, `pricing`, `settings`, `store_path`) are omitted except where an edge to them is the point.
+Arrows run from the importer to what it imports. `cli` imports every package and is left off. Leaf modules that any package may import (`models`, `projects`, `pricing`, `settings`, `store_path`, `user_settings`) are omitted except where an edge to them is the point.
 
 Today, verified by grep on 2026-09-16 (`rg '^\s*(from|import) hyphae\.' src/hyphae/<pkg>` per package):
 
