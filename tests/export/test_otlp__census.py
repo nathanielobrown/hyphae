@@ -22,7 +22,7 @@ from hyphae.export.otlp_delivery import (
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import RefreshResult, refresh
 from hyphae.store.delivery import DeliveryLedger
-from hyphae.store.trace_reader import StoreSource
+from hyphae.store.trace_reader import StoreExtractor
 from hyphae.store.trace_store import open_trace_store
 from tests.conftest import FORK_COMPACTION, FORK_RUN, MYCELIA, NO_WAIT, SPINE, SPINE_RUN
 from tests.export.conftest import (
@@ -68,7 +68,7 @@ def traces(
     connection: duckdb.DuckDBPyConnection, project: Path = Path(MYCELIA)
 ) -> list[SessionTrace]:
     """Every session a run would ship, shaped the way `export()` receives it."""
-    source = StoreSource(connection)
+    source = StoreExtractor(connection)
     return [source.extract(session) for session in source.sessions(project)]
 
 
@@ -98,7 +98,7 @@ def counted(exportable_db: Path, tmp_path: Path) -> Iterator[duckdb.DuckDBPyConn
 def census_pass(connection: duckdb.DuckDBPyConnection) -> tuple[OtlpCensus, RefreshResult]:
     """One dry run over the store's sessions, driven the way the command drives it."""
     counting = OtlpCensus(DeliveryLedger(connection, backend=GENERIC), text=METADATA_ONLY)
-    source = StoreSource(connection)
+    source = StoreExtractor(connection)
     return counting, refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=counting)
 
 

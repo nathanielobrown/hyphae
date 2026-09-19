@@ -30,7 +30,7 @@ What one session recorded. Entities: `src/hyphae/models/trace.py`; relationships
 
 The extract → store → export seam: `src/hyphae/pipeline.py`; the store: `src/hyphae/store/`, `docs/store.md`; OTLP: `src/hyphae/export/otlp_delivery.py`, its ledger: `src/hyphae/store/delivery.py`, `docs/otlp-export.md`.
 
-- **Extractor** — reads one agent's sessions into the model
+- **Extractor** — reads sessions into the model — an agent's recordings, or the store's own rows
 - **Exporter** — writes the model to a sink; the store and OTLP are sinks
 - **Store** — the trace store: one DuckDB file at `~/.hyphae/traces.duckdb` shared by every checkout, one table per entity — the durable archive rather than a cache; its schema, every table's writer, the reader and the repositories a viewer page reads through are `src/hyphae/store/`
 - **Store handle** — one open trace store, `src/hyphae/store/handle.py:Store`: what a page, `hp query` or a pass holds instead of a connection; its repositories are the only reads a package outside the store makes, and the driver never leaves the package

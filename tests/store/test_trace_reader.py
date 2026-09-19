@@ -1,6 +1,6 @@
 """Reading the trace store back as traces: the round trip, and the source filter.
 
-The OTLP export ships the store rather than the transcripts on disk, so `StoreSource` is the
+The OTLP export ships the store rather than the transcripts on disk, so `StoreExtractor` is the
 extractor that pipeline runs on (`plans/otlp-export/design.md`). Everything the exporter can
 send is only as true as this rebuild — a column silently dropped here ships a corpus missing
 a field nobody notices — so the round trip compares whole objects rather than fields.
@@ -18,7 +18,7 @@ import pytest
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import SessionSource
 from hyphae.store.trace_reader import (
-    StoreSource,
+    StoreExtractor,
     UnknownProjectError,
     UnplaceableSessionError,
 )
@@ -45,7 +45,7 @@ SIBLING_PROJECT = f"{MYCELIA}-other"
 
 
 def canonical(trace: SessionTrace) -> SessionTrace:
-    """The same trace with every list in `StoreSource`'s order.
+    """The same trace with every list in `StoreExtractor`'s order.
 
     List order carries no meaning: the model's lists are keyed by natural ids, and the
     extractor emits the main transcript's rows before each subagent's while the store
@@ -90,7 +90,7 @@ def test_a_recorded_trace_round_trips_through_the_store(
     # extracted into the store...
     expected = fixture_trace("spine", SPINE)
     # ...when it is rebuilt from the rows rather than from the transcript...
-    trace = StoreSource(store).extract(source(SPINE))
+    trace = StoreExtractor(store).extract(source(SPINE))
     # ...then every entity list comes back whole, down to the last field of the last row...
     assert canonical(trace) == canonical(expected)
     # ...and the columns the session left NULL come back as None rather than as a default
@@ -108,17 +108,17 @@ def test_every_fixture_session_round_trips(
 ) -> None:
     """Every recorded session survives the store, not just the one the leaves above name."""
     expected = fixture_trace(transcript.parent.name, transcript.stem)
-    trace = StoreSource(store).extract(source(transcript.stem))
+    trace = StoreExtractor(store).extract(source(transcript.stem))
     assert canonical(trace) == canonical(expected)
 
 
 def test_provenance_names_the_parser_not_the_reader(store: duckdb.DuckDBPyConnection) -> None:
-    """A rebuilt trace credits the extractor whose rows it is, never `StoreSource` itself."""
-    trace = StoreSource(store).extract(source(SPINE))
+    """A rebuilt trace credits the extractor whose rows it is, never `StoreExtractor` itself."""
+    trace = StoreExtractor(store).extract(source(SPINE))
     assert (trace.extractor, trace.extractor_version) == store.execute(
         "SELECT extractor, extractor_version FROM extract_state WHERE session_id = ?", [SPINE]
     ).fetchone()
-    assert "StoreSource" not in trace.extractor
+    assert "StoreExtractor" not in trace.extractor
 
 
 def test_sessions_carry_the_fingerprint_the_store_holds(
@@ -138,7 +138,7 @@ def test_sessions_carry_the_fingerprint_the_store_holds(
     assert expected, "the fixture corpus should hold sessions under MYCELIA"
     # ...then discovery lists exactly those, each with the fingerprint `extract_state`
     # recorded and an empty `files` — the store is the source, so there is nothing to stat.
-    assert StoreSource(listable).sessions(Path(MYCELIA)) == expected
+    assert StoreExtractor(listable).sessions(Path(MYCELIA)) == expected
 
 
 def test_the_filter_takes_the_project_and_what_sits_under_it(
@@ -161,7 +161,7 @@ def test_the_filter_takes_the_project_and_what_sits_under_it(
     # ...then the worktree ships and the sibling does not: the filter cuts on path
     # components, so a string-prefix filter passes the first half and fails here.
     with open_trace_store(path, read_only=True, wait=NO_WAIT) as connection:
-        listed = {found.id for found in StoreSource(connection).sessions(Path(MYCELIA))}
+        listed = {found.id for found in StoreExtractor(connection).sessions(Path(MYCELIA))}
     assert SIBLING_SESSION in listed
     assert WORKTREE_SESSION not in listed
 
@@ -184,7 +184,7 @@ def test_the_filter_places_a_project_named_relative_to_the_working_directory(
     # the string as typed would report a successful export of nothing.
     monkeypatch.chdir(tmp_path)
     with open_trace_store(path, read_only=True, wait=NO_WAIT) as connection:
-        listed = {found.id for found in StoreSource(connection).sessions(Path("repo"))}
+        listed = {found.id for found in StoreExtractor(connection).sessions(Path("repo"))}
     assert SIBLING_SESSION in listed
 
 
@@ -206,7 +206,7 @@ def test_a_childless_session_with_no_project_is_excluded(tmp_path: Path) -> None
         open_trace_store(path, read_only=True, wait=NO_WAIT) as connection,
         pytest.raises(UnknownProjectError) as refused,
     ):
-        StoreSource(connection).sessions(Path(MYCELIA))
+        StoreExtractor(connection).sessions(Path(MYCELIA))
     assert MYCELIA in str(refused.value)
     assert NO_PROJECT_SESSION not in str(refused.value)
 
@@ -222,7 +222,7 @@ def test_a_session_with_no_project_but_rows_crashes(tmp_path: Path) -> None:
         open_trace_store(path, read_only=True, wait=NO_WAIT) as connection,
         pytest.raises(UnplaceableSessionError) as raised,
     ):
-        StoreSource(connection).sessions(Path(MYCELIA))
+        StoreExtractor(connection).sessions(Path(MYCELIA))
     # ...naming the session and what would have been lost, table by table...
     message = str(raised.value)
     assert NO_PROJECT_SESSION in message

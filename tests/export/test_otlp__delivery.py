@@ -37,7 +37,7 @@ from hyphae.export.otlp_delivery import (
 from hyphae.pipeline import refresh
 from hyphae.store.delivery import DeliveryLedger
 from hyphae.store.schema import SCHEMA_VERSION
-from hyphae.store.trace_reader import StoreSource
+from hyphae.store.trace_reader import StoreExtractor
 from hyphae.store.trace_store import StoreExporter, open_trace_store
 from tests.conftest import MYCELIA, NO_WAIT
 from tests.export.conftest import (
@@ -577,7 +577,7 @@ def test_a_live_send_is_accepted(store: duckdb.DuckDBPyConnection) -> None:
     # Any refusal — a status, or a nonzero `partial_success` — raises out of `export()`, so
     # reaching the rows means the backend took every span of both sessions.
     with OtlpExporter(backend, DeliveryLedger(store, backend=backend.name)) as exporter:
-        source = StoreSource(store)
+        source = StoreExtractor(store)
         result = refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=exporter)
     assert result.extracted == [FIRST, SECOND]
     assert [row[0] for row in delivery_rows(store)] == [FIRST, SECOND]

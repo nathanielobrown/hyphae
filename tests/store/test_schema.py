@@ -87,7 +87,7 @@ def test_a_tables_ddl_columns_are_exactly_its_models_fields(table: str) -> None:
     """The insert and the read both build their column lists from the model's fields.
 
     `StoreExporter._insert` names `fields(spec.model)` and inserts positionally, and
-    `StoreSource._read` selects the same names back — so a DDL column with no field is a
+    `StoreExtractor._read` selects the same names back — so a DDL column with no field is a
     column nothing ever writes, and a field with no column crashes at the first export. Both
     sides are hand-written on purpose: generating the DDL from the dataclasses would lose the
     column comments that say what each one means. This is what ties them instead, and it

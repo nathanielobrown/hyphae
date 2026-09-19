@@ -47,7 +47,7 @@ from hyphae.projects import encode_project_path, resolve_project
 from hyphae.store.delivery import DeliveryLedger
 from hyphae.store.handle import open_store
 from hyphae.store.library import REQUIRED, QueryError
-from hyphae.store.trace_reader import StoreSource, UnknownProjectError
+from hyphae.store.trace_reader import StoreExtractor, UnknownProjectError
 from hyphae.store.trace_store import CLI_WAIT, StoreExporter, open_trace_store
 from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve
@@ -424,7 +424,7 @@ def _export_otlp(args: argparse.Namespace) -> None:
         # it opens read-only and never takes that lock.
         with open_trace_store(args.db, read_only=args.dry_run, wait=CLI_WAIT) as connection:
             ledger = DeliveryLedger(connection, backend=args.backend)
-            source = StoreSource(connection)
+            source = StoreExtractor(connection)
             sessions = source.sessions(args.project)
             if backend is None:
                 counting = OtlpCensus(ledger, text=text)

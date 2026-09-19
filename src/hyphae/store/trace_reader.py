@@ -43,7 +43,7 @@ class UnknownProjectError(Exception):
     """Asked for a project no session in the store was recorded under."""
 
 
-class StoreSource:
+class StoreExtractor:
     """Reads one project's extracted sessions back out of a trace store.
 
     Takes an open connection rather than a path: DuckDB admits one writer at a time, so the

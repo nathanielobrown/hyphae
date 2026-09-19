@@ -2,8 +2,8 @@
 
 `refresh()` is the whole pipeline. The caller hands it the sessions an extractor discovered,
 each with what it currently looks like; the loop asks the exporter what it already holds and
-re-extracts only the difference. Everything agent-specific lives behind `Extractor`;
-everything sink-specific behind `Exporter`.
+re-extracts only the difference. Everything about where sessions come from lives behind
+`Extractor`; everything sink-specific behind `Exporter`.
 """
 
 from collections.abc import Iterable
@@ -27,7 +27,7 @@ class SessionSource:
 
     An extractor subclasses this to hand its own `extract()` whatever else it will need —
     where the files are, a row id, a URL. Nothing here interprets that, which is what keeps
-    the agent-specific half behind `Extractor`.
+    the origin-specific half behind `Extractor`.
     """
 
     id: str
@@ -37,16 +37,17 @@ class SessionSource:
 
 
 class Extractor[SourceT: SessionSource](Protocol):
-    """Turns one agent's recorded sessions into traces. One implementation per agent.
+    """Turns recorded sessions into traces, from an agent's recordings or the store's rows.
 
-    `SourceT` is the extractor's own `SessionSource` subclass: the extractor mints them from
-    whatever it discovers by — a typed path, a directory, a store — and `extract()` is the
-    only thing that reads what it added. Discovery is the extractor's own interface, not the
-    loop's: `refresh()` takes the sources already minted.
+    One implementation per origin. `SourceT` is the extractor's own `SessionSource`
+    subclass: the extractor mints them from whatever it discovers by — a typed path, a
+    directory, a store — and `extract()` is the only thing that reads what it added.
+    Discovery is the extractor's own interface, not the loop's: `refresh()` takes the
+    sources already minted.
     """
 
     def extract(self, source: SourceT) -> SessionTrace:
-        """Read a session's files and build its trace."""
+        """Read one session and build its trace."""
         ...
 
 

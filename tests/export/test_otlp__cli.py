@@ -26,7 +26,7 @@ from hyphae.export.otlp_delivery import (
 )
 from hyphae.pipeline import refresh
 from hyphae.store.delivery import DeliveryLedger
-from hyphae.store.trace_reader import StoreSource
+from hyphae.store.trace_reader import StoreExtractor
 from hyphae.store.trace_store import StoreLocked, open_trace_store
 from tests.conftest import MYCELIA, NO_WAIT, locked
 from tests.export.conftest import (
@@ -98,7 +98,7 @@ def test_the_command_ships_what_a_refresh_ships(
             DeliveryLedger(connection, backend=GENERIC),
         ) as exporter,
     ):
-        source = StoreSource(connection)
+        source = StoreExtractor(connection)
         refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=exporter)
     expected = receiver.spans
     receiver.bodies.clear()
@@ -208,7 +208,7 @@ def unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
 def would_ship(path: Path, *only: str) -> Census:
     """The census a dry run should print, computed from the store the command reads."""
     with open_trace_store(path, read_only=True, wait=NO_WAIT) as connection:
-        source = StoreSource(connection)
+        source = StoreExtractor(connection)
         return census(
             [
                 source.extract(session)

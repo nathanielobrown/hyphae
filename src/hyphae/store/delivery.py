@@ -41,7 +41,7 @@ class DeliveryLedger:
     ledger a send writes without the write lock.
 
     Takes an open connection rather than a path because DuckDB admits one writer at a time:
-    the `StoreSource` reading beside it has to be holding the same one.
+    the `StoreExtractor` reading beside it has to be holding the same one.
     """
 
     def __init__(self, connection: duckdb.DuckDBPyConnection, *, backend: str) -> None:

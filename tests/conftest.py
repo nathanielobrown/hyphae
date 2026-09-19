@@ -571,7 +571,7 @@ def mutable_db(fixture_db: Path, tmp_path: Path) -> Path:
 def exportable_db(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Path:
     """The fixture corpus minus the session the OTLP source filter refuses to place.
 
-    `fork_byref/`'s session carries no `project_dir` and holds rows, so `StoreSource.sessions()`
+    `fork_byref/`'s session carries no `project_dir` and holds rows, so `StoreExtractor.sessions()`
     crashes on any store holding it — by design. A store meant to be listed or shipped leaves
     that one out. Read-only: copy the file before planting a row.
     """

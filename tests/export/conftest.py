@@ -35,7 +35,7 @@ from hyphae.export.otlp_delivery import (
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import RefreshResult, SessionSource, refresh
 from hyphae.store.delivery import DeliveryLedger
-from hyphae.store.trace_reader import StoreSource
+from hyphae.store.trace_reader import StoreExtractor
 from hyphae.store.trace_store import open_trace_store
 from tests.conftest import FIXTURES, MYCELIA, NO_WAIT, SERVER_TOOLS, SPINE, build_store
 
@@ -329,10 +329,10 @@ def deliver(
         monotonic=waited.monotonic,
         sleep=waited.sleep,
     ) as exporter:
-        source = StoreSource(store)
+        source = StoreExtractor(store)
         return refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=exporter)
 
 
 def trace_of(store: duckdb.DuckDBPyConnection, session_id: str) -> SessionTrace:
     """One session read back out of the store, the way the exporter is handed it."""
-    return StoreSource(store).extract(SessionSource(id=session_id, fingerprint="x"))
+    return StoreExtractor(store).extract(SessionSource(id=session_id, fingerprint="x"))
