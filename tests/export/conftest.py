@@ -329,8 +329,8 @@ def deliver(
         monotonic=waited.monotonic,
         sleep=waited.sleep,
     ) as exporter:
-        source = StoreExtractor(store)
-        return refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=exporter)
+        extractor = StoreExtractor(store)
+        return refresh(extractor.sessions(Path(MYCELIA)), extractor=extractor, exporter=exporter)
 
 
 def trace_of(store: duckdb.DuckDBPyConnection, session_id: str) -> SessionTrace:

@@ -420,15 +420,15 @@ def _export_otlp(args: argparse.Namespace) -> None:
     # command reads it: worth a line an operator can act on rather than a traceback.
     try:
         # One connection for both halves — DuckDB admits a single writer, and a send has to
-        # write its ledger into the store the source is reading. A dry run writes nothing, so
+        # write its ledger into the store the extractor is reading. A dry run writes nothing, so
         # it opens read-only and never takes that lock.
         with open_trace_store(args.db, read_only=args.dry_run, wait=CLI_WAIT) as connection:
             ledger = DeliveryLedger(connection, backend=args.backend)
-            source = StoreExtractor(connection)
-            sessions = source.sessions(args.project)
+            extractor = StoreExtractor(connection)
+            sessions = extractor.sessions(args.project)
             if backend is None:
                 counting = OtlpCensus(ledger, text=text)
-                counted = refresh(sessions, extractor=source, exporter=counting)
+                counted = refresh(sessions, extractor=extractor, exporter=counting)
                 print(_census_line(counting.counts, args.backend, len(counted.skipped)))
                 return
             with OtlpExporter(
@@ -438,7 +438,7 @@ def _export_otlp(args: argparse.Namespace) -> None:
                 text=text,
                 rate=args.rate,
             ) as exporter:
-                result = refresh(sessions, extractor=source, exporter=exporter)
+                result = refresh(sessions, extractor=extractor, exporter=exporter)
     except UnknownProjectError as error:
         raise SystemExit(str(error)) from error
     print(f"{len(result.extracted)} session(s) exported, {len(result.skipped)} unchanged")

@@ -98,8 +98,8 @@ def test_the_command_ships_what_a_refresh_ships(
             DeliveryLedger(connection, backend=GENERIC),
         ) as exporter,
     ):
-        source = StoreExtractor(connection)
-        refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=exporter)
+        extractor = StoreExtractor(connection)
+        refresh(extractor.sessions(Path(MYCELIA)), extractor=extractor, exporter=exporter)
     expected = receiver.spans
     receiver.bodies.clear()
     # ...and another copy through the command...
@@ -208,11 +208,11 @@ def unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
 def would_ship(path: Path, *only: str) -> Census:
     """The census a dry run should print, computed from the store the command reads."""
     with open_trace_store(path, read_only=True, wait=NO_WAIT) as connection:
-        source = StoreExtractor(connection)
+        extractor = StoreExtractor(connection)
         return census(
             [
-                source.extract(session)
-                for session in source.sessions(Path(MYCELIA))
+                extractor.extract(session)
+                for session in extractor.sessions(Path(MYCELIA))
                 if not only or session.id in only
             ]
         )

@@ -68,8 +68,8 @@ def traces(
     connection: duckdb.DuckDBPyConnection, project: Path = Path(MYCELIA)
 ) -> list[SessionTrace]:
     """Every session a run would ship, shaped the way `export()` receives it."""
-    source = StoreExtractor(connection)
-    return [source.extract(session) for session in source.sessions(project)]
+    extractor = StoreExtractor(connection)
+    return [extractor.extract(session) for session in extractor.sessions(project)]
 
 
 def scalar(connection: duckdb.DuckDBPyConnection, query: str, parameters: object = None) -> int:
@@ -98,8 +98,10 @@ def counted(exportable_db: Path, tmp_path: Path) -> Iterator[duckdb.DuckDBPyConn
 def census_pass(connection: duckdb.DuckDBPyConnection) -> tuple[OtlpCensus, RefreshResult]:
     """One dry run over the store's sessions, driven the way the command drives it."""
     counting = OtlpCensus(DeliveryLedger(connection, backend=GENERIC), text=METADATA_ONLY)
-    source = StoreExtractor(connection)
-    return counting, refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=counting)
+    extractor = StoreExtractor(connection)
+    return counting, refresh(
+        extractor.sessions(Path(MYCELIA)), extractor=extractor, exporter=counting
+    )
 
 
 def test_the_census_counts_what_the_mapper_would_ship(

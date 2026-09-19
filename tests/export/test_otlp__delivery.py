@@ -577,7 +577,7 @@ def test_a_live_send_is_accepted(store: duckdb.DuckDBPyConnection) -> None:
     # Any refusal — a status, or a nonzero `partial_success` — raises out of `export()`, so
     # reaching the rows means the backend took every span of both sessions.
     with OtlpExporter(backend, DeliveryLedger(store, backend=backend.name)) as exporter:
-        source = StoreExtractor(store)
-        result = refresh(source.sessions(Path(MYCELIA)), extractor=source, exporter=exporter)
+        extractor = StoreExtractor(store)
+        result = refresh(extractor.sessions(Path(MYCELIA)), extractor=extractor, exporter=exporter)
     assert result.extracted == [FIRST, SECOND]
     assert [row[0] for row in delivery_rows(store)] == [FIRST, SECOND]
