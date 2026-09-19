@@ -10,14 +10,14 @@ from pathlib import Path
 import pytest
 
 from hyphae.store.delivery import DeliveryLedger
-from hyphae.store.trace_store import DuckDbExporter, open_trace_store
+from hyphae.store.trace_store import StoreExporter, open_trace_store
 from tests.conftest import NO_WAIT
 
 
 def test_the_ledger_reads_back_only_the_mapper_version_it_recorded_under(tmp_path: Path) -> None:
     """A ledger has no mapper version of its own: the caller names one at every read and write."""
     db = tmp_path / "traces.duckdb"
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with open_trace_store(db, read_only=False, wait=NO_WAIT) as connection:
         ledger = DeliveryLedger(connection, backend="generic")
         ledger.create()

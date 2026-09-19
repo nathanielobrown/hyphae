@@ -16,7 +16,7 @@ import pytest
 from hyphae.models.trace import LiveRows, SessionTag, SessionTrace
 from hyphae.store.trace_store import (
     TABLES,  # every table a session owns — read off the exporter so a new one cannot slip past
-    DuckDbExporter,
+    StoreExporter,
     open_trace_store,
 )
 from tests.conftest import MODEL_ONLY, NO_WAIT, TraceFactory, stored_rows
@@ -38,7 +38,7 @@ def db(tmp_path: Path) -> Path:
     return tmp_path / "traces.duckdb"
 
 
-def counts(exporter: DuckDbExporter) -> dict[str, int]:
+def counts(exporter: StoreExporter) -> dict[str, int]:
     """Row counts per table, keyed by table name."""
     return {
         table: stored_rows(exporter.path, f"SELECT count(*) FROM {table}")[0][0] for table in TABLES
@@ -46,7 +46,7 @@ def counts(exporter: DuckDbExporter) -> dict[str, int]:
 
 
 def rows(
-    exporter: DuckDbExporter, table: str, columns: type, session: str = "%"
+    exporter: StoreExporter, table: str, columns: type, session: str = "%"
 ) -> list[tuple[object, ...]]:
     """Rows of `table` for one session, column order matching `columns`' fields."""
     names = ", ".join(f'"{field.name}"' for field in dataclasses.fields(columns))
@@ -68,7 +68,7 @@ def stamped(trace: SessionTrace, **tags: str) -> SessionTrace:
     )
 
 
-def tags_of(exporter: DuckDbExporter, session: str) -> list[tuple[object, ...]]:
+def tags_of(exporter: StoreExporter, session: str) -> list[tuple[object, ...]]:
     """Every pair the store holds for one session, in key order."""
     return stored_rows(
         exporter.path,
@@ -83,7 +83,7 @@ def test_a_trace_round_trips(db: Path, fixture_trace: TraceFactory):
     # The spine session never compacted, so the compactions come from the session that did.
     compacted = fixture_trace("compaction", COMPACTED)
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")
     exporter.export(compacted, "fingerprint-2")
 
@@ -115,7 +115,7 @@ def test_re_exporting_a_session_replaces_it_wholly(db: Path, fixture_trace: Trac
     """
     trace = fixture_trace("spine", SPINE)
     # If a full trace is exported...
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")
     assert counts(exporter) == {
         "sessions": 1,
@@ -165,7 +165,7 @@ def test_a_replace_leaves_other_sessions_alone(db: Path, fixture_trace: TraceFac
     spine = fixture_trace("spine", SPINE)
     other = fixture_trace("dup_uuid", DUPS)
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(spine, "fingerprint-spine")
     exporter.export(other, "fingerprint-other")
     before = rows(exporter, "raw_records", type(other.raw_records[0]), DUPS)
@@ -191,7 +191,7 @@ def test_tags_are_replaced_with_the_session_they_were_stamped_on(
     """
     spine = fixture_trace("spine", SPINE)
     other = fixture_trace("dup_uuid", DUPS)
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
 
     # If two sessions are exported carrying tags...
     exporter.export(stamped(spine, batch_id="b1", task="t1"), "fingerprint-1")
@@ -216,7 +216,7 @@ def test_extract_state_records_what_produced_the_rows(db: Path, fixture_trace: T
     """Each exported session leaves a fingerprint, its path, and the extractor that ran."""
     trace = fixture_trace("spine", SPINE)
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")
 
     state = stored_rows(
@@ -246,7 +246,7 @@ def test_an_id_is_scoped_to_its_transcript(db: Path, fixture_trace: TraceFactory
     trace = fixture_trace("spine", SPINE)
     call = trace.api_calls[0]
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     # If one call is recorded under the main transcript and the same id under a
     # subagent's...
     exporter.export(
@@ -272,7 +272,7 @@ def test_an_agent_run_is_keyed_by_session_and_agent_id(db: Path, fixture_trace: 
     run = trace.agent_runs[0]
     other = fixture_trace("dup_uuid", DUPS)
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     # If one agent run is recorded under the session that spawned it and again under
     # the resume that inherited the file...
     exporter.export(trace, "fingerprint-1")
@@ -300,7 +300,7 @@ def test_a_rollup_counts_replayed_work_once(db: Path, fixture_trace: TraceFactor
     """
     trace = fixture_trace("fork_origin", ORIGIN)
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     # If a session ran an auditor and a fork that replayed it...
     exporter.export(trace, "fingerprint-1")
     (rollup,) = stored_rows(
@@ -342,7 +342,7 @@ def test_the_live_views_hold_what_the_trace_calls_live(
     # If the fork fixture is written to a store — its own transcript and the run it forked
     # from, so four of the five kinds hold a copy the other already recorded...
     trace = fixture_trace("fork_origin", ORIGIN)
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")
     stored, live = FORK_ROWS[field]
     # ...then the view's count is the length of the trace's own list for that kind...
@@ -369,14 +369,14 @@ def test_a_corpus_rollup_counts_a_resumed_session_once(db: Path, fixture_trace: 
     ancestor = fixture_trace("resume_pair", ANCESTOR)
     resumed = fixture_trace("resume_pair", RESUMED)
 
-    def rollup(exporter: DuckDbExporter, view: str) -> list[tuple[object, ...]]:
+    def rollup(exporter: StoreExporter, view: str) -> list[tuple[object, ...]]:
         return stored_rows(
             exporter.path,
             f"SELECT session_id, project_dir, turns, api_calls, tool_calls, compactions, "
             f"cost_usd, unpriced_api_calls FROM {view} ORDER BY started_at",
         )
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     # If a session and the resume that continued it are both exported...
     exporter.export(ancestor, "fingerprint-1")
     exporter.export(resumed, "fingerprint-2")
@@ -403,7 +403,7 @@ def test_a_rollup_can_be_scoped_to_one_project(db: Path, fixture_trace: TraceFac
     elsewhere = fixture_trace("dup_uuid", DUPS)
     elsewhere = replace(elsewhere, session=replace(elsewhere.session, project_dir="/repos/other"))
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     # If two projects' sessions share the store...
     exporter.export(here, "fingerprint-1")
     exporter.export(elsewhere, "fingerprint-2")
@@ -430,7 +430,7 @@ def test_a_call_we_cannot_price_is_counted_out_of_the_total(db: Path, fixture_tr
     trace = fixture_trace("spine", SPINE)
     priced, unpriced = trace.api_calls[0], trace.api_calls[1]
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     # If a session holds a call whose model our table does not price — invented by
     # nulling a real call's cost, since every model the corpus used is priced...
     exporter.export(
@@ -453,7 +453,7 @@ def test_a_session_that_ran_no_call_totals_zero_rather_than_nothing(
     Every consumer sorts, sums or prints these columns, so a NULL here is a blank cell on the
     projects page and a session missing from a cost order — not a visible failure.
     """
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     # If a recorded session drove no api call at all — `model_only/` is three `/model`,
     # `/clear` and `/reload-skills` turns the CLI answered by itself...
     exporter.export(fixture_trace("model_only", MODEL_ONLY), "fingerprint-1")
@@ -475,7 +475,7 @@ def test_an_offloaded_output_is_keyed_by_session_and_name(db: Path, fixture_trac
     trace = fixture_trace("offload", OFFLOAD)
     (offloaded,) = trace.offload_files
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     # If two sessions each offloaded a file of the same name — invented: Claude Code
     # names these randomly and none of the 636 on this machine repeats (scanned
     # 2026-08-07) — then both survive, each with its content...
@@ -514,7 +514,7 @@ def test_a_failed_export_changes_nothing(
     """A trace that violates a key leaves the store exactly as it was."""
     trace = stamped(fixture_trace("spine", SPINE), batch_id="b1")
 
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")
     before = counts(exporter)
 
@@ -538,7 +538,7 @@ def test_a_view_definition_reaches_a_reader_without_a_re_extract(
     would report yesterday's rule for as long as nothing re-extracted the file.
     """
     trace = fixture_trace("spine", SPINE)
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")
     # If the file's stored view definitions are older than the code's — the state an
     # edit to `_live_view` leaves every store extracted before it...

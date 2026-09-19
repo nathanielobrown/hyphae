@@ -33,7 +33,7 @@ from hyphae.models.node import (
 from hyphae.store import library, nodes
 from hyphae.store.handle import Store, open_store
 from hyphae.store.nodes import NodeRepository
-from hyphae.store.trace_store import DuckDbExporter
+from hyphae.store.trace_store import StoreExporter
 from hyphae.view import bounds
 from tests.conftest import (
     ANCESTOR,
@@ -223,7 +223,7 @@ def test_a_store_nothing_was_extracted_into_answers_none(tmp_path: Path) -> None
     """A store with the schema and no sessions has no header and no value, and refuses
     nothing."""
     db = tmp_path / "traces.duckdb"
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with open_store(db, read_only=True, wait=NO_WAIT) as store:
         assert store.nodes.header(TurnHeader, TURN_KEYS, widths=HEADER, sizes=PAGE) is None
         assert store.nodes.value(TurnHeader, "prompt", TURN_KEYS, widths=HEADER) is None

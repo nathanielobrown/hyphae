@@ -38,7 +38,7 @@ from hyphae.store.enrichment import EnrichmentRepository
 from hyphae.store.handle import open_store
 from hyphae.store.schema import table_ddl
 from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
-from hyphae.store.trace_store import DuckDbExporter, open_trace_store
+from hyphae.store.trace_store import StoreExporter, open_trace_store
 from hyphae.store_path import HP_DB
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -303,7 +303,7 @@ def build_store(
     `tags` stamps every transcript, as one `hp extract --tag` does; left out, the corpus's
     own rule applies and only `TAGGED_SESSIONS` carry `FIXTURE_TAG`.
     """
-    exporter = DuckDbExporter(path, wait=NO_WAIT)
+    exporter = StoreExporter(path, wait=NO_WAIT)
     for transcript in transcripts:
         session = SessionFiles(id=transcript.stem, transcript=transcript)
         source = ClaudeCodeSource(id=session.id, fingerprint="fixture", files=session)

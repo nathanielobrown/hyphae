@@ -14,7 +14,7 @@ import pytest
 
 from hyphae.models.trace import SessionTrace
 from hyphae.store.schema import SchemaVersionError
-from hyphae.store.trace_store import CLI_WAIT, DuckDbExporter, StoreLocked, open_trace_store
+from hyphae.store.trace_store import CLI_WAIT, StoreExporter, StoreLocked, open_trace_store
 from tests.conftest import (
     LOCK_TIMEOUT,
     NO_WAIT,
@@ -40,7 +40,7 @@ def db(tmp_path: Path) -> Path:
 
 def stored(db: Path, *traces: SessionTrace) -> None:
     """A store on disk holding these traces — the file the tests below open."""
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     for index, trace in enumerate(traces):
         exporter.export(trace, f"fingerprint-{index}")
 
@@ -125,7 +125,7 @@ def test_an_extract_lands_once_an_open_page_lets_go(db: Path, fixture_trace: Tra
         started = time.monotonic()
         # ...then an extract under the CLI's own budget queues behind the read instead of
         # failing on it.
-        DuckDbExporter(db, wait=CLI_WAIT).export(trace, "fingerprint-0")
+        StoreExporter(db, wait=CLI_WAIT).export(trace, "fingerprint-0")
         waited = time.monotonic() - started
 
     # It really queued: halved because the holder may have been asleep for up to one of
@@ -147,7 +147,7 @@ def test_an_extract_gives_up_on_a_page_that_never_lets_go(db: Path, fixture_trac
     with locked(db, read_only=True) as page:
         # ...then the extract stops rather than hanging, naming the process to go and look at...
         with pytest.raises(StoreLocked) as refused:
-            DuckDbExporter(db, wait=IMPATIENT)
+            StoreExporter(db, wait=IMPATIENT)
         assert str(page.pid) in str(refused.value)
 
     # ...and the refusal itself left no lock behind: the store opens for write once the page
@@ -163,7 +163,7 @@ def open_for_write(path: Path) -> object:
 
 def open_for_export(path: Path) -> object:
     """The exporter's own open, which prepares the store and hands back no connection."""
-    return DuckDbExporter(path, wait=NO_WAIT)
+    return StoreExporter(path, wait=NO_WAIT)
 
 
 @pytest.mark.parametrize(

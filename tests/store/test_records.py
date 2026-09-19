@@ -24,7 +24,7 @@ from hyphae.models.record import Paged, Record
 from hyphae.store import library, records
 from hyphae.store.handle import Store, open_store
 from hyphae.store.records import RecordRepository
-from hyphae.store.trace_store import DuckDbExporter
+from hyphae.store.trace_store import StoreExporter
 from hyphae.view import bounds
 from tests.conftest import ANCESTOR, MAIN, NO_WAIT
 from tests.store.test_sessions import LIVE_STORE, rows_of
@@ -168,7 +168,7 @@ def test_a_cursor_past_the_end_and_a_thread_the_store_lacks_page_empty(
 def test_a_store_nothing_was_extracted_into_pages_empty(tmp_path: Path) -> None:
     """A store with the schema and no sessions answers empty, and refuses nothing."""
     db = tmp_path / "traces.duckdb"
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with open_store(db, read_only=True, wait=NO_WAIT) as store:
         page = thread(store.records, library.FIRST_PAGE, 20)
         assert page == Paged(rows=[], more=0, after=None, citation=page.citation)

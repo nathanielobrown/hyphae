@@ -19,7 +19,7 @@ from hyphae.store.schema import (
     table_ddl,
 )
 from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
-from hyphae.store.trace_store import DuckDbExporter, open_trace_store
+from hyphae.store.trace_store import StoreExporter, open_trace_store
 from tests.conftest import (
     FORK_ORIGIN,
     FORK_ORIGIN_RUN,
@@ -100,7 +100,7 @@ def old_store(path: Path, *traces: SessionTrace) -> dict[str, list[str]]:
     extract wrote, row for row — including the briefs and the copied compaction the rows below
     are read back for.
     """
-    exporter = DuckDbExporter(path, wait=NO_WAIT)
+    exporter = StoreExporter(path, wait=NO_WAIT)
     for index, trace in enumerate(traces):
         exporter.export(trace, f"fingerprint-{index}")
     with duckdb.connect(str(path)) as aged:
@@ -176,7 +176,7 @@ def test_a_schema_version_no_migration_reaches_refuses_to_open(db: Path):
     # ...then it says which version it holds and what to do about it — pointing at the store
     # guide rather than at a delete, because this file may be a pruned session's only home...
     with pytest.raises(SchemaVersionError, match=r"docs/store\.md"):
-        DuckDbExporter(db, wait=NO_WAIT)
+        StoreExporter(db, wait=NO_WAIT)
 
     # ...and not one table of it was written to.
     assert shape(db) == before
@@ -205,7 +205,7 @@ def test_an_older_store_is_migrated_and_keeps_its_rows(db: Path, fixture_trace: 
     boundary_rows(db)
 
     # ...then opening it migrates the file...
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     # ...leaving every brief readable under the name the code now reads...
     stored = stored_rows(
         exporter.path, "SELECT brief FROM agent_runs WHERE session_id = ?", [SPINE]
@@ -281,7 +281,7 @@ def test_a_migration_step_that_raises_leaves_the_store_at_its_old_version(
     # applied...
     monkeypatch.setitem(MIGRATIONS, SCHEMA_VERSION, raise_after_dropping)
     with pytest.raises(RuntimeError, match="half-way"):
-        DuckDbExporter(db, wait=NO_WAIT)
+        StoreExporter(db, wait=NO_WAIT)
 
     # ...then the file holds its original columns at its original version, and the next open
     # will try the whole migration again.
@@ -293,7 +293,7 @@ def test_a_current_store_is_migrated_by_no_step_at_all(
     db: Path, fixture_trace: TraceFactory, monkeypatch: pytest.MonkeyPatch
 ):
     """Opening a store at the current version runs no migration, however often it is opened."""
-    exporter = DuckDbExporter(db, wait=NO_WAIT)
+    exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(fixture_trace("spine", SPINE), "fingerprint-1")
     before = shape(db)
 
@@ -304,8 +304,8 @@ def test_a_current_store_is_migrated_by_no_step_at_all(
 
     monkeypatch.setitem(MIGRATIONS, SCHEMA_VERSION, refuse)
     # ...then it opens, and opens again, unchanged.
-    DuckDbExporter(db, wait=NO_WAIT)
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     assert shape(db) == before
     assert stamped_version(db) == SCHEMA_VERSION
 
@@ -324,15 +324,15 @@ def test_a_foreign_database_refuses_to_open(db: Path):
 
     # ...then opening it fails without adding our tables to it.
     with pytest.raises(SchemaVersionError, match="re-extract"):
-        DuckDbExporter(db, wait=NO_WAIT)
+        StoreExporter(db, wait=NO_WAIT)
     assert shape(db) == before
 
 
 def test_a_newer_schema_version_refuses_to_open(db: Path):
     """A store this build is too old to read is refused too, not just one it is too new for."""
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with duckdb.connect(str(db)) as ahead:
         ahead.execute("UPDATE meta SET schema_version = ?", [SCHEMA_VERSION + 1])
 
     with pytest.raises(SchemaVersionError, match=r"docs/store\.md"):
-        DuckDbExporter(db, wait=NO_WAIT)
+        StoreExporter(db, wait=NO_WAIT)

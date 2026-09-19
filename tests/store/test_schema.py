@@ -27,7 +27,7 @@ from hyphae.store.schema import (
     table_ddl,
 )
 from hyphae.store.trace_store import _SCHEMA as TRACE_SCHEMA
-from hyphae.store.trace_store import TABLES, DuckDbExporter, open_trace_store
+from hyphae.store.trace_store import TABLES, StoreExporter, open_trace_store
 from tests.conftest import NO_WAIT, enriching, opens_elsewhere
 
 
@@ -86,7 +86,7 @@ def test_no_owners_tables_can_change_without_the_schema_version(
 def test_a_tables_ddl_columns_are_exactly_its_models_fields(table: str) -> None:
     """The insert and the read both build their column lists from the model's fields.
 
-    `DuckDbExporter._insert` names `fields(spec.model)` and inserts positionally, and
+    `StoreExporter._insert` names `fields(spec.model)` and inserts positionally, and
     `StoreSource._read` selects the same names back — so a DDL column with no field is a
     column nothing ever writes, and a field with no column crashes at the first export. Both
     sides are hand-written on purpose: generating the DDL from the dataclasses would lose the
@@ -137,14 +137,14 @@ def test_a_renamed_trace_column_is_refused_with_the_table_and_column_named(db: P
     reached the operator was a binder error naming a column, with no version and no remedy.
     """
     # If a store's `agent_runs` no longer holds the column the DDL declares...
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with duckdb.connect(str(db)) as drifted:
         drifted.execute("ALTER TABLE agent_runs RENAME brief TO description")
 
     # ...then opening it says which table drifted, which column each side has, where the
     # migration goes, and where to read before touching an archive.
     with pytest.raises(SchemaShapeError) as refused:
-        DuckDbExporter(db, wait=NO_WAIT)
+        StoreExporter(db, wait=NO_WAIT)
     message = str(refused.value)
     assert "agent_runs" in message
     assert "description" in message and "brief" in message
@@ -159,7 +159,7 @@ def test_a_renamed_enrichment_column_is_refused_the_same_way(db: Path) -> None:
     open with `Binder Error: Table "e" does not have a column named "friction"`.
     """
     # If the enrichment tables exist and one of them has drifted from its DDL...
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with enriching(db):
         pass
     with duckdb.connect(str(db)) as connection:
@@ -179,7 +179,7 @@ def test_a_renamed_enrichment_column_is_refused_the_same_way(db: Path) -> None:
 def test_a_renamed_delivery_column_is_refused_the_same_way(db: Path) -> None:
     """The third owner: the OTLP delivery ledger, which lives in the same file."""
     backend = Backend(name="test", endpoint="http://127.0.0.1:1/v1/traces")
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with duckdb.connect(str(db)) as connection:
         OtlpExporter(backend, DeliveryLedger(connection, backend="test")).close()
         connection.execute("ALTER TABLE otlp_delivery RENAME spans_sent TO spans")
@@ -196,7 +196,7 @@ def test_a_table_a_ddl_declares_but_the_store_lacks_is_not_drift(db: Path) -> No
     Absence is the normal state of a fresh store, so the guard has to read it as "nothing to
     compare" rather than as drift — otherwise no store could be opened until every layer had.
     """
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with open_trace_store(db, read_only=True, wait=NO_WAIT) as connection:
         tables = {
             name

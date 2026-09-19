@@ -18,7 +18,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from starlette.routing import Route
 
-from hyphae.store.trace_store import DuckDbExporter
+from hyphae.store.trace_store import StoreExporter
 from hyphae.view import nodes
 from hyphae.view.app import build_app
 from tools import text
@@ -72,7 +72,7 @@ def built_app() -> FastAPI:
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "routes.duckdb"
         # No budget to queue: nothing else can be holding a file this call just made.
-        DuckDbExporter(path, wait=0)
+        StoreExporter(path, wait=0)
         return build_app(path)
 
 

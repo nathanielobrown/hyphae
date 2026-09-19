@@ -48,7 +48,7 @@ from hyphae.store.delivery import DeliveryLedger
 from hyphae.store.handle import open_store
 from hyphae.store.library import REQUIRED, QueryError
 from hyphae.store.trace_reader import StoreSource, UnknownProjectError
-from hyphae.store.trace_store import CLI_WAIT, DuckDbExporter, open_trace_store
+from hyphae.store.trace_store import CLI_WAIT, StoreExporter, open_trace_store
 from hyphae.store_path import default_store
 from hyphae.view.app import PORT, serve
 
@@ -116,7 +116,7 @@ def _extract(args: argparse.Namespace) -> None:
     targets = _extract_targets(args)
     # Parsed at the flag (`_key_value`); a later pair wins the name an earlier one bound.
     extractor = ClaudeCodeExtractor(projects_root=args.projects_root, tags=dict(args.tag))
-    exporter = DuckDbExporter(args.db, wait=CLI_WAIT)
+    exporter = StoreExporter(args.db, wait=CLI_WAIT)
     # One line per directory; the refusals wait for the end, so a bad session in the first
     # directory does not hide the summary of the rest.
     failed: list[Failure] = []

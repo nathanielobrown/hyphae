@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hyphae.store.trace_store import DuckDbExporter
+from hyphae.store.trace_store import StoreExporter
 from hyphae.store_path import HP_DB, default_store
 from tests.conftest import NO_WAIT, TraceFactory, stored_rows
 
@@ -104,7 +104,7 @@ def test_the_first_write_creates_the_directories_above_the_store(
     """
     # If a session is exported into a store nested under directories nothing created...
     store = tmp_path / "home" / ".hyphae" / "traces.duckdb"
-    exporter = DuckDbExporter(store, wait=NO_WAIT)
+    exporter = StoreExporter(store, wait=NO_WAIT)
     exporter.export(fixture_trace("spine", SPINE), "planted")
     # ...the directories are made on the way, and the session reads back out of the store.
     assert stored_rows(store, "SELECT id FROM sessions") == [(SPINE,)]

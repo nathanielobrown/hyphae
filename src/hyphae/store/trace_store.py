@@ -411,7 +411,7 @@ def open_trace_store(
     The one way into an existing store: every reader and every writer but the extractor
     itself goes through here, so the version check, the views, the waiting and the closing
     are written once. Creates nothing — a path with no store behind it is a typo rather than
-    a new store, and `DuckDbExporter` stays the only thing that writes the DDL. A write open
+    a new store, and `StoreExporter` stays the only thing that writes the DDL. A write open
     migrates a store of an older vintage; a read-only one cannot, and says so.
 
     `wait` is how many seconds to queue behind another process, and has no default because
@@ -443,7 +443,7 @@ def open_trace_store(
         connection.close()
 
 
-class DuckDbExporter:
+class StoreExporter:
     """Writes traces into one DuckDB file, holding the file only while it writes.
 
     Nothing here keeps a connection open between calls. Construction prepares the store and

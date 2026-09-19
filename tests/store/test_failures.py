@@ -27,7 +27,7 @@ from hyphae.models.failure import Failure, Failures
 from hyphae.store import failures, library
 from hyphae.store.failures import FailureRepository
 from hyphae.store.handle import Store, open_store
-from hyphae.store.trace_store import DuckDbExporter
+from hyphae.store.trace_store import StoreExporter
 from hyphae.view import bounds
 from tests.conftest import ANCESTOR, FORK_ORIGIN, FORK_RUN, NO_WAIT
 from tests.store.test_sessions import LIVE_STORE, rows_of
@@ -175,7 +175,7 @@ def test_a_session_that_failed_nothing_and_one_the_store_lacks_answer_empty(
 def test_a_store_nothing_was_extracted_into_answers_empty(tmp_path: Path) -> None:
     """A store with the schema and no sessions answers empty, and refuses nothing."""
     db = tmp_path / "traces.duckdb"
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with open_store(db, read_only=True, wait=NO_WAIT) as store:
         answer = store.failures.failures(session_id=FORK_ORIGIN, widths=ERRORS)
         assert answer == Failures(rows=[], cut=0, citation=answer.citation)

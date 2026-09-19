@@ -37,7 +37,7 @@ from hyphae.models.listing import (
 from hyphae.store import library, sessions
 from hyphae.store.handle import Store, open_store
 from hyphae.store.sessions import PAGER_PROBE, SORTS, SessionRepository
-from hyphae.store.trace_store import DuckDbExporter
+from hyphae.store.trace_store import StoreExporter
 from hyphae.view import bounds
 from hyphae.view.enrichment import enriched
 from tests.conftest import INVENTED_PROJECT_SESSION, MYCELIA, NO_WAIT, SPINE
@@ -295,7 +295,7 @@ def test_a_session_no_pass_reached_lists_with_nothing_said(
 def test_every_method_over_a_store_nothing_was_extracted_into(tmp_path: Path) -> None:
     """A store with the schema and no sessions answers every read empty, and refuses none."""
     db = tmp_path / "traces.duckdb"
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with open_store(db, read_only=True, wait=NO_WAIT) as store:
         repository = store.sessions
         listed = repository.listing(

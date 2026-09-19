@@ -25,7 +25,7 @@ from hyphae.models.record import Offload
 from hyphae.store import library, offloads
 from hyphae.store.handle import Store, open_store
 from hyphae.store.offloads import OffloadRepository
-from hyphae.store.trace_store import DuckDbExporter
+from hyphae.store.trace_store import StoreExporter
 from tests.conftest import CONFIG_ONLY, NO_WAIT, OFFLOAD_CHARS, OFFLOAD_FILE
 from tests.store.test_sessions import LIVE_STORE, rows_of
 
@@ -147,7 +147,7 @@ def test_a_file_the_session_never_offloaded_is_none(
 def test_a_store_nothing_was_extracted_into_has_no_file(tmp_path: Path) -> None:
     """A store with the schema and no sessions answers `None`, and refuses nothing."""
     db = tmp_path / "traces.duckdb"
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     with open_store(db, read_only=True, wait=NO_WAIT) as store:
         assert recorded(store.offloads, 0) is None
 

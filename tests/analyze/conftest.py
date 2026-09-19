@@ -20,7 +20,7 @@ import pytest
 from hyphae import cli
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
-from hyphae.store.trace_store import DuckDbExporter
+from hyphae.store.trace_store import StoreExporter
 from tests.conftest import (
     FIXTURES,
     MYCELIA,
@@ -190,7 +190,7 @@ def worktree_db(corpus_db: Path, tmp_path_factory: pytest.TempPathFactory) -> Pa
     """
     path = tmp_path_factory.mktemp("worktree") / "traces.duckdb"
     path.write_bytes(corpus_db.read_bytes())
-    exporter = DuckDbExporter(path, wait=NO_WAIT)
+    exporter = StoreExporter(path, wait=NO_WAIT)
     for directory, stem, project_dir in (
         ("legacy_title", WORKTREE_SESSION, f"{MYCELIA}/.claude/worktrees/planted"),
         ("legacy_entrypoint", SIBLING_SESSION, f"{MYCELIA}-old"),

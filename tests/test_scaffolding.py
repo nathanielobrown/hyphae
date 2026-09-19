@@ -17,7 +17,7 @@ from typing import Any
 import duckdb
 import pytest
 
-from hyphae.store.trace_store import DuckDbExporter, open_trace_store
+from hyphae.store.trace_store import StoreExporter, open_trace_store
 from tests.conftest import (
     BLOCK_SIZE,
     LOCK_TIMEOUT,
@@ -57,7 +57,7 @@ def test_every_store_the_suite_opens_runs_on_one_duckdb_thread(tmp_path: Path) -
     """
     # If a store is opened the way a builder opens one, for write...
     path = tmp_path / "traces.duckdb"
-    DuckDbExporter(path, wait=NO_WAIT)
+    StoreExporter(path, wait=NO_WAIT)
     with duckdb.connect(str(path)) as writable:
         # ...then it queries on a single thread...
         assert writable.execute(_THREADS).fetchone() == (1,)
@@ -77,7 +77,7 @@ def test_every_store_the_suite_creates_is_laid_out_in_small_blocks(tmp_path: Pat
     """
     # If a store is created the way every builder creates one...
     path = tmp_path / "traces.duckdb"
-    DuckDbExporter(path, wait=NO_WAIT)
+    StoreExporter(path, wait=NO_WAIT)
     # ...then it is laid out in the smallest block DuckDB allows...
     with duckdb.connect(str(path), read_only=True) as reader:
         assert reader.execute(_BLOCK_SIZE).fetchone() == (BLOCK_SIZE,)

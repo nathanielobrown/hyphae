@@ -14,7 +14,7 @@ import pytest
 
 from hyphae.extract.claude_code import ClaudeCodeExtractor, ClaudeCodeSource
 from hyphae.extract.layout import SessionFiles
-from hyphae.store.trace_store import DuckDbExporter
+from hyphae.store.trace_store import StoreExporter
 from tests.analyze.conftest import (
     AS_OF_MID,
     AS_OF_PARTIAL,
@@ -153,7 +153,7 @@ def undated_db(corpus_db: Path, tmp_path_factory: pytest.TempPathFactory) -> Pat
     transcript = FIXTURES / "fork_byref" / f"{NO_PROJECT_SESSION}.jsonl"
     session = SessionFiles(id=NO_PROJECT_SESSION, transcript=transcript)
     source = ClaudeCodeSource(id=NO_PROJECT_SESSION, fingerprint="planted", files=session)
-    exporter = DuckDbExporter(path, wait=NO_WAIT)
+    exporter = StoreExporter(path, wait=NO_WAIT)
     trace = ClaudeCodeExtractor().extract(source)
     exporter.export(replace(trace, session=replace(trace.session, project_dir=MYCELIA)), "p")
     return path

@@ -17,7 +17,7 @@ from hyphae.extract.errors import SessionLayoutError
 from hyphae.models.trace import SessionTrace
 from hyphae.pipeline import Exporter, ExtractionError, Failure, RefreshResult, refresh
 from hyphae.projects import encode_project_path
-from hyphae.store.trace_store import DuckDbExporter, StoreLocked
+from hyphae.store.trace_store import StoreExporter, StoreLocked
 from tests.conftest import FIXTURES, NO_WAIT, locked, opens_elsewhere, stored_rows
 from tests.store.test_trace_store__locking import BRIEF_HOLD, IMPATIENT
 
@@ -140,18 +140,18 @@ def corpus(tmp_path: Path) -> Corpus:
 
 
 @pytest.fixture
-def exporter(tmp_path: Path) -> DuckDbExporter:
-    return DuckDbExporter(tmp_path / "traces.duckdb", wait=NO_WAIT)
+def exporter(tmp_path: Path) -> StoreExporter:
+    return StoreExporter(tmp_path / "traces.duckdb", wait=NO_WAIT)
 
 
-def table(exporter: DuckDbExporter, name: str, session: str) -> list[tuple[object, ...]]:
+def table(exporter: StoreExporter, name: str, session: str) -> list[tuple[object, ...]]:
     key = "id" if name == "sessions" else "session_id"
     return stored_rows(
         exporter.path, f"SELECT * FROM {name} WHERE {key} = ? ORDER BY 1, 2, 3", [session]
     )
 
 
-def test_a_refresh_ingests_every_session_it_finds(corpus: Corpus, exporter: DuckDbExporter):
+def test_a_refresh_ingests_every_session_it_finds(corpus: Corpus, exporter: StoreExporter):
     """`refresh()` walks a project's sessions and writes each one into the store."""
     # If a project has two recorded sessions...
     corpus.add("spine", SPINE)
@@ -171,7 +171,7 @@ def test_a_refresh_ingests_every_session_it_finds(corpus: Corpus, exporter: Duck
 
 
 def test_a_tag_reaches_every_session_a_refresh_extracted_and_no_other(
-    corpus: Corpus, exporter: DuckDbExporter
+    corpus: Corpus, exporter: StoreExporter
 ):
     """The pairs a caller stamps travel the seam: extractor in, trace across, store out.
 
@@ -202,7 +202,7 @@ def test_a_tag_reaches_every_session_a_refresh_extracted_and_no_other(
     assert stored_rows(exporter.path, "SELECT DISTINCT value FROM session_tags") == [("b1",)]
 
 
-def test_an_unchanged_corpus_is_not_re_extracted(corpus: Corpus, exporter: DuckDbExporter):
+def test_an_unchanged_corpus_is_not_re_extracted(corpus: Corpus, exporter: StoreExporter):
     """A second refresh over untouched files parses nothing and rewrites nothing.
 
     This is what lets the pipeline run on a timer: the cost of a no-op pass is a stat per
@@ -224,7 +224,7 @@ def test_an_unchanged_corpus_is_not_re_extracted(corpus: Corpus, exporter: DuckD
 
 
 def test_a_grown_session_is_replaced_rather_than_appended(
-    corpus: Corpus, exporter: DuckDbExporter, tmp_path: Path
+    corpus: Corpus, exporter: StoreExporter, tmp_path: Path
 ):
     """Resuming a session and refreshing gives the same rows as extracting it fresh.
 
@@ -244,7 +244,7 @@ def test_a_grown_session_is_replaced_rather_than_appended(
     refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
 
     # ...then the store matches one built from scratch over the grown file, table for table.
-    fresh = DuckDbExporter(tmp_path / "fresh.duckdb", wait=NO_WAIT)
+    fresh = StoreExporter(tmp_path / "fresh.duckdb", wait=NO_WAIT)
     refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=fresh)
     for name in ("sessions", "turns", "api_calls", "raw_records"):
         assert table(exporter, name, SPINE) == table(fresh, name, SPINE)
@@ -252,7 +252,7 @@ def test_a_grown_session_is_replaced_rather_than_appended(
 
 
 def test_a_session_caught_mid_write_heals_on_the_next_refresh(
-    corpus: Corpus, exporter: DuckDbExporter
+    corpus: Corpus, exporter: StoreExporter
 ):
     """Extracting a live session keeps the complete records and picks up the rest later.
 
@@ -286,7 +286,7 @@ def test_a_session_caught_mid_write_heals_on_the_next_refresh(
     assert archived() == 42
 
 
-def test_a_session_the_parser_refuses_costs_only_itself(corpus: Corpus, exporter: DuckDbExporter):
+def test_a_session_the_parser_refuses_costs_only_itself(corpus: Corpus, exporter: StoreExporter):
     """One unreadable session is reported by name; every other session of the project lands.
 
     A project is refreshed in one pass, so a record kind or a field the parser cannot read
@@ -315,7 +315,7 @@ def test_a_session_the_parser_refuses_costs_only_itself(corpus: Corpus, exporter
 
 
 def test_an_extractor_refusing_a_session_with_the_base_class_costs_only_that_session(
-    corpus: Corpus, exporter: DuckDbExporter
+    corpus: Corpus, exporter: StoreExporter
 ):
     """The loop catches `pipeline.ExtractionError` itself, not one extractor's subclass of it.
 
@@ -338,7 +338,7 @@ def test_an_extractor_refusing_a_session_with_the_base_class_costs_only_that_ses
 
 
 def test_a_session_directory_the_extractor_cannot_read_ends_the_pass(
-    corpus: Corpus, exporter: DuckDbExporter
+    corpus: Corpus, exporter: StoreExporter
 ):
     """A layout error is not the class the loop catches: it ends the whole pass, unrecorded.
 
@@ -360,7 +360,7 @@ def test_a_session_directory_the_extractor_cannot_read_ends_the_pass(
 
 
 def test_a_refresh_over_no_sources_reads_the_sink_and_writes_nothing(
-    corpus: Corpus, exporter: DuckDbExporter
+    corpus: Corpus, exporter: StoreExporter
 ):
     """Handed nothing to refresh, the loop asks the sink what it holds and stops there."""
     counting = CountingExporter(exporter)
@@ -371,7 +371,7 @@ def test_a_refresh_over_no_sources_reads_the_sink_and_writes_nothing(
     assert counting.calls == ["fingerprints"]
 
 
-def test_a_new_subagent_file_re_extracts_its_session(corpus: Corpus, exporter: DuckDbExporter):
+def test_a_new_subagent_file_re_extracts_its_session(corpus: Corpus, exporter: StoreExporter):
     """A session whose subagent wrote a transcript is stale, though its own file never changed.
 
     The fingerprint covers every file under the session directory for exactly this case:
@@ -403,7 +403,7 @@ def test_a_new_subagent_file_re_extracts_its_session(corpus: Corpus, exporter: D
     assert exporter.fingerprints() != before
 
 
-def test_a_changed_offload_file_re_extracts_its_session(corpus: Corpus, exporter: DuckDbExporter):
+def test_a_changed_offload_file_re_extracts_its_session(corpus: Corpus, exporter: StoreExporter):
     """Rewriting an offloaded tool result re-extracts the session and re-archives the file."""
     corpus.add("offload", OFFLOAD)
     extractor = CountingExtractor(corpus.extractor())
@@ -422,7 +422,7 @@ def test_a_changed_offload_file_re_extracts_its_session(corpus: Corpus, exporter
 
 
 def test_a_bumped_extractor_version_re_extracts_everything(
-    corpus: Corpus, exporter: DuckDbExporter, monkeypatch: pytest.MonkeyPatch
+    corpus: Corpus, exporter: StoreExporter, monkeypatch: pytest.MonkeyPatch
 ):
     """Upgrading the parser re-parses the corpus rather than leaving old rows in place."""
     corpus.add("spine", SPINE)
@@ -442,7 +442,7 @@ def test_a_bumped_extractor_version_re_extracts_everything(
     assert not set(exporter.fingerprints().values()) & set(before.values())
 
 
-def test_a_pruned_session_keeps_its_rows(corpus: Corpus, exporter: DuckDbExporter):
+def test_a_pruned_session_keeps_its_rows(corpus: Corpus, exporter: StoreExporter):
     """Claude Code deletes transcripts after a few weeks; the store is the archive.
 
     Refresh only ever adds and replaces. A session whose file is gone stops being
@@ -465,7 +465,7 @@ def test_a_pruned_session_keeps_its_rows(corpus: Corpus, exporter: DuckDbExporte
 
 
 def test_an_extract_leaves_the_store_readable_between_sessions(
-    corpus: Corpus, exporter: DuckDbExporter
+    corpus: Corpus, exporter: StoreExporter
 ):
     """A viewer can read the store while an extract is running.
 
@@ -491,7 +491,7 @@ def test_the_cli_extract_command_writes_the_same_store(corpus: Corpus, tmp_path:
     """`hp extract` drives the same pipeline the API does."""
     corpus.add("spine", SPINE)
     through_api = tmp_path / "api.duckdb"
-    exporter = DuckDbExporter(through_api, wait=NO_WAIT)
+    exporter = StoreExporter(through_api, wait=NO_WAIT)
     extractor = corpus.extractor()
     refresh(extractor.sessions(corpus.project), extractor=extractor, exporter=exporter)
     expected = table(exporter, "turns", SPINE)
@@ -508,7 +508,7 @@ def test_the_cli_extract_command_writes_the_same_store(corpus: Corpus, tmp_path:
     )
 
     # ...then it leaves the same rows behind.
-    exporter = DuckDbExporter(through_cli, wait=NO_WAIT)
+    exporter = StoreExporter(through_cli, wait=NO_WAIT)
     assert table(exporter, "turns", SPINE) == expected
 
 
@@ -521,7 +521,7 @@ def test_an_extract_waits_out_a_holder_and_then_writes(corpus: Corpus, tmp_path:
     corpus.add("spine", SPINE)
     db = tmp_path / "traces.duckdb"
     # The store has to exist before another process can hold it.
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
 
     # If someone else lets go of the store partway through the extract's first open...
     with locked(db, hold=BRIEF_HOLD):
@@ -553,7 +553,7 @@ def test_an_extract_gives_up_on_a_squatter_and_names_it(
     corpus.add("spine", SPINE)
     db = tmp_path / "traces.duckdb"
     # The store has to exist before another process can hold it.
-    DuckDbExporter(db, wait=NO_WAIT)
+    StoreExporter(db, wait=NO_WAIT)
     monkeypatch.setattr(cli, "CLI_WAIT", IMPATIENT)
 
     # If someone else is holding the store for longer than the extract will wait...
