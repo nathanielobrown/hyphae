@@ -109,7 +109,7 @@ tests/view/    test_tree.py, test_walk.py, test_node.py, test_query.py new; test
                manifest pin, measured-markup constants, and worst-case functions rewritten;
                conftest pages()/chipped() updated
 tests/analyze/test_queries.py   binds every manifest query by name: 8 additions, view_session_nav removed
-docs/viewer.md rewritten (incl. the DEPTH limit and its margin); docs/store.md + CLAUDE.md privacy line;
+docs/viewer.md rewritten (incl. the DEPTH limit and its margin); docs/store.md + AGENTS.md privacy line;
 .claude/rules/viewer-ui.md new
 pyproject.toml + pygments
 ```
@@ -135,7 +135,7 @@ Route level, unchanged pattern: session-scoped `TestClient` over the fixture cor
 4. **Walk:** prev/next including nested-run pop-up, compaction and bucket stops (fixture `5a88789c` has the depth-2 chain).
 5. **Filter presets:** `?nav=`; test per preset × kind cell that children match the table and every visible node has a visible parent.
 6. **Pygments + `/query` + glyphs/tooltips + `view_enrichment` widening + `cut()` ellipsis — then the final byte pin:** re-measure the row constants (`TREE_ROW_BYTES` among them) through the app and pin the worst-case functions, now that every byte the page will carry exists.
-7. **Guidance:** `CLAUDE.md` privacy ("the store keeps everything" — store only, fixtures stay redacted), `docs/store.md`, new `.claude/rules/viewer-ui.md`, `docs/viewer.md` rewrite (via doc-sync at PR time).
+7. **Guidance:** `AGENTS.md` privacy ("the store keeps everything" — store only, fixtures stay redacted), `docs/store.md`, new `.claude/rules/viewer-ui.md`, `docs/viewer.md` rewrite (via doc-sync at PR time).
 8. **Mutation triage last:** `mise run mutate` over the PR's changed files; classify survivors real-gap / equivalent / not-worth-it; close the real ones.
 
 ## Decisions (with the rejected alternative)

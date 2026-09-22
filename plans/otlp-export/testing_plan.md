@@ -218,7 +218,7 @@ used:
   that `otlp_delivery` was not created.
 - **A key is never printed.** *Evidence:* run with a sentinel key value through a failing
   export; assert the sentinel appears in neither stdout, stderr, the exception text, nor any
-  warning. Bolded: `CLAUDE.md` makes this a hard rule, and the crash paths are exactly where a
+  warning. Bolded: `AGENTS.md` makes this a hard rule, and the crash paths are exactly where a
   key gets interpolated into a message by accident.
 - A store held by another writer fails fast with DuckDB's lock error. *Evidence:* a subprocess
   holding a write connection (the viewer plan's `test_lifecycle.py` precedent, and it must be a

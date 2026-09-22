@@ -29,7 +29,7 @@ proposed: extract ─builds─ models.trace.SessionTrace ─written by─ export
 ```
 src/hyphae/
   models/
-    __init__.py          the package docstring gen_layout prints into CLAUDE.md
+    __init__.py          the package docstring gen_layout prints into AGENTS.md
     trace.py             ← model.py: Session, Turn, ApiCall, ToolCall, AgentRun, OffloadFile, Compaction, PrLink, SessionTag, RawRecord, LiveRows, SessionTrace, MAIN_SOURCE
     enrichment.py        ← enrich/items.py:Level; enrich/taxonomy.py whole (Category, Outcome, the two definition maps, TAXONOMY_VERSION);
                            enrich/stamp.py:Versions minus its stamp() method; + LevelRows and ROWS, the rows half of enrich/levels.py:LevelSpec and LEVELS

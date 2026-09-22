@@ -1,6 +1,6 @@
-"""What the Layout tree in `CLAUDE.md` has to hold: real paths, every tracked one, lifted words.
+"""What the Layout tree in `AGENTS.md` has to hold: real paths, every tracked one, lifted words.
 
-The tree is the index a reader of `CLAUDE.md` navigates the repo by, so its failure modes are
+The tree is the index a reader of `AGENTS.md` navigates the repo by, so its failure modes are
 a path that has moved and a directory nobody added. Both are properties of the live tree, which
 is what these leaves read; the order of the entries is an editorial choice and is not asserted.
 """

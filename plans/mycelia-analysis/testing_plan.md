@@ -132,7 +132,7 @@ The windowed and trend queries against the fixture store, with `$as_of` bound ra
 
 Not automated. Each is a line an auditor confirms by reading the named file, on the PR that lands it.
 
-- `docs/analysis.md` exists and is reachable from the CLAUDE.md Layout tree with a one-line gloss. *Evidence:* the Layout entry and the link resolve.
+- `docs/analysis.md` exists and is reachable from the AGENTS.md Layout tree with a one-line gloss. *Evidence:* the Layout entry and the link resolve.
 - The improvement-category vocabulary is defined in exactly one place. *Evidence:* the nine slugs plus `other` appear in `templates/session.md`; `grep` finds no second copy in `docs/analysis.md` or `templates/run.md`, which link to it.
 - Both templates carry `template_version` and the front-matter keys the design lists, and state their body caps (60 lines, 30 lines). *Evidence:* read both files.
 - `docs/analysis.md` states the reader protocol's bounded brief, the digest-only rule, the fixed process-review checklist, and the quoting contract — citation plus rule-based redaction — with `reports/README.md` linking rather than restating it. *Evidence:* read both files.
@@ -167,7 +167,7 @@ The four findings this plan raised against the first draft are resolved by the a
 Two residuals, both worth a sentence rather than a redesign:
 
 - **A. The set size is over-determined.** The amendment says unused ranked slots pass to discovery, "which has no metric to run out of", and also that the set is "exactly 31 only when every metric lasts and no skill collapses". Both cannot hold: if every unused slot passes to a stratum that never runs out, the set is the quota sum whenever the pool is large enough, and the only thing that makes it smaller is an exhausted pool. On the 10-session fixture pool both bounds bite at once, so the leaf above asserts the pass-through and the pool ceiling separately. Pick one sentence — either the pass-through is best-effort against the remaining pool (then say the shortfall shows up as a smaller set only when the pool runs out) or the "exactly 31" clause goes.
-- **B. "Every parameter has a production default" collides with `records_slice`'s mandatory line range.** A defaulted line range is not mandatory: a reader who omits it gets a silent window instead of an error, which is exactly the unbounded raw-text pull the cap exists to stop. Its `session_id` and `source` have no sensible default either. Let a manifest entry declare a parameter required with no default — which is also the house rule on defaults (`CLAUDE.md`: give a parameter a default only when a sensible one genuinely exists). Both affected leaves are written against the "mandatory" reading.
+- **B. "Every parameter has a production default" collides with `records_slice`'s mandatory line range.** A defaulted line range is not mandatory: a reader who omits it gets a silent window instead of an error, which is exactly the unbounded raw-text pull the cap exists to stop. Its `session_id` and `source` have no sensible default either. Let a manifest entry declare a parameter required with no default — which is also the house rule on defaults (`AGENTS.md`: give a parameter a default only when a sensible one genuinely exists). Both affected leaves are written against the "mandatory" reading.
 
 ## Obligation count
 

@@ -287,7 +287,7 @@ Agree with recommendation.
 ### Settled without a question
 
 - Viewer UI conventions (tooltips, the enrichment glyph, the two-mount rule) go in a new `.claude/rules/viewer-ui.md` — `docs/documentation.md` puts conventions for a set of files there, and `docs/viewer.md` stays the reader-facing guide
-- "Store everything, redact nothing for now" goes in `CLAUDE.md`'s privacy section with a line in `docs/store.md`
+- "Store everything, redact nothing for now" goes in `AGENTS.md`'s privacy section with a line in `docs/store.md`
 - The tree renders the selected node's ancestor chain plus each ancestor's children, nothing else — bounded by construction
 - A session node's children are its main-thread turns, plus the two buckets that exist today: unattributed calls and unattached runs
 

@@ -41,7 +41,7 @@ tests/gallery/serve.py                    +  fixture-store build + index route +
 mise.toml                                 ~  [tasks.gallery]
 pyproject.toml                            ~  watchfiles (dev group)
 docs/ui-development.md                    +  the guide to this flow
-docs/viewer.md, README.md, CLAUDE.md,
+docs/viewer.md, README.md, AGENTS.md,
 .claude/rules/viewer-ui.md                ~  links, Layout entry, and the "two scripts" line
 ```
 
@@ -63,7 +63,7 @@ Served HTML and status codes over `TestClient`, like the rest of the tier: dev p
 2. `view/dev.py`, the `dev` flag, `--dev`, and `dev-reload.js` with full reload only. Verified by `test_dev.py` plus a witnessed template edit reloading a real browser
 3. `mise run gallery`: fixture-store build, index route, fixed port. Verified by the index leaf and a witnessed click-through
 4. The CSS fast path in `dev-reload.js`. Witnessed: a `style.css` touch restyles the open page without a reload flash
-5. Docs: `docs/ui-development.md` written per `docs/documentation.md` — the flow end to end: `mise run gallery`, picking a scenario, the edit-save-refresh loop, `--dev` against one's own store, and how `ROUTES` feeds both tests and gallery — plus the README pointer, `viewer-ui.md`'s two-scripts line, and the CLAUDE.md Layout entry. Landed with doc-sync at PR time
+5. Docs: `docs/ui-development.md` written per `docs/documentation.md` — the flow end to end: `mise run gallery`, picking a scenario, the edit-save-refresh loop, `--dev` against one's own store, and how `ROUTES` feeds both tests and gallery — plus the README pointer, `viewer-ui.md`'s two-scripts line, and the AGENTS.md Layout entry. Landed with doc-sync at PR time
 
 ## Decisions
 

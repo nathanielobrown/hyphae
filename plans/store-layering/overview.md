@@ -87,7 +87,7 @@ When a phase lands, run `mise run cogs` and compare the graph in `docs/layering.
 
 ## Landing rules
 
-The repo lands branches on `main` by fast-forward only (`CLAUDE.md`, "Keep branches and commits focused"). That rule matters more with a stack:
+The repo lands branches on `main` by fast-forward only (`AGENTS.md`, "Keep branches and commits focused"). That rule matters more with a stack:
 
 - Land the bottom of a stack with a local fast-forward (`git push origin <branch>:main`). A squash or rebase-and-merge rewrites the SHAs the next PR's branch descends from, and GitHub then closes the next PR when the merged branch is deleted.
 - Never delete a branch another open PR still bases on.
@@ -100,7 +100,7 @@ Each PR carries the phase document's design in its body, per `docs/pull-requests
 
 - `mise run check` must be green before every PR.
 - `mise run lint-imports`, added in 0.3 and part of `check-fast` from then on. Each phase document says which contract it tightens.
-- `mise run cogs` after a phase lands and after any change to `tools/gen_layout.py`. `docs/layering.md`'s graph is generated from the imports, and `CLAUDE.md`'s layout tree from package docstrings, so a new package needs its docstring and its entry.
+- `mise run cogs` after a phase lands and after any change to `tools/gen_layout.py`. `docs/layering.md`'s graph is generated from the imports, and `AGENTS.md`'s layout tree from package docstrings, so a new package needs its docstring and its entry.
 - `mise run diagram-check <file>` on any document whose diagram changed.
 - `CONTEXT.md` gets any term coined by a phase, in the same PR.
 

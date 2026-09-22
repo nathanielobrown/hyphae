@@ -1,15 +1,15 @@
 # Documentation
 
-Use this guide to decide where project documentation belongs and how to keep it current. Start with the documentation summary in `CLAUDE.md`, then follow the [writing style guide](writing_style_guide.md) as you write.
+Use this guide to decide where project documentation belongs and how to keep it current. Start with the documentation summary in `AGENTS.md`, then follow the [writing style guide](writing_style_guide.md) as you write.
 
 ## Give each fact one home
 
 | Content | Home |
 | --- | --- |
-| Repository-wide context and conventions that every session needs | `CLAUDE.md` |
-| The canonical name and one-line meaning of a domain or viewer concept | `CONTEXT.md`, imported into every session by `CLAUDE.md` |
+| Repository-wide context and conventions that every session needs | `AGENTS.md` |
+| The canonical name and one-line meaning of a domain or viewer concept | `CONTEXT.md`, imported into every session by `AGENTS.md` |
 | Conventions for a set of files, such as tests | `.claude/rules/` |
-| A guide to one project topic | `docs/`, linked from the `CLAUDE.md` Layout tree |
+| A guide to one project topic | `docs/`, linked from the `AGENTS.md` Layout tree |
 | This guide | `docs/documentation.md` |
 | The meaning and source of a telemetry field | Its field on a record model in `src/hyphae/extract/records/`, which `docs/schema.md` prints |
 | A table restating something the code already holds | A generator in `tools/`, spliced into the document; see [Generate a table from the code that owns it](#generate-a-table-from-the-code-that-owns-it) |
@@ -53,7 +53,7 @@ A generator exposes `generate()`, which returns the block's body with no trailin
 
 Write references as backticked paths or Markdown links:
 
-- In `CLAUDE.md` and `.claude/rules/`, use short backticked paths. Use a Markdown link for an anchor, an external URL, or a name without a path
+- In `AGENTS.md` and `.claude/rules/`, use short backticked paths. Use a Markdown link for an anchor, an external URL, or a name without a path
 - In other prose documents, link to prose by name, as in `[the PR guide](pull-requests.md)`. Use backticked paths for source artifacts such as code and diagrams
 
 Markdown links resolve from the file that contains them. Backticked paths resolve from the repository root. Paths in code comments, docstrings, TOML, and YAML also resolve from the repository root and must match the target's case. `mise run check` holds the whole repository to this, so a reference that no longer resolves is a red gate rather than something the next reader discovers.

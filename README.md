@@ -79,4 +79,4 @@ A transcript contains everything the agent read, including source and credential
 
 ## Where the AI guidance lives
 
-Read `CLAUDE.md` first. Project guides live in `docs/`; agent rules, skills and subagents live in `.claude/`.
+Read `AGENTS.md` first. Project guides live in `docs/`; agent rules, skills and subagents live in `.claude/`.

@@ -100,7 +100,7 @@ Behavior-preserving. Its obligations are that nothing moved but the text.
 
 ## Slice 5 — docs
 
-- `docs/ui-development.md` exists, is linked from the CLAUDE.md Layout tree with a one-line gloss, and every fact in it is defined once. *Evidence:* the `doc-sync` skill run over the branch at PR time, per `docs/documentation.md`.
+- `docs/ui-development.md` exists, is linked from the AGENTS.md Layout tree with a one-line gloss, and every fact in it is defined once. *Evidence:* the `doc-sync` skill run over the branch at PR time, per `docs/documentation.md`.
 - No document duplicates the port, the flag name, or the route path. *Evidence:* `grep` for `/dev/reload` and the gallery port across `docs/` finds one defining occurrence each, links elsewhere.
 
 ---
@@ -125,7 +125,7 @@ Three, none of them dropped.
 
 Checked against the code at `main`, 2026-08-25:
 
-- **The `--dev` flag is not in `view/app.py`.** The parser lives in `src/hyphae/cli.py` — `_view` at `:103` and `_view_arguments` at `:108`; `serve()` is `view/app.py:2103`. The file-tree diff omits `src/hyphae/cli.py` and `tests/test_cli.py`, both of which this change must touch. Give `serve`'s new `dev` parameter no default: the caller decides (`CLAUDE.md`)
+- **The `--dev` flag is not in `view/app.py`.** The parser lives in `src/hyphae/cli.py` — `_view` at `:103` and `_view_arguments` at `:108`; `serve()` is `view/app.py:2103`. The file-tree diff omits `src/hyphae/cli.py` and `tests/test_cli.py`, both of which this change must touch. Give `serve`'s new `dev` parameter no default: the caller decides (`AGENTS.md`)
 - `uvicorn.run(...)` is `view/app.py:2118`, not `:2114`. `CSP = "default-src 'self'"` at `:96` and `Jinja2Templates(directory=TEMPLATES)` at `:497` verified as written; `build_app` is `:487` and its parameter is named `db_path`, not `store`
 - **There is no shared enriched-store builder.** `corpus_db` (`tests/conftest.py:284`) calls `build_store`, but `enriched_db` (`:310`) inlines the `EnrichmentStore.upsert` loop in the fixture body. Slice 3 must extract it before it can be reused, which is why the "same builder" obligation above is written as a refactor with the existing enrichment leaves as its evidence
 - **The gallery index cannot live at `/`.** `/` is the projects page and a `ROUTES` entry; wrapping `build_app` with an index there would shadow a route the sweep covers. Pick a path outside `ROUTES` — `/gallery` — and pin it with the route-set leaf above

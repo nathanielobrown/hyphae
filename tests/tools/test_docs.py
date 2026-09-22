@@ -12,7 +12,7 @@ from tests.tools.conftest import ROOT
 # The prose a user reads
 DOCS = [
     *sorted(ROOT.glob("docs/*.md")),
-    ROOT / "CLAUDE.md",
+    ROOT / "AGENTS.md",
     ROOT / "CONTEXT.md",
     ROOT / "README.md",
 ]

@@ -37,7 +37,7 @@ A coordinating session dispatched you. Work alone: make the smaller call yoursel
 ## Task discipline
 
 - Orient before you edit: confirm the branch (`git status`); the brief's claims are hypotheses to check, not givens
-- At a design fork, use the blast-radius ladder in `CLAUDE.md`. Where it says "present options," stop building and put the options and your recommendation in the report
+- At a design fork, use the blast-radius ladder in `AGENTS.md`. Where it says "present options," stop building and put the options and your recommendation in the report
 - Stay on the delegated task; report blockers instead of widening scope
 - **Write the failing test first**, and prefer extending a good existing test to adding a new one
 - Anything that parses a session transcript is tested against a **recorded** one, redacted — never an invented record standing in for a real shape (`.claude/rules/testing.md`). If no recording covers the case, say so in the report rather than inventing evidence

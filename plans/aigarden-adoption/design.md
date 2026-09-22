@@ -2,7 +2,7 @@
 
 ## Problem
 
-Doc integrity is enforced by instruction, not tooling: `docs/doc-sync.md` step 4 tells the editor to check links by hand, and it isn't working — `docs/pull-requests.md:15` links `documentation.md#keep-docs-in-step-with-the-change`, an anchor that doesn't exist. Three tables restate code by hand (the route table and two bounds tables in `docs/viewer.md`, the Layout tree in `CLAUDE.md`); `docs/doc-sync.md` names the Layout tree a known manual-sync burden. `docs/schema.md`'s five field tables are a fifth: their meanings and evidence citations live only in the doc, while the parser that reads those fields lives in `extract/claude_code.py` — two artifacts describing one format, tied by nothing. Prose wrapping is unpoliced — we want mycelia's never-wrap convention (one physical line per paragraph, so a reworded sentence is a one-line diff and AI authors mirror the style). And ruff/pyrefly/pytest config lags mycelia's.
+Doc integrity is enforced by instruction, not tooling: `docs/doc-sync.md` step 4 tells the editor to check links by hand, and it isn't working — `docs/pull-requests.md:15` links `documentation.md#keep-docs-in-step-with-the-change`, an anchor that doesn't exist. Three tables restate code by hand (the route table and two bounds tables in `docs/viewer.md`, the Layout tree in `AGENTS.md`); `docs/doc-sync.md` names the Layout tree a known manual-sync burden. `docs/schema.md`'s five field tables are a fifth: their meanings and evidence citations live only in the doc, while the parser that reads those fields lives in `extract/claude_code.py` — two artifacts describing one format, tied by nothing. Prose wrapping is unpoliced — we want mycelia's never-wrap convention (one physical line per paragraph, so a reworded sentence is a one-line diff and AI authors mirror the style). And ruff/pyrefly/pytest config lags mycelia's.
 
 The constraint that decides the shape: `.github/workflows/check.yml` runs exactly `mise run check`, so any gate added to `check`'s depends is CI-enforced with no workflow edit. And aigarden is a mise-pinned prebuilt binary, so unlike shellcheck (which CI silently skips) it will exist on the runner.
 
@@ -32,12 +32,12 @@ mise.toml                    ~ [tools] aigarden pin (0.1.4+); [settings] minimum
 aigarden.toml                + rule config (contract below)
 tools/gen_routes.py          + viewer.md route-table generator
 tools/gen_bounds.py          + viewer.md bounds + URL-knob table generator
-tools/gen_layout.py          + CLAUDE.md Layout-tree generator
+tools/gen_layout.py          + AGENTS.md Layout-tree generator
 tools/gen_schema.py          + schema.md field-table generator (reads the record models)
 src/hyphae/extract/records.py  + Pydantic models of Claude Code's raw record shapes: docstrings + Field descriptions + evidence metadata
 tests/tools/                 + generator unit tests
 docs/viewer.md               ~ three tables become cog blocks
-CLAUDE.md                    ~ Layout tree becomes a cog block
+AGENTS.md                    ~ Layout tree becomes a cog block
 docs/*.md, README.md, etc.   ~ one-time never-wrap normalize commit (~61 wrap points in living docs)
 docs/documentation.md        ~ "Prefer facts that update themselves" gains the generated form; cog how-to; never-wrap stated as the convention
 docs/pull-requests.md        ~ fix the broken anchor
@@ -79,7 +79,7 @@ Unit tests drive `generate()` directly and assert properties against the live co
 1. **Gate lands** — mise pin, `aigarden.toml`, `lint-docs`/`lint-docs-check` wired into `check-fast`/`check`; fix the real findings (anchor, viewer-ui.md paths), auto-fix markdown-style, then the one-time never-wrap normalize as its own mechanical commit (~61 wrap points in living docs). Verify: `mise run check` green; a scratch broken link and a scratch hard-wrapped paragraph each fail it
 2. **Cog seam + route table** — `tools/gen_routes.py`, the cog block in `docs/viewer.md`, `cogs`/`cogs-check` tasks in `check`, unit test. Verify: hand-edit the generated block → `check` fails; `mise run cogs` heals it
 3. **Bounds tables** — `gen_bounds.py`, two blocks, test
-4. **Layout tree** — `gen_layout.py`, CLAUDE.md block, docstring backfill, test
+4. **Layout tree** — `gen_layout.py`, AGENTS.md block, docstring backfill, test
 5. **`mv-doc`** — verify by moving a scratch doc: references rewritten, `check` green
 6. **Tooling catch-up** — expand ruff select toward mycelia's curated list (adapted, not copied — e.g. skip `required-imports = ["from __future__ import annotations"]`), pin ruff exact, pyrefly `>=1.0` + `preset = "strict"` + promoted warn kinds, pytest `filterwarnings = ["error"]` with targeted ignores, pin uv exact in mise; fix the resulting findings. Verify: `mise run check`. Ordered after slice 1 so the doc churn is link-checked; independent of 2–5
 7. **schema.md from record models** — `extract/records.py` with meanings + evidence migrated row by row from today's schema.md (each row's fixture citation checked against the fixture as it moves), `gen_schema.py`, cog blocks replacing the five tables, the two drift tests. Verify: generated tables carry every field the hand-written ones did (diff reviewed once, then the cog gate owns it); a field stripped of its evidence metadata crashes the generator. Depends on slice 2's cog seam. **As built,** four of the five tables became cog blocks: the subagent-metadata table counts a corpus rather than describing transcript fields, so it stayed hand-written

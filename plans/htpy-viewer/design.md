@@ -114,7 +114,7 @@ Mid-branch coexistence: both render paths live side by side — `Viewer` carries
 - `docs/ui-development.md` — new reload story (uvicorn reload + SSE reconnect); §"A formatter owns the layout" deleted; Ruff named as the components' formatter
 - `docs/viewer.md:5` — governing-rule pointer survives; sweep for `templates/` mentions
 - `docs/viewer-bounds.md` — re-measured numbers (`:72`'s "97 rows at 5 KB" both move), and the derived figures at `:66,72` move inside a cog block so freshness polices them
-- `CLAUDE.md` tooling line — drop the djLint clause; `mise run cogs` for the Layout tree if glosses moved
+- `AGENTS.md` tooling line — drop the djLint clause; `mise run cogs` for the Layout tree if glosses moved
 - `pyproject.toml` dependency comments — htpy gets one stating the escaping contract, as jinja2's does today; the sub-config's comment names its reversal condition and points at the canary
 
 ## Decisions

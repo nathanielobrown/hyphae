@@ -7,7 +7,7 @@
 -- result, for a server-side tool as well as a client one. NULL means no raw record names it,
 -- so there is nothing to slice: the transcript never held the result.
 -- The text comes back whitespace-collapsed and cut to `$max_chars`, with the full length
--- beside it. Session data is private (`CLAUDE.md`) — this is a signature, not the error.
+-- beside it. Session data is private (`AGENTS.md`) — this is a signature, not the error.
 SELECT
     t.source,
     (

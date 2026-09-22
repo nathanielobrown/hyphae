@@ -138,7 +138,7 @@ Let's do a different hue, and if the agent had an auto compact, let's use a read
 
 ## 7. Turn context bars: what exactly is "the increase from base prompt to the end of their run"?
 
-Today a turn's bar is: dim = fill at turn start (everything pre-existing), bright tip = what this turn added over the previous turn. Your phrasing suggests anchoring on the *base prompt* — the fixed context (system prompt, CLAUDE.md, etc.) every turn starts from — but it can be read a few ways:
+Today a turn's bar is: dim = fill at turn start (everything pre-existing), bright tip = what this turn added over the previous turn. Your phrasing suggests anchoring on the *base prompt* — the fixed context (system prompt, AGENTS.md, etc.) every turn starts from — but it can be read a few ways:
 
 
 | Option               | Dim region         | Bright region                                           | What it emphasizes                     |

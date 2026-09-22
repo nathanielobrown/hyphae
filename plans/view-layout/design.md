@@ -8,7 +8,7 @@ Every path and line count here was read on 2026-09-01. Treat each as a hypothesi
 
 `view/` is thirty modules on one layer plus `components/`. The only split is by kind, one level deep: markup under `components/`, everything else — routes, presenters, models, printing utilities, the server — mixed at the top. Two symptoms:
 
-- A change to one page touches four places: its route module, its presenters, `components/<page>.py`, and whatever shared module it reaches. The CLAUDE.md rule "load only the context the task needs" is unenforceable when the context for one page is scattered
+- A change to one page touches four places: its route module, its presenters, `components/<page>.py`, and whatever shared module it reaches. The AGENTS.md rule "load only the context the task needs" is unenforceable when the context for one page is scattered
 - The route modules are split by response kind, not by page: `fragments.py` (21 routes) and `expansions.py` (4 routes) all serve the node page. "Fragments" names nothing a reader looks for
 
 The constraint that decides the shape: the node page is about half the package (~5,100 of ~10,400 lines), the two lists ~8%, the four small pages ~8%, and the rest is shared. Organizing by kind first would put a `node/` inside every kind directory; organizing by page first puts the weight where it is and leaves the node package to order itself by its own anatomy (`CONTEXT.md`, "Node-page anatomy").

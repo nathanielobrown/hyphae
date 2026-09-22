@@ -8,7 +8,7 @@ Designed against the canonical store `data/traces.duckdb` (probed 2026-08-07, sc
 
 The store answers questions but nobody has a standing way to ask them. Three constraints decide the shape:
 
-- **A claim carries its query** (CLAUDE.md). Ad-hoc SQL typed into a chat produces findings nobody can re-run; the queries must be versioned artifacts a report cites
+- **A claim carries its query** (AGENTS.md). Ad-hoc SQL typed into a chat produces findings nobody can re-run; the queries must be versioned artifacts a report cites
 - **575 sessions cannot all be read**, and reading one must not load a transcript into context — the store's `raw_records` rows for one session run to megabytes, and transcripts are private
 - **No API key.** Enrichment (`plans/enrichment/design.md`) would accelerate selection and triage, but the process must produce a full report without it. Careful reading is done by Claude Code subagents the manager dispatches, not by the enrichment pipeline
 
@@ -32,7 +32,7 @@ src/hyphae/analyze/
   templates/session.md       per-session report template (front matter + capped body)
   templates/run.md           per-run report template
 src/hyphae/cli.py         + `hp query` subcommand
-docs/analysis.md             the process guide readers and the manager follow; linked from the CLAUDE.md Layout tree
+docs/analysis.md             the process guide readers and the manager follow; linked from the AGENTS.md Layout tree
 reports/YYYY_MM_DD_mycelia_<topic>.md   one per iteration (committed, human-reviewed)
 data/analysis/<YYYY_MM_DD>/  gitignored working papers: counts/, sessions/, runs/, stamp.txt
 ```
@@ -50,7 +50,7 @@ data/analysis/<YYYY_MM_DD>/  gitignored working papers: counts/, sessions/, runs
 
 **As built,** every broad count carries a `period` column and returns its corpus row and its trailing-window row from one pass, off a runner-built `session_period` view — rather than shipping a weekly variant of each. `weekly_trend` remains the one ISO-week query; a per-count weekly variant is a query to add when an iteration wants a trend of that count, not five files to keep in step from the start. Two shapes of the same count are two chances for the window to drift from the total it restricts, which is the same reason the window lives in the runner and not in each file.
 
-**As built,** the classifier names `skill-orchestrated` where this section says `manager-orchestrated`: any one skill carrying at least `$skill_share_pct` of a session's api calls. `manager` is one project's skill, and `CLAUDE.md` forbids assuming mycelia's conventions. Every cut point is a bound parameter — at the defaults on the 2026-08-07 store, `conversational` takes 338 of 571 sessions, so the first process review should expect to move them.
+**As built,** the classifier names `skill-orchestrated` where this section says `manager-orchestrated`: any one skill carrying at least `$skill_share_pct` of a session's api calls. `manager` is one project's skill, and `AGENTS.md` forbids assuming mycelia's conventions. Every cut point is a bound parameter — at the defaults on the 2026-08-07 store, `conversational` takes 338 of 571 sessions, so the first process review should expect to move them.
 
 **As built,** `skill_activity` reports invocations and attributed calls as separate columns of one row, and they disagree sharply: `manager` shows 6,289 attributed calls and zero invocations, because a skill reached through a slash command invokes no `Skill` tool call. Reading either column as "how much this skill was used" would be wrong on its own. `docs/schema.md` records the `Skill` input shape the invocation half depends on; no fixture holds one, so that half is exercised only against the real store.
 
@@ -101,7 +101,7 @@ The `hp query` CLI against a store built by the real extract pipeline from check
 
 1. Query runner + three broad-count queries (tool failure rates, skill activity, cost distribution) + the smoke and `--since` tests — proves the seam and one representative count
 2. The rest of the library: trends, co-occurrence, session shapes, digests, `records_slice`, selection — verified by the smoke test plus the selection/strata tests
-3. Templates + `docs/analysis.md` + CLAUDE.md Layout line — verified by `mise run check` and by a dry-run digest of one real session
+3. Templates + `docs/analysis.md` + AGENTS.md Layout line — verified by `mise run check` and by a dry-run digest of one real session
 4. Iteration 1 itself, run by the manager per `docs/analysis.md`, ending in the first committed report — the process's own acceptance test; its review section is the input to iteration 2
 
 ## Decisions

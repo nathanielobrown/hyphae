@@ -1,4 +1,4 @@
-"""The Layout tree in `CLAUDE.md`: what lives where, glossed by the thing that lives there.
+"""The Layout tree in `AGENTS.md`: what lives where, glossed by the thing that lives there.
 
 Run by a cog block in that file — `uv run python -m tools.gen_layout` — and it writes the fence
 as well as the tree, because a cog marker inside a fenced block is an example rather than a live
@@ -54,7 +54,7 @@ class Entry(NamedTuple):
 
 
 # Top-level directories the tree leaves out, each with why. Guidance for the agent rather than
-# the project's own layout: a reader of `CLAUDE.md` is already inside the first.
+# the project's own layout: a reader of `AGENTS.md` is already inside the first.
 UNLISTED = {
     ".claude/": "the agent's own configuration — rules, hooks, skills and agents",
     ".github/": "CI, which runs exactly `mise run check`",

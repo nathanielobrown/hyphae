@@ -16,7 +16,7 @@ The deletion test: none of the mapper's filters can go today, because the trace 
 
 ## Options
 
-Blast radius: this touches `model.py`, which CLAUDE.md calls foundation-shaping, so the fork is laid out rather than decided in passing.
+Blast radius: this touches `model.py`, which AGENTS.md calls foundation-shaping, so the fork is laid out rather than decided in passing.
 
 **A. A `live()` projection on the trace (recommended).** Keep the per-row flag and every row. Add `LiveRows` and `SessionTrace.live()`, which returns the rows no fork copied plus every agent run. The mapper shapes `trace.live()`; the store derives its `live_*` family and each view's predicate from `LiveRows` and the row types. Stored schema unchanged. No `EXTRACTOR_VERSION` or `SCHEMA_VERSION` bump: the flag's values don't move, and `live()` derives from them at read time.
 

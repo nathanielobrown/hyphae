@@ -30,7 +30,7 @@ src/hyphae/analyze/queries.py     shared loader: load(name) -> str  (see seams)
 src/hyphae/analyze/queries/*.sql  the viewer's queries join the analysis library
 src/hyphae/cli.py     + `view` subcommand
 pyproject.toml           + fastapi, uvicorn, jinja2, markdown-it-py (each commented)
-docs/viewer.md           what the viewer shows and the URL contract; CLAUDE.md Layout line
+docs/viewer.md           what the viewer shows and the URL contract; AGENTS.md Layout line
 tests/view/test_app.py
 ```
 

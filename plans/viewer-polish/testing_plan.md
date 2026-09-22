@@ -89,7 +89,7 @@ Three rules shape everything below.
 
 ## Slice 7 — docs
 
-- The display-vs-retrieval convention is written where an agent will meet it. *Evidence:* the sentence exists in the file `docs/documentation.md` places it in, and `CLAUDE.md`'s pointer chain reaches it; `mise run check-fast` resolves the link.
+- The display-vs-retrieval convention is written where an agent will meet it. *Evidence:* the sentence exists in the file `docs/documentation.md` places it in, and `AGENTS.md`'s pointer chain reaches it; `mise run check-fast` resolves the link.
 - `CONTEXT.md` defines the terms this change coins and redefines the popover. *Evidence:* *compaction badge* and the popover's spend lines read against the code in the same PR; nothing is defined that the change did not coin.
 - `docs/viewer.md` says what a popover now shows and what names a tool call. *Evidence:* the generated blocks pass `mise run check`'s freshness step, and `grep` finds no surviving claim that a tool call is titled by `analyze/macros.py`.
 - `docs/schema.md` and the record models are untouched, deliberately. *Evidence:* no field was added to a record model — `ToolSearch.query` and `PushNotification.message` are read out of the stored `input`, which the store already keeps whole — so the schema document has nothing to gain; slice 0 records the confirming session instead.

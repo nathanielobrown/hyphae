@@ -17,7 +17,7 @@ Read [the documentation guide](documentation.md) before you start. It defines wh
 1. **Scope the change.** Read `git diff origin/main...HEAD` and inspect the changed files. Look for added, renamed, or deleted files; public interface changes; new terms; changed behavior; and decisions the code now embodies.
 
 2. **Find the docs that own those facts.** Use [Give each fact one home](documentation.md#give-each-fact-one-home), then open each likely owner and check whether the diff has made it stale. These changes often require a doc update:
-   - A new top-level module or package needs a docstring whose first sentence reads as its gloss: the `CLAUDE.md` Layout tree is generated from those, so run `mise run cogs` rather than editing the tree. A new child of `hyphae` also needs its line in [the layers contract](layering.md), or `lint-imports` is red
+   - A new top-level module or package needs a docstring whose first sentence reads as its gloss: the `AGENTS.md` Layout tree is generated from those, so run `mise run cogs` rather than editing the tree. A new child of `hyphae` also needs its line in [the layers contract](layering.md), or `lint-imports` is red
    - A changed telemetry attribute, span name, or transcript field belongs on its record model in `src/hyphae/extract/records/`, backed by the recorded session and Claude Code version that prove it; [the schema reference](schema.md) prints what the models carry, so run `mise run cogs` rather than editing its tables
    - A changed extraction or analysis command may affect the README usage section and its task description in `mise.toml`
    - A changed component relationship or flow may require a Mermaid diagram in the doc that owns the topic; follow [the Mermaid guide](mermaid-guide.md), and update diagrams the change has made stale
@@ -26,7 +26,7 @@ Read [the documentation guide](documentation.md) before you start. It defines wh
 
    If an owning doc is a stub or contains only a `TODO`, don't fill it by assumption. Flag it for a human.
 
-3. **Update only stale docs.** Link to sources of truth instead of repeating them. Keep `CLAUDE.md` and its imports scannable. If you need more than a sentence or two of new prose, invoke the `writing` skill before drafting.
+3. **Update only stale docs.** Link to sources of truth instead of repeating them. Keep `AGENTS.md` and its imports scannable. If you need more than a sentence or two of new prose, invoke the `writing` skill before drafting.
 
 4. **Validate your edits.** Run `mise run check-fast`: it rejoins any paragraph you hard-wrapped and reports a link, anchor, or path that doesn't resolve. Run `mise run diagram-check <file>` for each changed Mermaid diagram.
 

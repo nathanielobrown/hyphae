@@ -1,7 +1,7 @@
 -- One page of the raw transcript records of one `(session_id, source)`: the browser a report's
 -- citation lands in. Keyset on `line_no`, unique and ascending within a thread; `$after` is
 -- the last line already shown, so a citation of line N opens the page at `after = N - 1`.
--- Session data is private (`CLAUDE.md`) — a row carries `$preview_chars` of the record and its
+-- Session data is private (`AGENTS.md`) — a row carries `$preview_chars` of the record and its
 -- true length, and the whole record is fetched one at a time (`view_record`).
 SELECT
     line_no,

@@ -109,7 +109,7 @@ src/hyphae/enrich/
   cost.py          NEW  (slice 4, not in the original tree) rate table, chars-per-token, and the dry run's arithmetic
 src/hyphae/cli.py  CHANGED  `enrich [--db] [--project] [--model] [--dry-run] [--limit] [--no-batch]`
 docs/enrichment.md    NEW  taxonomy meanings + staleness model (schema.md stays telemetry-only)
-CLAUDE.md             CHANGED  Layout entry for docs/enrichment.md (doc-sync will enforce)
+AGENTS.md             CHANGED  Layout entry for docs/enrichment.md (doc-sync will enforce)
 pyproject.toml        CHANGED  deps: anthropic, python-dotenv
 tests/enrich/         NEW  test_prompts.py, test_store.py, test_enricher.py
 ```
@@ -123,7 +123,7 @@ tests/enrich/         NEW  test_prompts.py, test_store.py, test_enricher.py
 1. **Seam + spine, turn level.** Taxonomy, store DDL + `enriched_turns`, turn render + hash + staleness + zombie sweep, `enrich()` over the fake client, secret-shape screen, CLI with `--dry-run`. Verified by `test_enricher.py` enriching fixture-built turns end to end, plus a second-run-is-a-no-op test.
 2. **Real clients.** `AnthropicBatchClient` submit/poll/collect with all four result types (succeeded, errored, canceled, expired), `SyncClient`, key validation, per-item failure → classified crash summary → rerun resumes. Verified by mocked-SDK tests; manual live check noted in the PR.
 3. **Agent runs.** Topological rounds with per-round staleness recompute, child-description embedding into run and turn prompts, rootless runs as roots, multi-turn renders (teammate-tag unwrap) and zero-turn continuations, cap elision. Verified on a subagent fixture session including a multi-turn run.
-4. **Sessions + docs.** Session render from rollups + spawn-linkage children, skip rule, remaining views, `docs/enrichment.md` + the CLAUDE.md Layout line, full `--dry-run` cost report with ancestor counting. Verified by view SQL tests. *Landed; deviations in the as-built notes above and in the testing plan's slice-4 section.*
+4. **Sessions + docs.** Session render from rollups + spawn-linkage children, skip rule, remaining views, `docs/enrichment.md` + the AGENTS.md Layout line, full `--dry-run` cost report with ancestor counting. Verified by view SQL tests. *Landed; deviations in the as-built notes above and in the testing plan's slice-4 section.*
 
 ## Decisions
 
