@@ -3,12 +3,16 @@
 `check.yml` opens by promising a gate that needs no secret, store, or network, and every leaf in
 the suite is written to hold it to that. The browser tier breaks both halves — Chromatic is a
 third party and the archives go over the wire — so it is a second workflow, and this is the file
-that keeps the split honest: one workflow with the token, a fork's pull request kept away from
-it, and the git history Chromatic needs to find a baseline.
+that keeps the split honest: the workflows with a token named one by one, a fork's pull request
+kept away from the upload, and the git history Chromatic needs to find a baseline.
 
 The repo is public, so a fork's pull request is untrusted input that runs here. GitHub withholds
 secrets from one, which makes the guard below a clear failure rather than a leak — but a job
 that reaches for a token it will not get fails after the sweep, which is worse than not asking.
+
+The `@claude` mention workflow is the other holder. It has no guard of its own to check: an
+`issue_comment` on a fork's pull request runs in this repo's context, so what stands between a
+stranger and the token is the action's own write-access check on the author.
 """
 
 from pathlib import Path
@@ -19,8 +23,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
-# The one workflow allowed to hold a credential (`plans/visual-testing/design.md`).
+# The two workflows allowed to hold a credential. The upload's token is guarded by the fork check
+# below (`plans/visual-testing/design.md`); the mention workflow's is guarded inside
+# anthropics/claude-code-action, which refuses an author without write access before spending it,
+# while GitHub withholds the secret from any run a fork's pull request triggers.
 UPLOADER = "e2e.yml"
+MENTIONS = "claude.yml"
 
 # How a workflow spells a reach into the repository's secrets.
 SECRET = "secrets."
@@ -56,7 +64,9 @@ def workflows() -> dict[str, str]:
     found = {path.name: path.read_text() for path in sorted(WORKFLOWS.glob("*.yml"))}
     # Both halves have to be there for anything below to mean what it says: a leaf reading one
     # file would pass a repo whose second workflow was deleted, or never written.
-    assert found.keys() >= {"check.yml", UPLOADER}, f"{WORKFLOWS} holds only {sorted(found)}"
+    assert found.keys() >= {"check.yml", UPLOADER, MENTIONS}, (
+        f"{WORKFLOWS} holds only {sorted(found)}"
+    )
     return found
 
 
@@ -66,15 +76,16 @@ def steps(workflow: str) -> list[dict[str, Any]]:
     return [step for job in jobs.values() for step in job["steps"]]
 
 
-def test_only_the_browser_tier_workflow_names_a_secret() -> None:
-    """`e2e.yml` is the one place a token enters CI, and `check.yml` still asks for none.
+def test_only_the_upload_and_the_mention_workflows_name_a_secret() -> None:
+    """`e2e.yml` and `claude.yml` are where a token enters CI, and `check.yml` still asks for none.
 
     The gate everyone runs promises no secret in its own header. A `secrets.` that appeared in
     it would be invisible — the workflow would go on passing — while quietly widening what a
-    pull request from a fork can be run against.
+    pull request from a fork can be run against. A third holder is a decision, not a drift, so
+    it is named here or it fails.
     """
     naming = {name for name, text in workflows().items() if SECRET in text}
-    assert naming == {UPLOADER}
+    assert naming == {UPLOADER, MENTIONS}
 
 
 def test_the_browser_tier_checks_out_the_history_a_baseline_is_found_in() -> None:
