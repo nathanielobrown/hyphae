@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Install the git hooks: a dispatcher per hook in the shared hooks dir. `mise run setup` runs
+# this once per clone.
+#
+# `git rev-parse --git-path hooks` rather than a hardcoded `.git/hooks` is what makes this work
+# from a worktree, where `.git` is a file and the hooks live in the shared common dir. That
+# sharing is also why each hook is a *dispatcher* and not a symlink to `tools/<hook>`: one hooks
+# dir stands behind the main checkout and every worktree, so a fixed link would run one
+# checkout's script no matter which worktree fired it. The dispatcher re-resolves the firing
+# worktree at run time.
+
+set -euo pipefail
+
+hooks="$(git rev-parse --git-path hooks)"
+mkdir -p "$hooks"
+
+install_hook() {
+  local name="$1" dst="$hooks/$1"
+  # rm first: an existing install may be a symlink, and `cat >` would follow it and clobber
+  # the target instead of replacing the hook.
+  rm -f "$dst"
+  # Unquoted so `$name` expands now; the escaped `\$` lands in the dispatcher verbatim.
+  cat >"$dst" <<HOOK
+#!/usr/bin/env bash
+top="\$(git rev-parse --show-toplevel)"
+script="\$top/tools/$name"
+[[ -x "\$script" ]] && exec "\$script" "\$@"
+echo "$name: no $name script found under \$top" >&2
+exit 1
+HOOK
+  chmod +x "$dst"
+  echo "$name hook installed → $dst"
+}
+
+install_hook pre-commit
