@@ -130,7 +130,7 @@ description = "Lint the repo's shell scripts with shellcheck"
 # silently stops firing. `tools/pre-commit` is the same trap one level up — it gates every
 # commit. `tests/e2e` holds the Chromatic uploader, where a slip
 # would be seen once a month. Run flat, for the reason the pin in `[tools]` gives.
-run = "tools/gate.py shellcheck .claude/hooks/*.sh tests/e2e/*.sh tools/pre-commit tools/install-hooks"
+run = "tools/gate.py shellcheck .claude/hooks/*.sh tests/e2e/*.sh tools/pre-commit tools/install-hooks tools/setup-worktree tools/post-checkout"
 
 [tasks.diagram-check]
 description = "Validate a Mermaid file or Markdown's ```mermaid blocks by rendering it"

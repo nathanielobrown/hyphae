@@ -1,0 +1,4 @@
+# Gitignored files `tools/setup-worktree` copies from the primary checkout into a new worktree.
+# Claude Code and Orca read this file too. One literal path per line.
+.env
+.claude/settings.local.json
