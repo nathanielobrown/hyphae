@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Provision this checkout: trust its mise config, copy the gitignored files `.worktreeinclude`
+# lists from the primary checkout, and sync the virtualenv. Idempotent, so rerunning is safe.
+#
+# Every way a worktree gets made reaches this one script: `git worktree add` and Orca through
+# the `post-checkout` hook, and `claude --worktree`, which adds its worktree with hooks off,
+# through the Claude Code `SessionStart` hook in `.claude/settings.json`.
+#
+# It never fails and never writes stdout. A nonzero `post-checkout` makes `git worktree add`
+# report failure on a checkout that worked, and `SessionStart` pastes stdout into the model's
+# context.
+
+# `SessionStart` does not go through the git hook dispatcher, so drop an inherited venv here too.
+unset VIRTUAL_ENV
+repo_root="$(git rev-parse --show-toplevel)" || exit 0
+cd "$repo_root" || exit 0
+
+# `git worktree list` always names the primary checkout first.
+main_root="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
+if [[ -f .worktreeinclude && "$main_root" != "$repo_root" ]]; then
+  while IFS= read -r path || [[ -n "$path" ]]; do
+    path="${path%%#*}"
+    path="${path// /}"
+    # Never overwrite: a file already here is this checkout's own.
+    [[ -n "$path" && -e "$main_root/$path" && ! -e "$path" ]] || continue
+    mkdir -p "$(dirname "$path")" && cp -R "$main_root/$path" "$path"
+  done <.worktreeinclude
+fi
+
+# A GUI app may run git without mise on PATH.
+mise_bin="$(command -v mise || true)"
+for candidate in "$HOME/.local/bin/mise" /opt/homebrew/bin/mise; do
+  [[ -z "$mise_bin" && -x "$candidate" ]] && mise_bin="$candidate"
+done
+[[ -n "$mise_bin" ]] || {
+  echo "setup-worktree: mise not found; run mise run setup" >&2
+  exit 0
+}
+
+"$mise_bin" trust -q >/dev/null 2>&1 || true
+# The `sync` task owns the flags: a `uv sync` with fewer groups would uninstall what it adds.
+"$mise_bin" run sync >&2 || echo "setup-worktree: sync failed; run mise run setup" >&2
+exit 0

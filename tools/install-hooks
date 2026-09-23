@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Install the git hooks: a dispatcher per hook in the shared hooks dir. `mise run setup` runs
+# this once per clone.
+#
+# `git rev-parse --git-path hooks` rather than a hardcoded `.git/hooks` is what makes this work
+# from a worktree, where `.git` is a file and the hooks live in the shared common dir. That
+# sharing is also why each hook is a *dispatcher* and not a symlink to `tools/<hook>`: one hooks
+# dir stands behind the main checkout and every worktree, so a fixed link would run one
+# checkout's script no matter which worktree fired it. The dispatcher re-resolves the firing
+# worktree at run time.
+
+set -euo pipefail
+
+hooks="$(git rev-parse --git-path hooks)"
+mkdir -p "$hooks"
+
+# install_hook <name> <exit when the firing checkout has no tools/<name>>
+install_hook() {
+  local name="$1" missing="$2" dst="$hooks/$1"
+  # rm first: an existing install may be a symlink, and `cat >` would follow it and clobber
+  # the target instead of replacing the hook.
+  rm -f "$dst"
+  # Unquoted so `$name` and `$missing` expand now; the escaped `\$` lands in the dispatcher
+  # verbatim. A VIRTUAL_ENV inherited from another checkout would point every hook's venv tools
+  # at the wrong site-packages, so the dispatcher drops it for all of them.
+  cat >"$dst" <<HOOK
+#!/usr/bin/env bash
+unset VIRTUAL_ENV
+top="\$(git rev-parse --show-toplevel)"
+script="\$top/tools/$name"
+[[ -x "\$script" ]] && exec "\$script" "\$@"
+[[ $missing == 0 ]] || echo "$name: no $name script found under \$top" >&2
+exit $missing
+HOOK
+  chmod +x "$dst"
+  echo "$name hook installed → $dst"
+}
+
+# A branch older than a hook's script still has to commit through the gate, so a missing
+# pre-commit refuses. A missing post-checkout passes: a nonzero one makes `git worktree add`
+# report failure on a checkout that worked.
+install_hook pre-commit 1
+install_hook post-checkout 0

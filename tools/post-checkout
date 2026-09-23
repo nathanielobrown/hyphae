@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Provision a new checkout. Git passes forty zeros as the previous HEAD only when a clone or
+# `git worktree add` creates the checkout, so a branch switch skips this.
+[[ "${1:-}" == "0000000000000000000000000000000000000000" ]] || exit 0
+exec "$(dirname "${BASH_SOURCE[0]}")/setup-worktree"

@@ -1,6 +1,6 @@
 # Claude Code project config
 
-Rationale for `settings.json` entries that have no code home (JSON takes no comments; each hook's why lives in its script's header under `hooks/`).
+Rationale for `settings.json` entries that have no code home (JSON takes no comments; each hook's why lives in its script's header: under `hooks/`, or `tools/setup-worktree` for `SessionStart`).
 
 - `permissions.deny` — the `gh` subcommands that delete, archive, or touch secrets and auth, and the built-in tools a Python analysis repo has no use for. No `Read` rule: one on `.env` and `data/` drew a permission prompt on most sessions, so keeping raw session data out of context rests on `.gitignore` and the privacy rule in `AGENTS.md`
 - `skillOverrides` — trims built-in skills that don't apply to a Python analysis repo. `name-only` keeps the skill invocable but drops its body from context; `off` removes it
