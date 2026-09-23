@@ -73,7 +73,7 @@ mise run check    # format, lint, type-check, lint the docs, and test
 
 Every task lives in `mise.toml`; run `mise run check-fast` while you work. Inside a checkout, `uv run hp` runs the checkout's code rather than the installed tool, and `uv tool install -e .` makes the global `hp` track the checkout.
 
-A new worktree sets itself up, wherever it lives and whatever made it. `tools/setup-worktree` trusts the checkout, copies the gitignored files `.worktreeinclude` lists from the primary checkout, and syncs the environment. `git worktree add` and Orca run it through the `post-checkout` hook; `claude --worktree` skips git hooks, so a Claude Code `SessionStart` hook runs it instead.
+Worktrees set themselves up. `tools/setup-worktree` trusts the checkout, copies the gitignored files `.worktreeinclude` lists from the primary checkout, and syncs the environment. `git worktree add` uses the `post-checkout` hook; `claude --worktree` skips git hooks, so a Claude Code `SessionStart` hook runs it instead.
 
 ## Treat transcripts as private
 
