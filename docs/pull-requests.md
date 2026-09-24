@@ -14,6 +14,8 @@ Plain `git` owns branches and commits, `gh stack` owns stacks, and `gh` owns PRs
 - Address review comments with commits in the owning layer. For stacks, run `gh stack rebase --upstack` and `gh stack push`. Fixup commits are fine and need no autosquashing, because squash landing absorbs them.
 - Landing: see [Landing](#landing) below. Every PR lands by squash.
 
+The `pr-submitter` agent (`.claude/agents/pr-submitter.md`) opens a PR by this flow, and `branch-merger` (`.claude/agents/branch-merger.md`) lands one when directed.
+
 ## Start the title with the change type
 
 Start the title with emoji from the table in [the commit guide](commits.md), then a plain statement of the change. Multiple emoji are allowed when multiple would apply, but focus on what's important to convey. For example, documentation with a feature does not need the documentation emoji.
