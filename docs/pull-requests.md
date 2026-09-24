@@ -77,7 +77,7 @@ The composer's input is terse bullets with no polish. Use `.claude/skills/pr/fac
 - **Feedback wanted**: What kind of review the PR asks for.
 - **Judgment points**: Risks, open decisions, and known issues, each with a file path, ordered by risk.
 - **Design**: Points the diff does not make obvious, drawn from the `design-<topic>` handoff when there is one. Plan deviations go here, and only if there are any.
-- **Visuals**: Each `save` output or Mermaid block, with one line describing what it shows.
+- **Visuals**: Each `save` output or Mermaid block, with one line describing what it shows, and any interactive explainer's `save` link with one line on what the reader can do there.
 - **Verification**: Evidence beyond standard green checks (commands with output excerpts), what went unverified (a `testing-plan-<topic>` handoff's uncovered leaves belong here), and any edits to tests, CI, or thresholds.
 - **Links**: Plan, issue, and artifacts.
 - **Emphasis**: Free-form notes to the composer, such as "the migration is what matters most".
@@ -129,6 +129,7 @@ Visuals clarify changes faster than raw diffs:
 
 - **Required visuals**: A change to a viewer page requires a Chromatic before/after image of each changed page through `save`. New or changed flows, state machines, or data models require a Mermaid diagram. Performance or test-runtime changes require a before/after chart or table.
 - **Visuals placement**: Images, simple diagrams, and tables go inline. Interactive HTML goes behind a link.
+- **Interactive explainers**: Build an interactive HTML explainer when text and a single diagram cannot clearly convey the change. Examples include stepping through state machines or algorithmic cases on real inputs, sliding across a threshold or timeout, or filtering a before-and-after table from recorded data. Build it as a single self-contained HTML file (or a directory uploaded via `save <dir> --entry index.html`). Use only recorded or redacted data, such as the redacted fixture corpus, never a real trace store or live session data, since anyone with the link can access it. Open the file in a browser to verify it renders without console errors. Save the source next to the fact sheet as a handoff, upload it using `save`, and add the link to the fact sheet's Visuals section with a one-line description of how to use it. The PR description must still stand on its own without the explainer. Deep-tier PRs usually warrant one; Standard PRs warrant one whenever a reviewer would otherwise need to run the code to understand the change.
 - **Hosting with `save`**: Host PR assets with the `save` CLI. `save <file>` (the same command as `save put`) uploads a file and prints a Markdown snippet: an inline image for images, a link otherwise. The bucket is public, so never `save` a screenshot or report drawn from a real trace store; the gallery renders only the redacted fixture corpus. Installation and credentials are in the save repo's README (/Users/nob/repos/save, to be published as nathanielobrown/save).
 
 ### Chromatic snapshots of viewer pages
@@ -169,7 +170,7 @@ Before opening a PR containing Mermaid, write the exact body to a file and run `
 - [ ] Body checked against the fact sheet for factual errors; prose fits tier word budget (Light \~75, Standard \~300, Deep \~500)
 - [ ] Empty sections omitted (no placeholders for unneeded sections)
 - [ ] Every behavior change has safe evidence; no session data in the body
-- [ ] Required visuals included; Mermaid blocks validated with `mise run diagram-check <file>`
+- [ ] Required visuals included, and an interactive explainer linked if the change is hard to picture; Mermaid blocks validated with `mise run diagram-check <file>`
 - [ ] Opened with `gh pr create --body-file <file>`
 
 ## CI and checks

@@ -72,7 +72,7 @@ Scale prose to the change. If a Standard PR needs only 150 words, do not pad it.
 Place visuals inside the "How it works" section:
 
 - **Inline visuals**: Embed images, simple diagrams (Mermaid), and comparison tables directly inline.
-- **Linked visuals**: Place interactive HTML reports or external assets behind Markdown links.
+- **Linked visuals**: Place interactive HTML explainers, reports, or external assets behind Markdown links, each with the fact sheet's line on what the reader can do there.
 - **Asset links from `save`**: When the fact sheet provides outputs from `save` (such as `save <file>` or `save story <story-id>`), place the generated Markdown link or image embed directly into the body.
 
 ## Stacked PRs

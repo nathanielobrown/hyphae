@@ -35,6 +35,7 @@ The composer agent reads this file and the diff to draft the pull request descri
 
 ### Visuals
 - <`save` command output (`save <file>` or `save story <story-id>`) or a Mermaid block: one line describing what it shows>
+- <interactive explainer: its `save` link and one line on what the reader can do there>
 
 ### Verification
 - Checks executed: <commands run and output excerpts beyond standard green checks>

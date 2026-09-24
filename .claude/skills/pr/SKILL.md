@@ -14,6 +14,7 @@ Open a reviewable PR by the procedure below and the full guide in `docs/pull-req
 3. **Get the fact sheet written**: The handoff `pr-facts-<topic>` (`docs/handoffs.md` names the file) comes from the final `git diff <base>...HEAD` and test output, never from the plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer. Follow [fact_sheet.md](fact_sheet.md).
    - If an `auditor` reviews the branch, its accepting pass writes the fact sheet. Put the tier, the feedback wanted, the user's decisions, and the implementer's report verbatim in the audit brief.
    - Otherwise write it yourself; you did the work.
+   - For a change that is hard to grasp from text and one diagram, build an interactive HTML explainer, upload it with `save`, and add the link to the fact sheet's Visuals (`docs/pull-requests.md`).
 4. **Compose the description**: Run the Gemini composer headless through pi with [composer.md](composer.md), naming the fact sheet, the diff base, and the `pr-body-<topic>` handoff to write:
 
    ```bash
