@@ -14,7 +14,7 @@ Your input is a fact sheet (`pr-facts-<topic>`): a verbose PR draft written by C
 
 - **Everything comes from the fact sheet**: Build the opening from What changed (lead with Headline) and Why. Source all rationale, judgment points, design points, visuals, and verification strictly from the fact sheet. Do not infer rationale from the code, and do not raise risks or questions absent from the sheet.
 - **Background is not this PR's work**: Items under Background provide context. Never present them as changes made by this PR.
-- **Look things up sparingly**: Do not read the entire diff or explore the codebase. Run `git diff --stat <base>...HEAD` if you need the scope. Inspect a specific file or hunk only to quote a path or identifier accurately, or to clarify an ambiguous fact-sheet line. A few commands are expected; a dozen means you are researching.
+- **Look things up sparingly**: Do not read the entire diff or explore the codebase. Run `git diff --stat <base>...HEAD` if you need the scope. Inspect a specific file or hunk only to quote a path or identifier accurately, or to clarify an ambiguous fact-sheet line. Do not read earlier PR body drafts. A few commands are expected; a dozen means you are researching.
 - **Fact fidelity**: Never alter or fabricate a fact. Preserve technical terminology, exact paths, commands, flags, numbers, and any uncertainty markers or hedges from the fact sheet.
 - **Only links a reviewer can open**: Never cite handoffs (the fact sheet, the body draft, anything under `handoffs/`) or other gitignored paths. Link with full URLs or backticked repository paths; relative Markdown links 404 on github.com.
 
@@ -84,12 +84,15 @@ When composing descriptions for stacked PRs:
 - **Cadence**: Prefer short, direct sentences.
 - **Tense**: Use past tense for changes made ("Added cache header") and present tense for resulting behavior ("Returns 304 on match").
 
-## Final verification check
+## Write, then check
 
-Before writing the output file:
+1. Write your draft to the requested output path.
+2. Check every claim against the fact sheet. Remove anything it does not support, and any Background item written as this PR's work.
+3. Check that every path and identifier matches the fact sheet or `git diff --stat <base>...HEAD` exactly. `<base>` is the diff base your instruction names, or `origin/main` if it names none.
+4. Count the prose words with this command, which drops code blocks and `<details>` blocks:
 
-1. Check every claim against the fact sheet. Remove anything it does not support, and any Background item written as this PR's work.
-2. Check that every path and identifier matches the fact sheet or `git diff --stat <base>...HEAD` exactly. `<base>` is the diff base your instruction names, or `origin/main` if it names none.
-3. Count the prose words with a command, leaving out code blocks, diagrams and `<details>` blocks. If the count is over the tier budget, cut and count again. Drafts tend to overshoot: in the first two rollouts, Standard bodies came in at 330–389 words against ~300.
-4. Verify that empty sections are omitted with no placeholder text.
-5. Write the final description to the requested output path.
+   ```bash
+   sed -e '/^[[:space:]]*```/,/^[[:space:]]*```/d' -e '/<details>/,/<\/details>/d' <output path> | wc -w
+   ```
+
+   If the count is over the tier budget, cut by editing the file, then count again. Never regenerate the whole draft or paste it into a command. Drafts tend to overshoot: in the first rollouts, Standard bodies came in at 330–389 words against ~300.
