@@ -16,6 +16,7 @@ Your input is a fact sheet (`pr-facts-<topic>`): a verbose PR draft written by C
 - **Background is not this PR's work**: Items under Background provide context. Never present them as changes made by this PR.
 - **Look things up sparingly**: Do not read the entire diff or explore the codebase. Run `git diff --stat <base>...HEAD` if you need the scope. Inspect a specific file or hunk only to quote a path or identifier accurately, or to clarify an ambiguous fact-sheet line. A few commands are expected; a dozen means you are researching.
 - **Fact fidelity**: Never alter or fabricate a fact. Preserve technical terminology, exact paths, commands, flags, numbers, and any uncertainty markers or hedges from the fact sheet.
+- **Only links a reviewer can open**: Never cite handoffs (the fact sheet, the body draft, anything under `handoffs/`) or other gitignored paths. Link with full URLs or backticked repository paths; relative Markdown links 404 on github.com.
 
 ## PR body layout
 
@@ -46,7 +47,6 @@ went unverified, and any edit to tests, CI or thresholds.
 - **How it works**: Include one visual (diagram, screenshot, or link) followed by design points the diff does not make obvious. Plan deviations go here, and only if the fact sheet lists deviations. Do not include a file-by-file diff walkthrough.
 - **Verification**: Include only evidence beyond standard green checks: manual test runs, before/after command output excerpts, reproduction steps, unverified areas, and any edits to tests, CI configuration, or test thresholds. Do not paste full passing test logs or uninformative statements like "ran tests".
 - **Footer**: Place links to plans, issues, and artifacts at the bottom.
-- **Links**: Write every link as a full URL or a backticked repository path. A relative Markdown link 404s on github.com.
 - **Light PRs**: Output the opening paragraph only. Omit all `##` sections.
 - **Omit empty sections**: If a section has no content from the fact sheet, omit its heading entirely. Never write "None" or insert placeholder text.
 
