@@ -23,7 +23,7 @@ Use `mise` to run project tasks. `uv` owns the Python environment.
 
 - After a fresh clone, run `mise run setup`: it syncs the environment and installs the pre-commit hook. After a dependency change, `mise run sync` is enough
 - While iterating, run `mise run check-fast` for formatting, linting, type checks, and the import contracts (`docs/layering.md`). It formats prose too, and reports a link or path that doesn't resolve
-- Before you finish a task or open a PR, run `mise run check`. It also runs the tests, the hook linter, and the freshness check on every generated block; GitHub runs it on every push and PR (`.github/workflows/check.yml`), beside a second workflow for the browser tier (`.github/workflows/e2e.yml`) and a third that answers `@claude` mentions on issues and PRs (`.github/workflows/claude.yml`)
+- Before you finish a task or open a PR, run `mise run check`. It also runs the tests, the hook linter, and the freshness check on every generated block; GitHub runs it on every push and PR (`.github/workflows/check.yml`), beside a second workflow for the browser tier (`.github/workflows/e2e.yml`)
 - Run any individual task listed in `mise.toml` with `mise run <task>`. Ruff formats and lints Python, which is what a viewer page is made of (`docs/ui-development.md`); Pyrefly checks types; aigarden holds the docs to `aigarden.toml` and splices their generated blocks (`docs/documentation.md`)
 - Run `mise run diagram-check <file>` to validate Mermaid and `mise run mutate` to score the suite against mutants (`.claude/rules/testing.md`)
 - Run `mise run e2e` to drive the viewer's pages in a real Chromium; it is out of `check` because it needs a browser (`docs/ui-development.md`)
