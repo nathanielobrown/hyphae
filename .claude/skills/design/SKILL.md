@@ -7,7 +7,7 @@ description: The design-artifact format. Invoke before writing or auditing a des
 
 A design says what will be built and why that shape.
 
-Write it as a handoff `design-<topic>` ( @../../../docs/handoffs.md ). It is per-run scratch: the PR body carries it forward, so the reviewer sees the design and the diff together ( @../../../docs/pull-requests.md ).
+Write it as a handoff `design-<topic>` ( @../../../docs/handoffs.md ). It is per-run scratch: the PR's fact sheet draws its design points and plan deviations from it, so the reviewer sees what the diff doesn't make obvious ( `docs/pull-requests.md` ).
 
 ## The design
 

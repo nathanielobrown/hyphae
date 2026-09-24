@@ -7,7 +7,7 @@ description: The testing-plan format — the test-obligations tree and its evide
 
 A testing plan describes what automated tests should verify: obligations, written before any test code exists. The design binds the testing plan (the `design` skill carries the design's format).
 
-Write it as a handoff `testing-plan-<topic>` ( @../../../docs/handoffs.md ), and carry it into the PR body beside the design.
+Write it as a handoff `testing-plan-<topic>` ( @../../../docs/handoffs.md ), and let the PR's fact sheet draw its unverified areas from it (`docs/pull-requests.md`).
 
 A tree: top-level items are the level and location the tests run at, each described in a line — including what stands in for the world there: the real dependency, the fake, the recorded session. Under each, one leaf per behavior, ending with *Evidence:* naming what would prove it.
 

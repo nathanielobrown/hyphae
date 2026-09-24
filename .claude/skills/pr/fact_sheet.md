@@ -1,0 +1,51 @@
+# Pull request fact sheet
+
+The authoring agent (Claude) fills in this fact sheet from the final `git diff origin/main...HEAD` and test output, never from the initial plan.
+
+The composer agent reads this file to draft the pull request description.
+
+## Rules
+
+- Use terse bullets. Do not polish or write prose.
+- Omit any section or field that has nothing to say. Don't write "None" or leave placeholder text.
+- Derive all technical claims, file paths, and snippets directly from the final diff and test execution.
+- Never paste session data; use redacted output or a fixture path (`AGENTS.md`).
+- Save as the handoff `pr-facts-<topic>`: `handoffs/handoff_<YYYY_MM_DD>_pr-facts-<topic>.md` (`docs/handoffs.md`).
+
+---
+
+### Tier and budget
+- Tier: Light (~75 words) | Standard (~300 words) | Deep (~500 words), matching the blast radius in `AGENTS.md`: small and clear, medium, or foundation-shaping.
+
+### Stack
+- Stack goal: <1–2 sentences on overall stack goal if bottom PR; name bottom PR if upper layer; omit if not a stack>
+
+### Intent
+- What changed: <plain statement of changes from the diff>
+- Why: <author rationale and motivation>
+
+### Feedback wanted
+- Review focus: <specific areas, questions, or architectural decisions requiring reviewer attention>
+
+### Judgment points
+- <path/to/file>: <risk, open decision, or known issue; order items by highest risk first>
+
+### Design
+- Design points: <architectural choices or subtleties not obvious from the diff alone; draw on the `design-<topic>` handoff if there is one>
+- Plan deviations: <deviations from initial plan or design, if any>
+
+### Visuals
+- <`save` command output (`save <file>` or `save story <story-id>`): one line describing what the asset shows>
+
+### Verification
+- Checks executed: <commands run and output excerpts beyond standard green checks>
+- Unverified areas: <code paths or scenarios not exercised, including a `testing-plan-<topic>` handoff's uncovered leaves>
+- Test or CI edits: <any modifications to tests, CI configuration, or thresholds>
+
+### Links
+- Plan: <path or URL>
+- Issue: <path or URL>
+- Artifacts: <path or URL>
+
+### Emphasis
+- <free-form instructions to the composer, e.g. "focus on the API migration; keep the refactor brief">

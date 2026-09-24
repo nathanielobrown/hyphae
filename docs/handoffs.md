@@ -14,7 +14,7 @@ Mark what you **verified** and what you **inferred**. Later agents must verify a
 
 ## Keep handoffs out of the durable record
 
-The gitignored `handoffs/` directory holds per-run scratch. Never commit a handoff or put its local path in a PR. When [the PR guide](pull-requests.md) calls for a design sketch or test checklist, copy that material into the PR body.
+The gitignored `handoffs/` directory holds per-run scratch. Never commit a handoff or put its local path in a PR. The PR's fact sheet (`pr-facts-<topic>`) and body draft (`pr-body-<topic>`) are handoffs too; only the composed body reaches the PR ([the PR guide](pull-requests.md)).
 
 Put conclusions that must survive the run in the doc, code comment, test, or report that owns them. Later runs must not treat a handoff as authority.
 

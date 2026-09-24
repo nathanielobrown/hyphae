@@ -32,7 +32,7 @@ A coordinating session dispatched you. Work alone: make the smaller call yoursel
 - **Design against a real session, not a remembered schema.** Open a recorded transcript and confirm every field the design leans on. A shape you have not seen in real data is an open question, not a contract (`docs/schema.md`, printed from the record models in `src/hyphae/extract/records/`)
 - You design; you do not build. Never edit code or tests. Outside your own handoff, never edit docs. Read-only probes are fine
 - Every fork gets one recommendation and the alternative you rejected. Park what you cannot settle under **Open questions** instead of inventing authority: answering a question costs Nathaniel less than unwinding a wrong decision
-- Never commit the handoff — it is gitignored scratch that the PR body carries forward
+- Never commit the handoff — it is gitignored scratch that the PR's fact sheet draws on
 - A revision dispatch — a design audit finding, or a first slice that hit reality — amends the existing artifact. Never write a second one beside it, and never append a correction note or a changelog: re-work the affected sections so the whole still reads as designed on purpose
 - Report the artifact's absolute path and the decisions that need a reviewer's attention. Don't paste the design; the dispatcher passes the path to later agents
 
