@@ -5,16 +5,15 @@ description: Open a reviewable PR end to end — docs synced into the same PR, f
 
 # PR
 
-Open a reviewable PR by the procedure below and the full guide in `docs/pull-requests.md` (imported below). Take the commands from the guide rather than habit.
+Open a reviewable PR with the procedure below. The rules it relies on are in `docs/pull-requests.md` (imported below); take the commands from there rather than habit.
 
 ## Procedure
 
-1. **Shape the branch**: Work on one branch per task off `origin/main` in a worktree. Keep history linear by rebasing. Shape changes into atomic commits. Verify that `mise run check` passes locally.
+1. **Shape the branch**: Follow [Mechanics](../../../docs/pull-requests.md#mechanics), and [Stacked PRs](../../../docs/pull-requests.md#stacked-prs) for a stack. `mise run check` must pass locally.
 2. **Sync documentation**: Dispatch the `doc-writer` subagent (`.claude/agents/doc-writer.md`) to run doc-sync and commit documentation updates into the branch.
-3. **Get the fact sheet written**: The handoff `pr-facts-<topic>` (`docs/handoffs.md` names the file) is a verbose draft of the PR that the composer revises. It comes from the final `git diff <base>...HEAD` and test output, never from the plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer. Follow [fact_sheet.md](fact_sheet.md).
+3. **Get the fact sheet written** following [fact_sheet.md](fact_sheet.md). Only a session that knows the work firsthand writes it; an agent that knows the work only from a brief loses the rationale and the judgment calls.
    - If an `auditor` reviews the branch, its accepting pass writes the fact sheet. Put the tier, the feedback wanted, the user's decisions, and the implementer's report verbatim in the audit brief.
    - Otherwise write it yourself; you did the work.
-   - For a change that is hard to grasp from text and one diagram, build an interactive HTML explainer, upload it with `save`, and add the link to the fact sheet's Visuals (`docs/pull-requests.md`).
 4. **Compose the description**: Run the Gemini composer headless through pi with [composer.md](composer.md), naming the fact sheet, the diff base, and the `pr-body-<topic>` handoff to write:
 
    ```bash
@@ -22,16 +21,15 @@ Open a reviewable PR by the procedure below and the full guide in `docs/pull-req
    ```
 
    Keep the `< /dev/null`: without it, `pi -p` waits on input forever.
-5. **Review the body**: Review `pr-body-<topic>` for factual errors only, not style. Check it against the fact sheet and cut anything the fact sheet does not support. Check that prose fits the tier word budget (Light ~75, Standard ~300, Deep ~500), that empty sections are omitted, and that no session data reached it.
-6. **Validate diagrams**: If the body contains Mermaid blocks, run `mise run diagram-check <file>`.
+5. **Review the body** for factual errors only, not style. Check it against the fact sheet and cut anything the fact sheet does not support, including any session data. If the errors are more than trivial, fix the fact sheet and recompose.
+6. **Validate diagrams**: If the body contains Mermaid blocks, run `mise run diagram-check <file>`. PR bodies are not in git, so this is their only check before GitHub renders them.
 7. **Submit**: Push the branch once (`git push -u origin <topic>`), then open the PR:
 
    ```bash
    gh pr create --title "<emoji> <statement>" --body-file <file>
    ```
 
-   For a viewer page change, run `save chromatic sync --wait` after the push so the `save story` images fill in.
-8. **Recompose on substantial change**: Recompose when scope changes, a design point changes, a new known issue appears, or a stack layer changes. Update the fact sheet first. Update the PR with `gh pr edit --body-file <file>`. Small review fixes do not trigger recomposition.
-9. **Stacked PRs**: Manage stacks only through `gh stack` (v0.1 or later). Never point a PR at another branch by hand. Target 100–400 code lines per PR; split above 500 lines. Commit review fixes in the owning layer, then run `gh stack rebase --upstack` and `gh stack push`.
+   For a stack, `gh stack submit` opens the PRs; then set each layer's title and body with `gh pr edit`. For a viewer page change, run `save chromatic sync --wait` after the push so the `save story` images fill in ([Chromatic snapshots](../../../docs/pull-requests.md#chromatic-snapshots-of-viewer-pages)).
+8. **Recompose on substantial change**: Recompose when scope changes, a design point changes, a new known issue appears, or a stack layer changes. Update the fact sheet first, then rerun step 4 and update the PR with `gh pr edit --body-file <file>`. Small review fixes do not trigger recomposition.
 
 @../../../docs/pull-requests.md

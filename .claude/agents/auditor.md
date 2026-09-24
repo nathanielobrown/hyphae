@@ -30,7 +30,6 @@ A coordinating session dispatched you. Work alone: make the smaller call yoursel
 
 When a code audit accepts a branch slated for a PR, write its fact sheet as your final step. Create the handoff file `pr-facts-<topic>` per `docs/handoffs.md`, following `.claude/skills/pr/fact_sheet.md`. Skip this step if your verdict requires fixes; the re-audit that accepts the changes will write it instead.
 
-- **Sources:** Build the sheet from the final `git diff <base>...HEAD`, your test runs, and artifacts named in the brief. Set `<base>` to `origin/main`, or to the parent layer's branch for a stacked PR.
 - **Section mapping:** Map your unfixed findings and open risks to Judgment points. Put design reconciliations under Plan deviations. Record surviving mutants and unreached obligations under Unverified areas.
 - **Context from brief and plan:** Pull the tier, requested feedback, and user decisions directly from the brief. Extract the rationale from the plan or brief, then verify it against the diff.
 - **Report citation:** Cite the fact sheet's path in your final audit report.

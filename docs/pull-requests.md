@@ -2,6 +2,14 @@
 
 Use this guide to open a PR that a reviewer can understand before reading the diff. Because AI writes much of this project's code, the PR must make the intent, design, and open questions clear to a human. Reviewer attention is the scarcest resource here.
 
+This guide holds the rules for branches, stacks, visuals, CI and landing. Each part of writing a PR description is defined in one file beside the `pr` skill:
+
+| What                                                  | Where                             |
+| ----------------------------------------------------- | --------------------------------- |
+| The steps to open a PR, and who writes the fact sheet | `.claude/skills/pr/SKILL.md`      |
+| The fact sheet's format and how to write it           | `.claude/skills/pr/fact_sheet.md` |
+| The description's layout, word budgets and style      | `.claude/skills/pr/composer.md`   |
+
 ## Mechanics
 
 Plain `git` owns branches and commits, `gh stack` owns stacks, and `gh` owns PRs. Sessions are non-interactive, so don't use `-i` flags. `.claude/settings.json` defines the allowed `git` and `gh` commands.
@@ -9,12 +17,10 @@ Plain `git` owns branches and commits, `gh stack` owns stacks, and `gh` owns PRs
 - Create one branch per task from `origin/main` in a worktree under `.claude/worktrees/`; `tools/setup-worktree` provisions it. Keep commits small and atomic according to [the commit guide](commits.md).
 - Maintain linear history. When `main` advances, rebase onto `origin/main`; never merge `main` into your branch. For a larger reshape before review, prefer `git reset --soft origin/main` and recommit the branch rather than splitting commits surgically.
 - Push once when the branch is ready for review, to avoid CI runs during iteration. `mise run check` is the local gate.
-- Before writing the PR description, dispatch the `doc-writer` subagent (`.claude/agents/doc-writer.md`) to run doc-sync over the finished branch, and fold its edits into the branch. The docs belong in the same PR as the code ([the rule](documentation.md#update-documentation-with-the-code)).
-- Open the PR with `gh pr create --title "<emoji> <statement>" --body-file <file>`. Mark it as a draft only when asking for review before the work is ready to land.
-- Address review comments with commits in the owning layer. For stacks, run `gh stack rebase --upstack` and `gh stack push`. Fixup commits are fine and need no autosquashing, because squash landing absorbs them.
-- Landing: see [Landing](#landing) below. Every PR lands by squash.
+- Mark a PR as a draft only when asking for review before the work is ready to land.
+- Address review comments with commits in the layer that owns the change. Fixup commits are fine and need no autosquashing, because squash landing absorbs them.
 
-The session that opens a PR runs this flow through the `pr` skill, and `branch-merger` (`.claude/agents/branch-merger.md`) lands one when directed.
+The session that opens a PR follows the `pr` skill's steps, and `branch-merger` (`.claude/agents/branch-merger.md`) lands one when directed.
 
 ## Start the title with the change type
 
@@ -30,8 +36,9 @@ Use GitHub native stacks through the `gh stack` extension (v0.1 or later). Graph
 - **One concern per PR**: If you cannot state the change in one sentence, split it into two PRs. Each layer builds and passes tests independently, and ships its own tests.
 - **Plan layers before writing code**: Map planned items to PR layers before coding. Agents stacking without a plan split refactors so no layer passes CI.
 - **Size**: Aim for 100–400 lines of code changed per PR, and split above 500 lines. Count application code alone: tests, comments, docs, committed plans, generated files, and recorded fixtures do not count. A mechanical change (such as a rename across many files) may exceed the target if the description explains why.
-- **Descriptions**: Write one fact sheet and one body per PR. The bottom PR carries the stack's goal in one or two sentences. Upper PRs name the bottom PR instead. Never write "part n of m"; GitHub displays the stack map natively.
-- **Review fixes**: Commit fixes in the layer that owns the change, then run `gh stack rebase --upstack` and `gh stack push`. Do not rebase or amend layers with plain git; gh-stack bug #193 duplicates commits into the layer above.
+- **Depth**: Keep stacks to 2–5 layers as soft guidance. More than five layers usually spans multiple stories; start a second stack instead.
+- **Descriptions**: Each layer gets its own fact sheet and description, written against the layer below.
+- **Review fixes**: After committing a fix in its layer, run `gh stack rebase --upstack` and `gh stack push`. Do not rebase or amend layers with plain git; gh-stack bug #193 duplicates commits into the layer above.
 - **Agent commands**: Use non-interactive `gh stack` commands only (`view --json`, `submit --auto`, explicit branch names). Never run bare `modify`.
 - **Starting and submitting**: Fast-forward local `main` to `origin/main` before `gh stack init`, which records local `main` as the stack's base. `gh stack submit` opens each PR with a generated title and body, so set each layer's real title and composed body afterwards with `gh pr edit <n> --title "<emoji> <statement>" --body-file <file>`.
 
@@ -41,97 +48,35 @@ A completed PR satisfies three requirements at once:
 
 1. **It works and is verified**: `mise run check` passes, and the description highlights unverified parts rather than reciting passing gates.
 2. **Docs updated**: The owning docs are updated alongside the code ([the rule](documentation.md#update-documentation-with-the-code)).
-3. **A reviewer can understand it without reading the diff first, and knows where their judgment is needed**: see [Writing PR descriptions](#writing-pr-descriptions).
+3. **A reviewer can understand it without reading the diff first, and knows where their judgment is needed.**
 
 If you open the PR before then, say what's missing at the top of the description.
 
-## Writing PR descriptions
-
-The diff shows *what* changed. The description explains *why* and points to decisions that need human judgment. Machines can verify much of a diff; don't make a reviewer hunt for the parts they can't.
-
-A PR description orients today's reviewer; it is not a permanent archive. Deep rationale belongs in committed plans, docs, and code comments.
-
-### Description authoring process
-
-1. **Claude writes a fact sheet, a verbose draft of the PR.** It writes the handoff `pr-facts-<topic>` ([handoffs](handoffs.md)) from the final `git diff <base>...HEAD` and test output, not from the plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer. Plans describe intent; the diff describes what actually happened. Follow `.claude/skills/pr/fact_sheet.md`.
-   - **With an auditor**: The accepting audit pass writes and saves the fact sheet. It has fresh context on the diff, plan, and test results, independent of the implementer. Put what only the requesting session knows in the audit brief: tier, requested feedback, user decisions, and the verbatim implementer report. If follow-up fixes land, the re-audit that accepts them rewrites the fact sheet.
-   - **Without an auditor**: The implementing session writes the fact sheet directly.
-   - Never delegate fact-sheet writing to a separate agent that only knows the work through a brief. Relaying context drops design rationale and judgment calls.
-2. **A Gemini agent composes the body from the fact sheet.** Run it headless through pi, naming the fact sheet, the diff base, and the `pr-body-<topic>` handoff to write:
-
-   ```bash
-   timeout 1800 pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md "<instruction naming the fact sheet, diff base and output paths>" < /dev/null
-   ```
-
-   The composer's system prompt is `.claude/skills/pr/composer.md`. Gemini writes more readable prose than Claude. It revises the fact sheet rather than researching the change: everything it writes comes from the fact sheet, and it looks at the repository only to quote a path or identifier exactly. Keep the `< /dev/null`: without it, `pi -p` waits on input forever.
-3. **Fact review**: The session opening the PR reviews the composed body for factual errors only, not style. It checks the body against the fact sheet and cuts any claim the fact sheet does not support. It runs `mise run diagram-check <file>` if the body contains Mermaid, then opens the PR with `gh pr create --body-file <file>`.
-4. **Recompose on substantial change**: Recompose when PR scope changes, a design point changes, a new known issue appears, or a stack gains or loses a layer. Update the fact sheet first, then rerun the composer. Small review fixes do not trigger recomposition. Update with `gh pr edit --body-file <file>`.
-
-### Fact sheet fields
-
-The fact sheet is complete rather than polished: the composer cuts and rewrites it, and reads little else. Use `.claude/skills/pr/fact_sheet.md` and omit any field with nothing to say:
-
-- **Tier and budget**: Light, Standard, or Deep, matching the blast radius in `AGENTS.md`: small and clear, medium, or foundation-shaping.
-- **Stack**: The bottom PR states the stack's goal in one or two sentences. Other PRs name the bottom PR instead.
-- **What changed**: A one-sentence Headline for this PR's net diff, the main changes grouped by purpose, and Background: context a reader might mistake for this PR's work, such as an earlier layer.
-- **Why**: The motivation, in the author's words.
-- **Feedback wanted**: What kind of review the PR asks for.
-- **Judgment points**: Risks, open decisions, and known issues, each with a file path, ordered by risk.
-- **Design**: Points the diff does not make obvious, drawn from the `design-<topic>` handoff when there is one. Plan deviations go here, and only if there are any.
-- **Visuals**: Each `save` output or Mermaid block, with one line describing what it shows, and any interactive explainer's `save` link with one line on what the reader can do there.
-- **Verification**: Evidence beyond standard green checks (commands with output excerpts), what went unverified (a `testing-plan-<topic>` handoff's uncovered leaves belong here), and any edits to tests, CI, or thresholds.
-- **Links**: Plan, issue, and artifacts.
-- **Emphasis**: Free-form notes to the composer, such as "the migration is what matters most".
-
-### PR body layout and budgets
-
-```
-<what changed and why: 2–3 sentences, no heading>
-
-## Needs your judgment
-Opens with the kind of feedback wanted. Then known issues, open decisions and review
-questions, each with its file, ordered by risk.
-
-## How it works
-One visual (diagram, screenshot, or save link) plus the design points the diff doesn't
-make obvious. Plan deviations go here, and only if there are any.
-
-## Verification
-Only evidence beyond the standard green checks: manual runs, before/after output, what
-went unverified, and any edit to tests, CI or thresholds.
-
-<footer: links to plan, issue, artifacts>
-```
-
-- **Light PRs**: The opening paragraph only.
-- **Empty sections**: Omit them entirely.
-- **Word budgets for prose**: Light about 75 words, Standard about 300, Deep about 500. Code blocks, diagrams, and `<details>` blocks do not count against the budget.
-- **Research rationale**: Stating the kind of feedback wanted was the single element most tied to merging (odds ratio 1.72, arXiv 2602.14611). Shorter, structured bodies correlate with faster review times.
-- **Plan deviations**: Plan deviations go inside "How it works", only if there are any. Full plan audits belong in review reports, not in the PR body. Do not include file-by-file walkthroughs.
-
-### Keep session data out of the description
-
-A behavior change needs evidence: redacted command output that shows the behavior, or a pointer to a safe fixture. Never paste real session data; transcripts may contain source, credentials, or customer data (`AGENTS.md`).
-
-### Avoid these pitfalls in descriptions
-
-- File-by-file diff walkthroughs that explain syntax instead of intent.
-- Treating all edits equally, which drowns critical judgment points in mechanical diff summaries.
-- Describing the initial plan rather than what actually landed in the diff.
-- Inserting placeholders into empty sections instead of omitting them.
-- Redrawing the diff or file tree instead of visualizing flows, orderings, or state transitions.
-- Concealing known defects or open choices inside the diff instead of stating them in "Needs your judgment".
-- Pasting full test-gate outputs or writing an uninformative "ran tests". Report exceptions and non-green gates.
-- Writing relative Markdown links; they 404 on github.com. Use full URLs or backticked paths.
+The diff shows *what* changed; the description explains *why* and points to the decisions that need human judgment. Machines can verify much of a diff; don't make a reviewer hunt for the parts they can't. The description orients today's reviewer and is not an archive: deep rationale belongs in committed plans, docs, and code comments. Claude records the facts in a fact sheet and Gemini writes the prose, because Gemini's prose is easier to read.
 
 ## Visuals and hosting
 
-Visuals clarify changes faster than raw diffs:
+Visuals clarify changes faster than raw diffs. The fact sheet lists each one, and the composer places it.
 
 - **Required visuals**: A change to a viewer page requires a Chromatic before/after image of each changed page through `save`. New or changed flows, state machines, or data models require a Mermaid diagram. Performance or test-runtime changes require a before/after chart or table.
-- **Visuals placement**: Images, simple diagrams, and tables go inline. Interactive HTML goes behind a link.
-- **Interactive explainers**: Build an interactive HTML explainer when text and a single diagram cannot clearly convey the change. Examples include stepping through state machines or algorithmic cases on real inputs, sliding across a threshold or timeout, or filtering a before-and-after table from recorded data. Build it as a single self-contained HTML file (or a directory uploaded via `save <dir> --entry index.html`). Use only recorded or redacted data, such as the redacted fixture corpus, never a real trace store or live session data, since anyone with the link can access it. Open the file in a browser to verify it renders without console errors. Save the source next to the fact sheet as a handoff, upload it using `save`, and add the link to the fact sheet's Visuals section with a one-line description of how to use it. The PR description must still stand on its own without the explainer. Deep-tier PRs usually warrant one; Standard PRs warrant one whenever a reviewer would otherwise need to run the code to understand the change.
 - **Hosting with `save`**: Host PR assets with the `save` CLI. `save <file>` (the same command as `save put`) uploads a file and prints a Markdown snippet: an inline image for images, a link otherwise. The bucket is public, so never `save` a screenshot or report drawn from a real trace store; the gallery renders only the redacted fixture corpus. Installation and credentials are in the save repo's README (/Users/nob/repos/save, to be published as nathanielobrown/save).
+
+### Interactive explainers
+
+Build an interactive HTML explainer when text and a single diagram cannot clearly convey the change. Deep-tier PRs usually warrant one; Standard PRs warrant one whenever a reviewer would otherwise need to run the code to understand the change. Good candidates:
+
+- Stepping through a state machine or an algorithm's cases on real inputs.
+- Sliding across a threshold or timeout to show its effect.
+- Filtering a before-and-after table of recorded data.
+- Clicking through a pipeline's stages to see each one's inputs and outputs.
+
+Build rules:
+
+- **Self-contained**: One HTML file with inline CSS and JavaScript (`save` warns on relative paths in a single file), or a directory uploaded with `save <dir> --entry index.html`.
+- **Recorded or redacted data**: Use the redacted fixture corpus, never a real trace store or live session data, since anyone with the link can open it.
+- **Checked in a browser**: It renders without console errors.
+- **Kept as a handoff**: Save the source next to the fact sheet so a recompose can update and re-upload it.
+- **Linked, not relied on**: Upload it with `save` and add the link to the fact sheet's Visuals with one line on what the reader can do there. The PR description must stand on its own without it.
 
 ### Chromatic snapshots of viewer pages
 
@@ -146,7 +91,7 @@ This project uses Playwright with Chromatic, not Storybook. On every PR, `.githu
 
 GitHub renders Mermaid code fences in PR descriptions. Use a diagram wherever it saves the reviewer from reconstructing flow, ordering, state, or structure from the diff. Skip it for a mechanical edit, one-line fix, pure rename, or config change. If an existing diagram answers the question, link it instead.
 
-Limit each diagram to one question; split diagrams that exceed 20 nodes or mix flow with static structure.
+Draw flows, orderings and state transitions, not the diff or the file tree. Limit each diagram to one question; split diagrams that exceed 20 nodes or mix flow with static structure.
 
 | Question                          | Diagram                       |
 | --------------------------------- | ----------------------------- |
@@ -157,22 +102,6 @@ Limit each diagram to one question; split diagrams that exceed 20 nodes or mix f
 | What did the refactor change?     | a before-and-after pair       |
 
 Read [the Mermaid guide](mermaid-guide.md) before drawing. Put a lasting architecture diagram in the doc that owns the topic and link that doc from the PR. A diagram kept only in a PR body won't stay maintained.
-
-Before opening a PR containing Mermaid, write the exact body to a file and run `mise run diagram-check <file>`. PR descriptions aren't committed, so no other local gate catches their Mermaid errors.
-
-## Before you submit
-
-- [ ] `mise run check` green locally, or the description names every failure
-- [ ] History is linear on `origin/main`, each commit an atomic reviewable change
-- [ ] If stacked: native `gh stack` used, layers planned, 100–400 code lines per PR
-- [ ] Docs synced into this PR
-- [ ] Fact sheet written from diff and test output (`pr-facts-<topic>`) by the accepting audit pass, or by the working session if there was no auditor, following `.claude/skills/pr/fact_sheet.md`
-- [ ] Description composed with Gemini Flash via `pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md ... < /dev/null`
-- [ ] Body checked against the fact sheet for factual errors; prose fits tier word budget (Light \~75, Standard \~300, Deep \~500)
-- [ ] Empty sections omitted (no placeholders for unneeded sections)
-- [ ] Every behavior change has safe evidence; no session data in the body
-- [ ] Required visuals included, and an interactive explainer linked if the change is hard to picture; Mermaid blocks validated with `mise run diagram-check <file>`
-- [ ] Opened with `gh pr create --body-file <file>`
 
 ## CI and checks
 
@@ -202,17 +131,11 @@ A PR with passing CI workflow runs is ready to review or merge, even if Chromati
 
 ## Landing
 
-Every PR lands by squash. Use `gh stack merge --squash` or the merge button for a stack, and the merge button or `gh pr merge --squash` for a single branch. In a native stack, merging a mid-stack PR also merges every PR below it in one operation, after which GitHub retargets the next layer to `main`.
-
 Land only when directed.
 
-### Waiting for green CI
+Every PR lands by squash. Use `gh stack merge --squash` or the merge button for a stack, and the merge button or `gh pr merge --squash` for a single branch. In a native stack, merging a mid-stack PR also merges every PR below it in one operation, after which GitHub retargets the next layer to `main`.
 
-Nothing on GitHub enforces green CI, by choice: this repository deliberately has no rulesets requiring checks, so a human may merge on red when necessary. However, an agent must always wait for green CI before landing:
-
-- Watch the checks, as in [CI and checks](#ci-and-checks), on the target PR and every layer below it.
-- Don't merge if any CI check fails.
-- Ignore Chromatic's `UI Tests` and `UI Review`, which represent human sign-offs rather than automated test gates.
+Nothing on GitHub enforces green CI, by choice: this repository deliberately has no rulesets requiring checks, so a human may merge on red when necessary. An agent always waits for green CI, as described in [CI and checks](#ci-and-checks), on the target PR and every layer below it. It merges only when both workflows (`check`, `e2e`) pass, and never on a failing check.
 
 ### Repository settings
 

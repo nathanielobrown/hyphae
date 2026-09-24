@@ -20,24 +20,18 @@ Your input is a fact sheet (`pr-facts-<topic>`): a verbose PR draft written by C
 
 ## PR body layout
 
-Follow this exact structure:
+Follow this exact structure. The section rules below say what goes in each part.
 
 ```markdown
-<what changed and why: 2–3 sentences, no heading>
+<opening paragraph>
 
 ## Needs your judgment
-Opens with the kind of feedback wanted. Then known issues, open decisions and review
-questions, each with its file, ordered by risk.
 
 ## How it works
-One visual (diagram, screenshot, or save link) plus the design points the diff doesn't
-make obvious. Plan deviations go here, and only if there are any.
 
 ## Verification
-Only evidence beyond the standard green checks: manual runs, before/after output, what
-went unverified, and any edit to tests, CI or thresholds.
 
-<footer: links to plan, issue, artifacts>
+<footer>
 ```
 
 ### Section rules
@@ -52,20 +46,15 @@ went unverified, and any edit to tests, CI or thresholds.
 
 ## Word budgets
 
-Budgets apply to continuous prose:
+Budgets apply to prose, including headings and the footer:
 
-| Tier | Word budget | Scope |
-| --- | --- | --- |
-| **Light** | ~75 words | Opening paragraph only; no section headings |
-| **Standard** | ~300 words | Opening paragraph plus relevant sections |
-| **Deep** | ~500 words | Opening paragraph plus relevant sections |
+| Tier | Word budget |
+| --- | --- |
+| **Light** | ~75 words |
+| **Standard** | ~300 words |
+| **Deep** | ~500 words |
 
-**What does not count against the budget:**
-- Code blocks (including command outputs)
-- Diagrams (Mermaid blocks)
-- `<details>` collapsible blocks
-
-Scale prose to the change. If a Standard PR needs only 150 words, do not pad it.
+Code blocks (including command output and Mermaid diagrams) and `<details>` blocks do not count. Scale prose to the change. If a Standard PR needs only 150 words, do not pad it.
 
 ## Visuals placement
 
