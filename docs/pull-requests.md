@@ -17,7 +17,7 @@ Plain `git` owns branches and commits; `gh` owns PRs. Sessions are non-interacti
 
 ## Start the title with the change type
 
-Start the title with emoji from the table in @commits.md, then a plain statement of the change. Multiple emoji are allowed when multiple would apply, but focus on what's important to convey. For example, documentation with a feature does not need the documentation emoji.
+Start the title with emoji from the table in [the commit guide](commits.md), then a plain statement of the change. Multiple emoji are allowed when multiple would apply, but focus on what's important to convey. For example, documentation with a feature does not need the documentation emoji.
 
 ## Write the description for a human
 
