@@ -1,16 +1,16 @@
 # Pull request fact sheet
 
-Claude fills in this fact sheet from the final `git diff <base>...HEAD` and test output, never from the initial plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer. When an auditor reviews the branch, its accepting pass writes the fact sheet; otherwise the session that did the work writes it.
+The fact sheet is a verbose draft of the pull request. Claude generates it from the final `git diff <base>...HEAD` and test output, never from the initial plan. Use `origin/main` for `<base>`, or the parent layer's branch for an upper stack layer. If an auditor reviews the branch, its accepting pass writes the fact sheet; otherwise, the session that implemented the changes writes it.
 
-The composer agent reads this file and the diff to draft the pull request description. It summarizes what changed from the diff itself, so don't restate the diff here. Everything else it writes comes from this file.
+The composer agent rewrites this file into the final PR description. It cuts and formats, but does not research. Because it reads little beyond this file, any detail omitted here will be missing from the PR.
 
 ## Rules
 
-- Use terse bullets. Do not polish or write prose.
-- Omit any section or field that has nothing to say. Don't write "None" or leave placeholder text.
-- Derive all technical claims, file paths, and snippets directly from the final diff and test execution.
-- Never paste session data; use redacted output or a fixture path (`AGENTS.md`).
-- Save as the handoff `pr-facts-<topic>`: `handoffs/handoff_<YYYY_MM_DD>_pr-facts-<topic>.md` (`docs/handoffs.md`).
+- **Prioritize completeness over polish.** Use rough sentences or bullets. The composer handles phrasing and cuts.
+- **Drop empty sections.** If a field has nothing to say, omit it entirely. Do not write "None" or keep placeholder text.
+- **Ground claims in artifacts.** Derive all technical statements, file paths, and snippets directly from the final diff and test execution. Copy identifiers and paths character-for-character so the composer can quote them safely.
+- **Never paste session data.** Use redacted output or a fixture path (`AGENTS.md`).
+- **Follow naming conventions.** Save as the handoff `pr-facts-<topic>`: `handoffs/handoff_<YYYY_MM_DD>_pr-facts-<topic>.md` (`docs/handoffs.md`).
 
 ---
 
@@ -20,8 +20,13 @@ The composer agent reads this file and the diff to draft the pull request descri
 ### Stack
 - Stack goal: <1–2 sentences on overall stack goal if bottom PR; name bottom PR if upper layer; omit if not a stack>
 
+### What changed
+- Headline: <one sentence: what this PR's net diff does, as you'd tell the reviewer>
+- Changes: <the main changes grouped by purpose, with their key paths; not a file-by-file walk>
+- Background: <context a reader might mistake for this PR's work: earlier layers or PRs, behavior that already exists, things that never existed on the base>
+
 ### Why
-- <author rationale and motivation; what changed comes from the diff>
+- <author rationale and motivation>
 
 ### Feedback wanted
 - Review focus: <specific areas, questions, or architectural decisions requiring reviewer attention>

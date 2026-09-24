@@ -53,27 +53,28 @@ A PR description orients today's reviewer; it is not a permanent archive. Deep r
 
 ### Description authoring process
 
-1. **Claude writes a fact sheet.** It writes the handoff `pr-facts-<topic>` ([handoffs](handoffs.md)) from the final `git diff <base>...HEAD` and test output, not from the plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer. Plans describe intent; the diff describes what actually happened. Follow `.claude/skills/pr/fact_sheet.md`.
+1. **Claude writes a fact sheet, a verbose draft of the PR.** It writes the handoff `pr-facts-<topic>` ([handoffs](handoffs.md)) from the final `git diff <base>...HEAD` and test output, not from the plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer. Plans describe intent; the diff describes what actually happened. Follow `.claude/skills/pr/fact_sheet.md`.
    - **With an auditor**: The accepting audit pass writes and saves the fact sheet. It has fresh context on the diff, plan, and test results, independent of the implementer. Put what only the requesting session knows in the audit brief: tier, requested feedback, user decisions, and the verbatim implementer report. If follow-up fixes land, the re-audit that accepts them rewrites the fact sheet.
    - **Without an auditor**: The implementing session writes the fact sheet directly.
    - Never delegate fact-sheet writing to a separate agent that only knows the work through a brief. Relaying context drops design rationale and judgment calls.
 2. **A Gemini agent composes the body from the fact sheet.** Run it headless through pi, naming the fact sheet, the diff base, and the `pr-body-<topic>` handoff to write:
 
    ```bash
-   timeout 900 pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md "<instruction naming the fact sheet, diff base and output paths>" < /dev/null
+   timeout 1800 pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md "<instruction naming the fact sheet, diff base and output paths>" < /dev/null
    ```
 
-   The composer's system prompt is `.claude/skills/pr/composer.md`. Gemini writes more readable prose than Claude. The fact sheet omits a summary of the diff because the composer reads the diff directly. Rationale, judgment points, design, and verification come only from the fact sheet. The composer checks every claim in its draft against the diff before finishing. Keep the `< /dev/null`: without it, `pi -p` waits on input forever.
+   The composer's system prompt is `.claude/skills/pr/composer.md`. Gemini writes more readable prose than Claude. It revises the fact sheet rather than researching the change: everything it writes comes from the fact sheet, and it looks at the repository only to quote a path or identifier exactly. Keep the `< /dev/null`: without it, `pi -p` waits on input forever.
 3. **Fact review**: The session opening the PR reviews the composed body for factual errors only, not style. It checks the body against the fact sheet and cuts any claim the fact sheet does not support. It runs `mise run diagram-check <file>` if the body contains Mermaid, then opens the PR with `gh pr create --body-file <file>`.
 4. **Recompose on substantial change**: Recompose when PR scope changes, a design point changes, a new known issue appears, or a stack gains or loses a layer. Update the fact sheet first, then rerun the composer. Small review fixes do not trigger recomposition. Update with `gh pr edit --body-file <file>`.
 
 ### Fact sheet fields
 
-The composer's input is terse bullets with no polish. Use `.claude/skills/pr/fact_sheet.md` and omit any field with nothing to say:
+The fact sheet is complete rather than polished: the composer cuts and rewrites it, and reads little else. Use `.claude/skills/pr/fact_sheet.md` and omit any field with nothing to say:
 
 - **Tier and budget**: Light, Standard, or Deep, matching the blast radius in `AGENTS.md`: small and clear, medium, or foundation-shaping.
 - **Stack**: The bottom PR states the stack's goal in one or two sentences. Other PRs name the bottom PR instead.
-- **Why**: The motivation, in the author's words. What changed is left out: the composer reads it from the diff.
+- **What changed**: A one-sentence Headline for this PR's net diff, the main changes grouped by purpose, and Background: context a reader might mistake for this PR's work, such as an earlier layer.
+- **Why**: The motivation, in the author's words.
 - **Feedback wanted**: What kind of review the PR asks for.
 - **Judgment points**: Risks, open decisions, and known issues, each with a file path, ordered by risk.
 - **Design**: Points the diff does not make obvious, drawn from the `design-<topic>` handoff when there is one. Plan deviations go here, and only if there are any.
