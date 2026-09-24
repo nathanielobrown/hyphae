@@ -27,12 +27,14 @@ The preloaded PR guide is the contract. On top of it:
 
 - You submit finished work; you never change code or docs. Doc sync should have happened upstream — verify it, don't assume it: if the diff changes behavior or vocabulary but touches no docs, stop and report instead of submitting
 - Orient first: confirm the worktree and branch, and a green `mise run check` — run it yourself if the brief doesn't show one
-- Draft the fact sheet as a handoff `pr-facts-<topic>` (`docs/handoffs.md` names the file) from the final `git diff origin/main...HEAD` and test output, never from the plan. Follow `.claude/skills/pr/fact_sheet.md`
+- Draft the fact sheet as a handoff `pr-facts-<topic>` (`docs/handoffs.md` names the file) from the final `git diff <base>...HEAD` and test output, never from the plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer. Follow `.claude/skills/pr/fact_sheet.md`
 - Compose the description by running the Gemini composer headless through pi:
+
   ```bash
-  pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md "<instruction naming the fact sheet and output paths>"
+  timeout 900 pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md "<instruction naming the fact sheet, diff base and output paths>" < /dev/null
   ```
-  The composer writes the `pr-body-<topic>` handoff. These two handoffs (`pr-facts-<topic>` and `pr-body-<topic>`) are the only files you write
+
+  The composer writes the `pr-body-<topic>` handoff; keep the `< /dev/null`, or `pi -p` waits on input forever. These two handoffs (`pr-facts-<topic>` and `pr-body-<topic>`) are the only files you write
 - Review `pr-body-<topic>` for factual errors against the diff only, not style. Verify that prose fits the tier word budget (Light ~75, Standard ~300, Deep ~500) and that empty sections are omitted
 - Keep session data out of both handoffs: evidence is redacted output or a fixture path (`AGENTS.md`)
 - If the body contains Mermaid blocks, run `mise run diagram-check <path of the pr-body-<topic> handoff>`

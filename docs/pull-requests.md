@@ -33,6 +33,7 @@ Use GitHub native stacks through the `gh stack` extension (v0.1 or later). Graph
 - **Descriptions**: Write one fact sheet and one body per PR. The bottom PR carries the stack's goal in one or two sentences. Upper PRs name the bottom PR instead. Never write "part n of m"; GitHub displays the stack map natively.
 - **Review fixes**: Commit fixes in the layer that owns the change, then run `gh stack rebase --upstack` and `gh stack push`. Do not rebase or amend layers with plain git; gh-stack bug #193 duplicates commits into the layer above.
 - **Agent commands**: Use non-interactive `gh stack` commands only (`view --json`, `submit --auto`, explicit branch names). Never run bare `modify`.
+- **Starting and submitting**: Fast-forward local `main` to `origin/main` before `gh stack init`, which records local `main` as the stack's base. `gh stack submit` opens each PR with a generated title and body, so set each layer's real title and composed body afterwards with `gh pr edit <n> --title "<emoji> <statement>" --body-file <file>`.
 
 ## What makes a PR done
 
@@ -52,14 +53,14 @@ A PR description orients today's reviewer; it is not a permanent archive. Deep r
 
 ### Description authoring process
 
-1. **The authoring agent (generally Claude) writes a fact sheet.** It writes the handoff `pr-facts-<topic>` ([handoffs](handoffs.md)) from the final `git diff origin/main...HEAD` and test output, not from the plan. Plans describe intent; the diff describes what actually happened. Follow `.claude/skills/pr/fact_sheet.md`.
-2. **A Gemini agent composes the body from the fact sheet.** Run it headless through pi, naming the fact sheet and the `pr-body-<topic>` handoff to write:
+1. **The authoring agent (generally Claude) writes a fact sheet.** It writes the handoff `pr-facts-<topic>` ([handoffs](handoffs.md)) from the final `git diff <base>...HEAD` and test output, not from the plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer. Plans describe intent; the diff describes what actually happened. Follow `.claude/skills/pr/fact_sheet.md`.
+2. **A Gemini agent composes the body from the fact sheet.** Run it headless through pi, naming the fact sheet, the diff base, and the `pr-body-<topic>` handoff to write:
 
    ```bash
-   pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md "<instruction naming the fact sheet and output paths>"
+   timeout 900 pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md "<instruction naming the fact sheet, diff base and output paths>" < /dev/null
    ```
 
-   The composer's system prompt is `.claude/skills/pr/composer.md`. It may read the repo only to verify claims against the diff or quote code exactly, and must not introduce topics the fact sheet omits. It checks every claim in its draft against the diff before finishing. Gemini writes more readable prose than Claude.
+   The composer's system prompt is `.claude/skills/pr/composer.md`. It may read the repo only to verify claims against the diff or quote code exactly, and must not introduce topics the fact sheet omits. It checks every claim in its draft against the diff before finishing. Gemini writes more readable prose than Claude. Keep the `< /dev/null`: without it, `pi -p` waits on input forever.
 3. **Fact review**: The submitting agent reviews the composed body for factual errors only, not style. It runs `mise run diagram-check <file>` if the body contains Mermaid, then opens the PR with `gh pr create --body-file <file>`.
 4. **Recompose on substantial change**: Recompose when PR scope changes, a design point changes, a new known issue appears, or a stack gains or loses a layer. Small review fixes do not trigger recomposition. Update with `gh pr edit --body-file <file>`.
 
@@ -73,7 +74,7 @@ The composer's input is terse bullets with no polish. Use `.claude/skills/pr/fac
 - **Feedback wanted**: What kind of review the PR asks for.
 - **Judgment points**: Risks, open decisions, and known issues, each with a file path, ordered by risk.
 - **Design**: Points the diff does not make obvious, drawn from the `design-<topic>` handoff when there is one. Plan deviations go here, and only if there are any.
-- **Visuals**: Each `save` output with one line describing what it shows.
+- **Visuals**: Each `save` output or Mermaid block, with one line describing what it shows.
 - **Verification**: Evidence beyond standard green checks (commands with output excerpts), what went unverified (a `testing-plan-<topic>` handoff's uncovered leaves belong here), and any edits to tests, CI, or thresholds.
 - **Links**: Plan, issue, and artifacts.
 - **Emphasis**: Free-form notes to the composer, such as "the migration is what matters most".
@@ -161,7 +162,7 @@ Before opening a PR containing Mermaid, write the exact body to a file and run `
 - [ ] If stacked: native `gh stack` used, layers planned, 100–400 code lines per PR
 - [ ] Docs synced into this PR
 - [ ] Fact sheet written from diff and test output (`pr-facts-<topic>`), following `.claude/skills/pr/fact_sheet.md`
-- [ ] Description composed with Gemini Flash via `pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md ...`
+- [ ] Description composed with Gemini Flash via `pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md ... < /dev/null`
 - [ ] Body reviewed for diff accuracy; prose fits tier word budget (Light \~75, Standard \~300, Deep \~500)
 - [ ] Empty sections omitted (no placeholders for unneeded sections)
 - [ ] Every behavior change has safe evidence; no session data in the body

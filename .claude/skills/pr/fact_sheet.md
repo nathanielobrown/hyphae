@@ -1,6 +1,6 @@
 # Pull request fact sheet
 
-The authoring agent (Claude) fills in this fact sheet from the final `git diff origin/main...HEAD` and test output, never from the initial plan.
+The authoring agent (Claude) fills in this fact sheet from the final `git diff <base>...HEAD` and test output, never from the initial plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer.
 
 The composer agent reads this file to draft the pull request description.
 
@@ -35,7 +35,7 @@ The composer agent reads this file to draft the pull request description.
 - Plan deviations: <deviations from initial plan or design, if any>
 
 ### Visuals
-- <`save` command output (`save <file>` or `save story <story-id>`): one line describing what the asset shows>
+- <`save` command output (`save <file>` or `save story <story-id>`) or a Mermaid block: one line describing what it shows>
 
 ### Verification
 - Checks executed: <commands run and output excerpts beyond standard green checks>

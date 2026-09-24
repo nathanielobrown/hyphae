@@ -11,17 +11,22 @@ Open a reviewable PR by the procedure below and the full guide in `docs/pull-req
 
 1. **Shape the branch**: Work on one branch per task off `origin/main` in a worktree. Keep history linear by rebasing. Shape changes into atomic commits. Verify that `mise run check` passes locally.
 2. **Sync documentation**: Dispatch the `doc-writer` subagent (`.claude/agents/doc-writer.md`) to run doc-sync and commit documentation updates into the branch.
-3. **Draft the fact sheet**: Write the handoff `pr-facts-<topic>` (`docs/handoffs.md` names the file) from the final `git diff origin/main...HEAD` and test output, never from the plan. Follow [fact_sheet.md](fact_sheet.md).
-4. **Compose the description**: Run the Gemini composer headless through pi with [composer.md](composer.md), naming the fact sheet and the `pr-body-<topic>` handoff to write:
+3. **Draft the fact sheet**: Write the handoff `pr-facts-<topic>` (`docs/handoffs.md` names the file) from the final `git diff <base>...HEAD` and test output, never from the plan. `<base>` is `origin/main`, or the parent layer's branch for an upper stack layer. Follow [fact_sheet.md](fact_sheet.md).
+4. **Compose the description**: Run the Gemini composer headless through pi with [composer.md](composer.md), naming the fact sheet, the diff base, and the `pr-body-<topic>` handoff to write:
+
    ```bash
-   pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md "<instruction naming the fact sheet and output paths>"
+   timeout 900 pi -p --model openrouter/google/gemini-3.8-flash --append-system-prompt .claude/skills/pr/composer.md "<instruction naming the fact sheet, diff base and output paths>" < /dev/null
    ```
+
+   Keep the `< /dev/null`: without it, `pi -p` waits on input forever.
 5. **Review the body**: Review `pr-body-<topic>` for factual errors against the diff only, not style. Check that prose fits the tier word budget (Light ~75, Standard ~300, Deep ~500), that empty sections are omitted, and that no session data reached it.
 6. **Validate diagrams**: If the body contains Mermaid blocks, run `mise run diagram-check <file>`.
 7. **Submit**: Push the branch once (`git push -u origin <topic>`), then open the PR:
+
    ```bash
    gh pr create --title "<emoji> <statement>" --body-file <file>
    ```
+
    For a viewer page change, run `save chromatic sync --wait` after the push so the `save story` images fill in.
 8. **Recompose on substantial change**: Recompose when scope changes, a design point changes, a new known issue appears, or a stack layer changes. Update with `gh pr edit --body-file <file>`. Small review fixes do not trigger recomposition.
 9. **Stacked PRs**: Manage stacks only through `gh stack` (v0.1 or later). Never point a PR at another branch by hand. Target 100–400 code lines per PR; split above 500 lines. Commit review fixes in the owning layer, then run `gh stack rebase --upstack` and `gh stack push`.
