@@ -9,7 +9,7 @@ Open a reviewable PR with the procedure below. The rules it relies on are in `do
 
 ## Procedure
 
-1. **Shape the branch**: Follow [Mechanics](../../../docs/pull-requests.md#mechanics), and [Stacked PRs](../../../docs/pull-requests.md#stacked-prs) for a stack. `mise run check` must pass locally.
+1. **Shape the branch**: Follow [Mechanics](../../../docs/pull-requests.md#mechanics), and [Stacked PRs](../../../docs/pull-requests.md#stacked-prs) for a stack.
 2. **Sync documentation**: Dispatch the `doc-writer` subagent (`.claude/agents/doc-writer.md`) to run doc-sync and commit documentation updates into the branch.
 3. **Get the fact sheet written** following [fact_sheet.md](fact_sheet.md). Only a session that knows the work firsthand writes it; an agent that knows the work only from a brief loses the rationale and the judgment calls.
    - If an `auditor` reviews the branch, its accepting pass writes the fact sheet. Put the tier, the feedback wanted, the user's decisions, and the implementer's report verbatim in the audit brief.
@@ -29,7 +29,7 @@ Open a reviewable PR with the procedure below. The rules it relies on are in `do
    gh pr create --title "<emoji> <statement>" --body-file <file>
    ```
 
-   For a stack, `gh stack submit` opens the PRs; then set each layer's title and body with `gh pr edit`. For a viewer page change, run `save chromatic sync --wait` after the push so the `save story` images fill in ([Chromatic snapshots](../../../docs/pull-requests.md#chromatic-snapshots-of-viewer-pages)).
+   For a stack, follow [Starting and submitting](../../../docs/pull-requests.md#stacked-prs) instead. For a viewer page change, run `save chromatic sync --wait` after the push so the `save story` images fill in ([Chromatic snapshots](../../../docs/pull-requests.md#chromatic-snapshots-of-viewer-pages)).
 8. **Recompose on substantial change**: Recompose when scope changes, a design point changes, a new known issue appears, or a stack layer changes. Update the fact sheet first, then rerun step 4 and update the PR with `gh pr edit --body-file <file>`. Small review fixes do not trigger recomposition.
 
 @../../../docs/pull-requests.md
