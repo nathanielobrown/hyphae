@@ -104,7 +104,7 @@ def test_the_layers_the_plan_drew_are_the_ones_the_graph_shows(graph: str) -> No
 def test_each_edge_is_one_unlabelled_arrow(graph: str) -> None:
     # Every body line is `importer --> imported` and nothing else: no label, no comment, no
     # style — the convention the overview's hand-drawn diagrams follow.
-    body = graph.splitlines()[2:-1]
+    body = graph.strip().splitlines()[2:-1]
     assert body, graph
     for line in body:
         assert re.fullmatch(r"\s+\w+ --> \w+", line), line
@@ -112,8 +112,9 @@ def test_each_edge_is_one_unlabelled_arrow(graph: str) -> None:
     assert body == sorted(body)
 
 
-def test_the_graph_is_fenced_and_ends_without_its_own_newline(graph: str) -> None:
+def test_the_graph_is_fenced_with_a_blank_line_either_side(graph: str) -> None:
     # The fence is inside the cog block, because a marker inside a fence is an example rather
-    # than a live block — so the generator owns both fence lines and neither newline around them.
-    assert graph.startswith("```mermaid\ngraph TD\n")
-    assert graph.endswith("\n```")
+    # than a live block — so the generator owns both fence lines and the blank lines that keep
+    # them off the markers, which aigarden's MD031 asks for. `print` adds the closing newline.
+    assert graph.startswith("\n```mermaid\ngraph TD\n")
+    assert graph.endswith("\n```\n")
