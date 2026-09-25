@@ -16,8 +16,7 @@ from hyphae.extract.records.shapes import RECORD_MODELS, Record
 class Documentation(NamedTuple):
     """One row of a `docs/schema.md` field table, derived from the models."""
 
-    # What the table prints in its Field column: the field under its container, as
-    # `usage.cache_creation`. `_name` says which containers a row carries.
+    # What the table prints in its Field column: the whole path, as `message.usage.speed`.
     path: str
     meaning: str
     evidence: tuple[Cited, ...]
@@ -115,17 +114,13 @@ def _describe(
 
 
 def _name(locate: tuple[Step, ...]) -> str:
-    """The Field column's spelling: the field under its container, as `usage.cache_creation`.
+    """The Field column's spelling: the whole path from the record's own field down.
 
-    Anything inside a content list is spelled whole, from the record's own field down —
-    `message.content.tool_result.content.image.source`. A block kind repeats at more than one
-    depth (`text` and `image` name both a block and a part of a block-form `tool_result`), so a
-    short name would send a reader looking for `image` to two rows. Outside a content list the
-    container is a record's own field, unique across the document, and one step is enough.
+    A short name is ambiguous twice over: a block kind repeats at more than one depth (`text` and
+    `image` name both a block and a part of a block-form `tool_result`), and one nested model can
+    hang off two fields at different depths, where the last two steps would name both alike.
     """
-    inside_a_list = any(isinstance(step, Among) for step in locate)
-    start = 0 if inside_a_list else max(len(locate) - 2, 0)
-    return ".".join(step.kind.value if isinstance(step, Among) else step for step in locate[start:])
+    return ".".join(step.kind.value if isinstance(step, Among) else step for step in locate)
 
 
 def documentation(models: tuple[type[Record], ...] = RECORD_MODELS) -> tuple[Documentation, ...]:

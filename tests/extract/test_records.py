@@ -318,21 +318,16 @@ def test_every_documented_field_carries_its_meaning_and_its_evidence() -> None:
         assert doc.evidence, f"{doc.path} cites nothing"
 
 
-def test_every_nested_field_names_exactly_one_container_the_tables_also_document() -> None:
-    # A Field cell is the whole address a reader has. `content.type` was three of them: the
-    # tables document a `tool_result.content`, an `advisor_tool_result.content`, and a `content`
-    # of its own on system records, and the row named none of them. A nested row's container
-    # must therefore resolve to one row, matched the way a reader matches it — by the container
-    # name, wherever that row spells it from.
+def test_every_nested_field_names_a_container_the_tables_also_document() -> None:
+    # A Field cell is the whole address a reader has. Short names broke it twice: `content.type`
+    # sat under three `content` rows, and a model shared by two fields — `origin` on a `user`
+    # record, `attachment.origin` on a queued command — would print its fields under one name
+    # for both. So every cell spells the path from the record down, and a nested row's container
+    # is itself a row, by exactly that name.
     names = {doc.path for doc in field_tables.documentation()}
     for name in sorted(names):
-        if "." not in name:
-            continue
-        container = name.rsplit(".", 1)[0]
-        holders = [
-            other for other in names if other == container or other.endswith(f".{container}")
-        ]
-        assert len(holders) == 1, f"`{name}` sits under any of {holders}"
+        if "." in name:
+            assert name.rsplit(".", 1)[0] in names, f"`{name}` sits under no documented row"
 
 
 def test_a_field_inside_a_block_is_named_from_the_block() -> None:
