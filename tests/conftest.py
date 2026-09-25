@@ -155,8 +155,7 @@ NON_CORPUS = (INVENTED_PROJECT_SESSION, OTHER_PROJECT_SESSION, NO_PROJECT_SESSIO
 # resume whose api calls all sit under no turn; `server_tools/` carries an agent-source call
 # with no turn either.
 SPINE = "4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b"
-SPINE_RUN = "ac461ef46b4bb8e32"
-SPINE_LEAF = "af6473ae437c9608d"
+SPINE_RUN, SPINE_LEAF = "ac461ef46b4bb8e32", "af6473ae437c9608d"
 RESUME = "0a76f771-5f5b-447e-852a-664fc972ea7c"
 # The line of `RESUME`'s longest raw record, 3,054 chars: the one past the `records_slice` cap.
 RESUME_LONG_RECORD = 5
@@ -207,8 +206,7 @@ THREE_BAND_TURN = "818588ad-3849-48fe-a546-573163768e04"
 # api calls sit under no turn.
 ANCESTOR = "2352492b-1437-4427-ad51-70f35c75f663"
 FORK_ORIGIN = "5a88789c-1da7-4f32-b631-40a7e243334b"
-FORK_ORIGIN_RUN = "acbc29008a04b9702"
-FORK_RUN = "a61a059e3610e6fb4"
+FORK_ORIGIN_RUN, FORK_RUN = "acbc29008a04b9702", "a61a059e3610e6fb4"
 # The compaction both of those transcripts hold: `FORK_ORIGIN_RUN` recorded it and the fork
 # copied it in with the rest of the prefix, so the fork's copy is the corpus's one replayed
 # compaction (`tests/fixtures/fork_origin/README.md`).
@@ -236,8 +234,7 @@ TEAMMATE_RUN = "aarchitect-5144001ac50718bc"
 # `compaction/`'s session; the first of its two main-thread compactions, whose page is served;
 # and its agent run, the corpus's one thread that compacted outside `main`.
 COMPACTED = "1de7cf38-b28a-4c7d-9a6d-66ebe002cfa9"
-COMPACTED_BOUNDARY = "459d0d29-cb67-477a-9cf1-f9bb19417c49"
-COMPACTED_RUN = "a003de2a5c1985f71"
+COMPACTED_BOUNDARY, COMPACTED_RUN = "459d0d29-cb67-477a-9cf1-f9bb19417c49", "a003de2a5c1985f71"
 # `interjection/`'s sessions: three turns with a queued message of each attribution; main and
 # a run hearing all three senders; a task's notice stamped in one turn, written in the next.
 INTERJECTION = "27a459ba-1251-4b25-8a3a-66cb888223b5"
