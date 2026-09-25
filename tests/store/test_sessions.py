@@ -232,28 +232,31 @@ def test_the_mycelia_rollup_inside_the_corpus_window(repository: SessionReposito
         cost_usd=17.0153,
         unpriced_api_calls=0,
         last_active=dt.datetime(2026, 7, 27, 14, 59, 18, 487000, tzinfo=dt.UTC),
-        matched_rows=4,
+        matched_rows=7,
     )
     # The page is under its limit, so the landing page cut nothing.
     assert rollups == ProjectRollups(rows=rollups.rows, cut=0, citation=rollups.citation)
-    assert len(rollups.rows) == 4
+    assert len(rollups.rows) == 7
 
 
 def test_the_landing_page_says_how_many_projects_its_limit_left_off(
     repository: SessionRepository,
 ) -> None:
-    """Bound below the corpus's four projects, the rollups carry the rows the limit dropped
+    """Bound below the corpus's seven projects, the rollups carry the rows the limit dropped
     as a count, and every row still says how many the statement matched."""
     rollups = repository.rollups(as_of=AS_OF, widths={**PROJECTS, "projects": 1})
     assert len(rollups.rows) == 1
-    assert rollups.cut == 3
-    assert rollups.rows[0].matched_rows == 4
+    assert rollups.cut == 6
+    assert rollups.rows[0].matched_rows == 7
 
 
 def test_the_projects_the_filter_box_suggests(repository: SessionRepository) -> None:
     """Every project the corpus names, busiest first."""
     assert repository.projects(widths=LIST).rows == [
         Project(MYCELIA, 16),
+        Project("/Users/nob/repos/factory", 1),
+        Project("/Users/nob/repos/mac_settings", 1),
+        Project("/Users/nob/repos/writer", 1),
         Project("/invented/project", 1),
         Project("/repo", 1),
     ]

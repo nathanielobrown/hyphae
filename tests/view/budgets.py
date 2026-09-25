@@ -155,7 +155,11 @@ PAGE_BYTES = 500_000
 # the chrome, the crumbs, the log rows and the previews give back 34,635 B more. The arithmetic
 # comes to 6,483,912 B, once the crumb's own markup is re-measured rather than carried, and the
 # 16,088 B over it is what the next thing a row grows by is measured against.
-NODE_BYTES = 6_500_000
+#
+# Raised to 6,580,000 when a fixture first answered in a model the price table lacks: a NavTree
+# row's cost then carries the unpriced mark, 25 B the row always drew and no sweep had weighed,
+# 80,425 B over 3,217 rows. The arithmetic comes to 6,564,687 B, with 15,313 B left.
+NODE_BYTES = 6_580_000
 # What one expansion may weigh: a node's body opened in place, inside someone else's children
 # log. It is over `PAGE_BYTES` and declared here rather than derived against it, for the reason
 # `bounds.OPENED_RECORD_CHARS` draws the same line the other way — a reader clicked. An
@@ -189,14 +193,15 @@ def fits(*, measured: int, budget: int) -> bool:
 
 # What the markup around one row of the list costs, with the content the row carries taken off.
 # Re-measured through the app by `test_bounds__lists.py`, every cap full of `&`, at the dearest
-# row the list holds rather than at whichever one sorted second: one more row cost 4,288 B,
+# row the list holds rather than at whichever one sorted second: one more row cost 4,337 B,
 # against the 2,833 B of content and marks the arithmetic below prices at those caps, leaving
-# 1,455 B of stacked cells, counted lists, the enrichment block and the row around them — which
+# 1,504 B of stacked cells, counted lists, the enrichment block and the row around them — which
 # is what this and the allowance under it are pinned at together. Down 274 B when the pages
-# became components, and `bounds.SESSIONS` rose from 97 rows to 113 on it.
-MEASURED_SESSION_ROW_MARKUP = 1_200
+# became components, and `bounds.SESSIONS` rose from 97 rows to 113 on it. The dearest row is
+# one whose cost carries the unpriced mark: a call on a model `pricing.MODELS` lacks.
+MEASURED_SESSION_ROW_MARKUP = 1_204
 # What the markup around one row's enrichment costs on top of that, with the model's own words
-# taken off — the share of the 1,455 B above that the block holds, rather than a measurement of
+# taken off — the share of the 1,504 B above that the block holds, rather than a measurement of
 # its own: the row is weighed whole and the pair is what the arithmetic spends. The list never
 # renders the stale tag — it joins what a pass wrote
 # and not the versions that would judge it — so this is the two tags and the block around them.

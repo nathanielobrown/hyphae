@@ -228,8 +228,8 @@ class SessionContext(Identified):
             default=None,
             description=(
                 "Where the session was forked from, on every record the fork carried over. One "
-                "corpus session has it, on 299 records here and 151 more that are archived "
-                "unread. Nothing reads it: a fork's copied rows are found by their content"
+                "corpus session has it, on 450 records, 151 of them attachments. Nothing reads "
+                "it: a fork's copied rows are found by their content"
             ),
         ),
         Cited(scan=CENSUS, note="only `2.1.220` writes it"),

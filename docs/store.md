@@ -26,6 +26,7 @@ erDiagram
     sessions ||--|| extract_state : "fingerprinted by"
     sessions ||--o{ otlp_delivery : "shipped per backend"
     turns ||--o{ api_calls : "drove"
+    turns |o--o{ interjections : "was sent mid-turn"
     api_calls ||--o{ tool_calls : "asked for"
     tool_calls ||--o| agent_runs : "started"
     tool_calls ||--o| offload_files : "offloaded its result to"

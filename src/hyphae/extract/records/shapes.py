@@ -1,12 +1,13 @@
 """Every record shape in one roster, and the dispatch from a raw record to its model.
 
 The families live beside this module: `base` holds the mixin ladder, and `conversation`,
-`system` and `bookkeeping` hold the models themselves. `ArchivedRecord` here takes every
-registered kind no reader opens, and outside a test run every kind neither registry names.
+`attachments`, `system` and `bookkeeping` hold the models themselves. `ArchivedRecord` here takes
+every registered kind no reader opens, and outside a test run every kind neither registry names.
 """
 
 from typing import Any
 
+from hyphae.extract.records.attachments import AttachmentRecord
 from hyphae.extract.records.base import Record, SessionContext
 from hyphae.extract.records.bookkeeping import (
     AgentNameRecord,
@@ -35,10 +36,9 @@ class ArchivedRecord(SessionContext):
     It extends `SessionContext` because the envelope is read off every kind that carries one:
     `raw_record` takes `uuid` and `timestamp`, and `session_of` takes `cwd`, `gitBranch`,
     `version` and `entrypoint` from the first record that has them, which for five of the
-    3,647 threads in the store is a thin `system` subtype (scanned 2026-09-04; 24,704
-    `attachment` records carry the same four). Past the envelope it claims nothing: the rest
-    of its keys are the archive's, kept whole rather than described. It is outside
-    `RECORD_MODELS`, so it prints no row in `docs/schema.md`.
+    3,647 threads in the store is a thin `system` subtype (scanned 2026-09-04). Past the envelope
+    it claims nothing: the rest of its keys are the archive's, kept whole rather than described.
+    It is outside `RECORD_MODELS`, so it prints no row in `docs/schema.md`.
     """
 
     OPAQUE = "archived verbatim; its fields are the archive's, not a claim"
@@ -48,6 +48,7 @@ class ArchivedRecord(SessionContext):
 RECORD_MODELS: tuple[type[Record], ...] = (
     UserRecord,
     AssistantRecord,
+    AttachmentRecord,
     SystemRecord,
     TurnDurationRecord,
     CompactBoundaryRecord,
@@ -84,7 +85,7 @@ ARCHIVED_UNREAD: dict[ArchiveRecordType | SystemSubtype, str] = {
 
 # The archived kinds each branch of the dispatch may answer, kept apart because the two
 # registries name two levels of one envelope and a member of either is just a string: without
-# the split, `api_error` as a top-level type and `attachment` as a `system` subtype would both
+# the split, `api_error` as a top-level type and `queue-operation` as a `system` subtype would both
 # be archived, when a kind moving up or down the envelope is exactly the change to crash on.
 _ARCHIVED_TYPES = frozenset(k.value for k in ARCHIVED_UNREAD if isinstance(k, ArchiveRecordType))
 _ARCHIVED_SUBTYPES = frozenset(k.value for k in ARCHIVED_UNREAD if isinstance(k, SystemSubtype))

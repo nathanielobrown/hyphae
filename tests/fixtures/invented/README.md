@@ -25,6 +25,9 @@ invented record follows on a known line.
 | `invented-no-pr-number.jsonl`, `invented-no-pr-url.jsonl`, `invented-no-pr-repository.jsonl` | a `pr-link` record missing one of the three fields a `PrLink` row is built from | all 3,096 `pr-link` records on the recording machine carry all four fields (scanned 2026-09-04). One file per field, because the reader stops at the first one it cannot read |
 | `invented-no-duration.jsonl` | a `system/turn_duration` record with no `durationMs` | all 3,592 `turn_duration` records on the recording machine carry one (scanned 2026-09-04). A default here would shorten a session's `active_ms` and still read as a number |
 | `invented-corrupt-middle.jsonl` | the same broken line, with a complete record after it | corruption rather than a live write, so it crashes. The pair only means something read together: a tolerance that leaked to any line would turn a schema change into silent data loss |
+| `invented-bad-queued-command.jsonl` | a `queued_command` attachment whose `prompt` is an object, not a string or a list of blocks | every one of the 1,227 recorded queued commands validates (scanned 2026-09-25). It is built on the recorded queued command in `interjection/` |
+| `invented-unknown-sender.jsonl` | a queued command whose `origin.kind` is `telepath` | the recorded senders are `human`, `coordinator` and `peer`, all mapped (scanned 2026-09-25) |
+| `invented-no-origin.jsonl` | a typed queued command, `commandMode: prompt`, with no `origin` | every recorded `prompt`-mode queued command names its sender (scanned 2026-09-25) |
 
 Every file whose test asserts on a message carries the string `SUPER-SECRET-PAYLOAD-9f2a` in the offending record; `grep -L` names the two that do not. That is the test's tripwire — a crash message or a log line that names it has leaked private transcript content.
 

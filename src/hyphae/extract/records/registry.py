@@ -27,6 +27,8 @@ class RecordType(StrEnum):
     PR_LINK = "pr-link"
     # Opens a by-reference fork's transcript, naming the conversation it continues.
     FORK_CONTEXT_REF = "fork-context-ref"
+    # Context slipped in beside a turn; only a mid-turn message's is read.
+    ATTACHMENT = "attachment"
 
 
 class ArchiveRecordType(StrEnum):
@@ -36,7 +38,6 @@ class ArchiveRecordType(StrEnum):
     transcript states better. Archiving rather than parsing keeps them recoverable.
     """
 
-    ATTACHMENT = "attachment"
     LAST_PROMPT = "last-prompt"
     MODE = "mode"
     PERMISSION_MODE = "permission-mode"

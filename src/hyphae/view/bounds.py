@@ -181,7 +181,10 @@ HIGHLIGHT_CHARS = 256_000
 # so the djLint indentation above and the newlines the template's own source carried are both
 # gone. The markup a reader gets is the same one — what left the row is whitespace
 # (`src/hyphae/view/pages/node/markup/nav_tree.py`).
-NAV_TREE_ROW_BYTES = 1703
+# Up 25 B from 1,703 for the mark a cost carries when a call ran on a model `pricing.MODELS`
+# lacks: the row always drew it, but no fixture answered in such a model until
+# `interjection/af7e1907`, so no sweep had weighed it.
+NAV_TREE_ROW_BYTES = 1728
 
 
 # What each surface prints at. A surface is one place a page shows store text at widths of its

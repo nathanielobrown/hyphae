@@ -53,6 +53,16 @@ would have become the session's `started_at`. Everything else is as recorded, in
 Four of the canonical store's 1,367 compactions are copies in this shape, spread over two
 sessions — `ce02402d` above and `c7c4cae9` (measured 2026-08-30).
 
+## The borrowed task notification
+
+No existing recording contains a queued command inside a fork's copied prefix, even though the store provides the `interjections.replayed` column for this exact shape. To supply one, we borrow a queued command and place it after line 12 in both subagent files. It appears twice: first as the auditor's own record and then as the fork's copy, sharing a single uuid while using each file's respective `agentId`.
+
+| Record | Source session | CC version | Shape it carries |
+| --- | --- | --- | --- |
+| `queued_command`, `commandMode: "task-notification"` | `af7e1907-fa0b-42b2-a8b2-9eea773aa7a6`, `agent-aaceab3ee53af97d8.jsonl` line 252, factory | 2.1.259 | a task's notice heard mid-turn, which a fork then copies |
+
+We rewrite `sessionId`, `cwd`, `gitBranch`, and `slug` to match the host, point `parentUuid` to the uuid on line 12, and set both timestamps to match line 12's value (2026-07-21T22:05:03.219Z). As in `interjection/`, we redact text inside each leaf tag to its recorded length.
+
 ## Redaction
 
 As `spine/` — see that README.

@@ -1,6 +1,7 @@
-"""One transcript's lines as the session's entities: turns, api calls, tool calls, compactions.
+"""One transcript's lines as the session's entities: turns, api calls, tool calls, compactions,
+interjections.
 
-`parse` drives the four readers below, each walking the same lines for what it is looking for.
+`parse` drives the five readers below, each walking the same lines for what it is looking for.
 The lines arrive already validated against their record models (`extract/transcript.py`), so a
 reader here reads attributes and never guesses at a shape.
 
@@ -17,6 +18,7 @@ from pathlib import PurePath
 from typing import NamedTuple
 
 from hyphae.extract.errors import TranscriptSchemaError
+from hyphae.extract.records.attachments import AttachmentRecord, PromptImage, QueuedCommand
 from hyphae.extract.records.blocks import (
     AdvisorToolResultBlock,
     Block,
@@ -39,7 +41,15 @@ from hyphae.extract.records.registry import (
 )
 from hyphae.extract.records.system import CompactBoundaryRecord
 from hyphae.extract.transcript import Line, required, required_timestamp, timestamp_of
-from hyphae.models.trace import MAIN_SOURCE, ApiCall, Compaction, ToolCall, Turn
+from hyphae.models.trace import (
+    MAIN_SOURCE,
+    ApiCall,
+    Compaction,
+    Interjection,
+    Sender,
+    ToolCall,
+    Turn,
+)
 from hyphae.pricing import SYNTHETIC_MODEL, TokenUsage, compute_cost
 
 # A leading tag, with or without attributes: `<teammate-message teammate_id="...">` names
@@ -56,6 +66,7 @@ class Parsed(NamedTuple):
     api_calls: list[ApiCall]
     tool_calls: list[ToolCall]
     compactions: list[Compaction]
+    interjections: list[Interjection]
 
 
 @dataclass(frozen=True)
@@ -126,6 +137,7 @@ def parse(lines: list[Line], session_id: str, source: str, replayed: set[int]) -
         api_calls=_api_calls(lines, turn_by_line, session_id, source, replayed),
         tool_calls=_tool_calls(lines, session_id, source, replayed),
         compactions=_compactions(lines, session_id, source, replayed),
+        interjections=_interjections(lines, turn_by_line, session_id, source, replayed),
     )
 
 
@@ -504,3 +516,74 @@ def _compactions(
             )
         )
     return compactions
+
+
+# `commandMode` on a background task's notice, which carries no `origin` of its own.
+_TASK_NOTICE = "task-notification"
+# Every `origin.kind` a queued command has been recorded with (scanned 2026-09-25).
+_SENDERS = {"human": Sender.PERSON, "coordinator": Sender.AGENT, "peer": Sender.AGENT}
+
+
+def _interjections(
+    lines: list[Line],
+    turn_by_line: dict[int, str | None],
+    session_id: str,
+    source: str,
+    replayed: set[int],
+) -> list[Interjection]:
+    """Every message delivered while a turn ran, under the turn open where it sits in the file.
+
+    File order rather than the record's timestamp places it, as it places an api call: a
+    message typed during one turn can wait in the queue and land in the next.
+    """
+    interjections = []
+    for line in lines:
+        record = line.record
+        if not isinstance(record, AttachmentRecord):
+            continue
+        command = record.attachment
+        if not isinstance(command, QueuedCommand):
+            continue
+        interjections.append(
+            Interjection(
+                id=required(record.uuid, line, session_id, "uuid"),
+                session_id=session_id,
+                source=source,
+                turn_id=turn_by_line[line.line_no],
+                timestamp=required_timestamp(line, session_id),
+                sender=_sender(command, line, session_id),
+                text=_flattened(command, line, session_id),
+                replayed=line.line_no in replayed,
+            )
+        )
+    return interjections
+
+
+def _sender(command: QueuedCommand, line: Line, session_id: str) -> Sender:
+    """Who sent a queued command: a task by its mode, anyone else by its `origin`.
+
+    A peer's typed message is `prompt`-mode like the person's, so the mode alone cannot tell
+    the two apart.
+    """
+    if command.commandMode == _TASK_NOTICE:
+        return Sender.TASK
+    kind = required(command.origin, line, session_id, "origin").kind
+    sender = _SENDERS.get(kind) if kind is not None else None
+    if sender is None:
+        raise TranscriptSchemaError(
+            f"Unknown interjection sender `{kind}` in session {session_id}, line {line.line_no}"
+        )
+    return sender
+
+
+def _flattened(command: QueuedCommand, line: Line, session_id: str) -> str:
+    """A queued prompt as text: a string whole, a block list as its text joined by blank lines
+    with each picture standing as `[image]`."""
+    if isinstance(command.prompt, str):
+        return command.prompt
+    return "\n\n".join(
+        "[image]"
+        if isinstance(block, PromptImage)
+        else required(block.text, line, session_id, "attachment.prompt.text")
+        for block in command.prompt
+    )

@@ -1,7 +1,8 @@
-"""The four field tables in `docs/schema.md`, written from `extract/records/`.
+"""The field tables in `docs/schema.md` and `docs/schema-attachments.md`, written from
+`extract/records/`.
 
 Run by one cog block per table — `uv run python -m tools.gen_schema identity`, and so on for the
-other three — because each sits under its own heading. Every meaning and every citation comes
+others — because each sits under its own heading. Every meaning and every citation comes
 from the models; nothing here says what a field is.
 
 What this module owns is the layout: which table a row appears in and in what order, since that
@@ -20,12 +21,13 @@ from tools import text
 
 
 class Section(StrEnum):
-    """The four tables, named as the cog block's argument spells them."""
+    """The tables, named as the cog block's argument spells them."""
 
     IDENTITY = "identity"
     CONTENT = "content"
     API = "api"
     EVENTS = "events"
+    ATTACHMENTS = "attachments"
 
 
 # Which table each documented field appears in, and where. The order is the reader's: a
@@ -101,6 +103,16 @@ SECTIONS: dict[Section, tuple[str, ...]] = {
         "promptId",
         "promptSource",
         "origin",
+        "origin.kind",
+        "origin.body",
+        "origin.from",
+        "origin.name",
+        "origin.senderTaskId",
+        "origin.fromMode",
+        "origin.hopChain",
+        "origin.msg_id",
+        "origin.verifiedPeerPid",
+        "origin.handback",
         "permissionMode",
         "thinkingMetadata",
         "classifierMetaLines",
@@ -187,6 +199,33 @@ SECTIONS: dict[Section, tuple[str, ...]] = {
         "parentSessionId",
         "parentLastUuid",
         "contextLength",
+    ),
+    Section.ATTACHMENTS: (
+        "attachment",
+        "attachment.type",
+        "attachment.prompt",
+        "attachment.prompt.text",
+        "attachment.prompt.text.text",
+        "attachment.prompt.image",
+        "attachment.prompt.image.source",
+        "attachment.commandMode",
+        "attachment.timestamp",
+        "attachment.origin",
+        "attachment.origin.kind",
+        "attachment.origin.body",
+        "attachment.origin.from",
+        "attachment.origin.name",
+        "attachment.origin.senderTaskId",
+        "attachment.origin.fromMode",
+        "attachment.origin.hopChain",
+        "attachment.origin.msg_id",
+        "attachment.origin.verifiedPeerPid",
+        "attachment.origin.handback",
+        "attachment.source_uuid",
+        "attachment.isMeta",
+        "attachment.imagePasteIds",
+        "rendered",
+        "renderedInHumanTurn",
     ),
 }
 

@@ -21,7 +21,7 @@ import duckdb
 
 # Bumped whenever any owner's stored tables change. A store older than this is carried
 # forward by `MIGRATIONS`; one older than every step there is refused.
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 # The remedy a version-mismatch message carries when no migration can help, written once
 # because getting it wrong is expensive: a store can be the only copy of a session Claude Code
@@ -173,6 +173,27 @@ def _add_the_session_tags_table(connection: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _add_the_interjections_table(connection: duckdb.DuckDBPyConnection) -> None:
+    """10 -> 11: `interjections`, the messages delivered while a turn was running.
+
+    Nothing to back-fill here: the rows come from the re-extract the extractor version bump
+    triggers. The columns are spelled again for the reason `_add_the_session_tags_table` gives.
+    """
+    connection.execute("""
+        CREATE TABLE interjections (
+            id VARCHAR NOT NULL,
+            session_id VARCHAR NOT NULL,
+            source VARCHAR NOT NULL,
+            turn_id VARCHAR,
+            timestamp TIMESTAMPTZ NOT NULL,
+            sender VARCHAR NOT NULL,
+            text VARCHAR NOT NULL,
+            replayed BOOLEAN NOT NULL,
+            PRIMARY KEY (session_id, source, id)
+        )
+    """)
+
+
 # Each step keyed by the version it produces, so a store at version N is carried forward by
 # every step above N in order. A step edits tables in place: the archive can hold the only
 # copy of a session Claude Code has pruned, so a schema change moves a store rather than
@@ -181,6 +202,7 @@ MIGRATIONS: dict[int, Callable[[duckdb.DuckDBPyConnection], None]] = {
     8: _rename_agent_run_description_to_brief,
     9: _flag_the_compactions_a_fork_replayed,
     10: _add_the_session_tags_table,
+    11: _add_the_interjections_table,
 }
 
 

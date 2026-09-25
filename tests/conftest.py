@@ -219,9 +219,8 @@ REGISTRY_ZOO = "registry-zoo-0000-0000-0000-000000000000"
 # The pool session no other leaf asserts on, so a copied store can strip its api calls and
 # leave it the shape a `/model`-only session has: one turn, nothing the model answered.
 CONFIG_ONLY = "7e37bb35-4dcb-4e16-85be-55ac510c168e"
-# `model_only/`: that same shape as recorded rather than planted — one `/model` turn and no
-# api call under it. 45 mycelia sessions are in this shape, and it is the one the enrichment
-# gate exists for.
+# `model_only/`: that shape as recorded — one `/model` turn, no api call under it. 45 mycelia
+# sessions are in it, and it is the one the enrichment gate exists for.
 MODEL_ONLY = "bec99999-cbb7-4d11-9a58-3ad3d0e1c8cf"
 # The corpus's one offloaded tool result — Claude Code wrote the output to a file beside the
 # transcript instead of into it. `CONFIG_ONLY` recorded it: a 159-character file, and the tool
@@ -235,12 +234,16 @@ DEEP_RESEARCH_SESSION = "8d930c77-9e60-4784-9885-6d4c226280f7"
 # corpus's one orphan, a run with no spawning tool call behind it.
 TEAMMATE = "10d0349d-0705-4e23-aa64-5b1b97698b2e"
 TEAMMATE_RUN = "aarchitect-5144001ac50718bc"
-# `compaction/`'s session, which holds two recorded main-thread compactions, and the first
-# of the two — the node a compaction's own page is served for.
+# `compaction/`'s session; the first of its two main-thread compactions, whose page is served;
+# and its agent run, the corpus's one thread that compacted outside `main`.
 COMPACTED = "1de7cf38-b28a-4c7d-9a6d-66ebe002cfa9"
 COMPACTED_BOUNDARY = "459d0d29-cb67-477a-9cf1-f9bb19417c49"
-# Its agent run, the corpus's one thread that compacted outside `main`.
 COMPACTED_RUN = "a003de2a5c1985f71"
+# `interjection/`'s sessions: three turns with a queued message of each attribution; main and
+# a run hearing all three senders; a task's notice stamped in one turn, written in the next.
+INTERJECTION = "27a459ba-1251-4b25-8a3a-66cb888223b5"
+SENDERS, SENDERS_RUN = "af7e1907-fa0b-42b2-a8b2-9eea773aa7a6", "aaceab3ee53af97d8"
+WAITED = "1d58565d-b635-46e0-bb78-4a64a8eecf1a"
 # `parallel_tools/`'s session, which issued a batch each way — two calls in one record, and
 # two a record apart — and addressed two of its own runs by id.
 PARALLEL = "5f4b59fb-a9a8-4ca1-af62-a64b9d0ce515"
@@ -540,10 +543,10 @@ ENRICHMENT_FIXTURES = (
 
 @pytest.fixture(scope="session")
 def corpus_db(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Path:
-    """The fixture corpus as one trace store: 13 mycelia sessions and three outside them.
+    """The fixture corpus as one trace store: every transcript `corpus_transcripts` finds.
 
     Built once for the whole run and read by every tier that queries a store — the analysis
-    queries and the viewer's routes ask their questions of the same 16 sessions. Read-only:
+    queries and the viewer's routes ask their questions of the same sessions. Read-only:
     a test that plants or deletes a row copies the file first.
     """
     return shared_store(

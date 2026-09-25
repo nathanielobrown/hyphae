@@ -10,10 +10,12 @@ that recorded it.
 Slices 1 to 4 of `plans/trace-pipeline/design.md` cover sessions, turns, API calls, tool
 calls, agent runs, compactions, PR links, cost, and the archive — every line of every file
 the session wrote, plus the tool outputs it moved out of the transcript.
+`plans/mid-turn-messages/` adds the messages delivered while a turn ran.
 """
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 
 # The `source` value for records that came from the session's own transcript rather than
 # from a subagent's. Subagent records carry their agentId instead.
@@ -257,6 +259,41 @@ class Compaction:
     replayed: bool
 
 
+class Sender(StrEnum):
+    """Who an interjection came from."""
+
+    # Someone at the keyboard, typing while the turn ran.
+    PERSON = "person"
+    # Another session: the coordinator that launched this one, or a peer.
+    AGENT = "agent"
+    # A background task announcing that it finished.
+    TASK = "task"
+
+
+@dataclass(frozen=True)
+class Interjection:
+    """A message delivered to the model while a turn was already running.
+
+    It belongs to the turn open where it landed in the transcript, which is not always the one
+    open when it was typed: a message waits in a queue until the model can take it.
+    """
+
+    # The `attachment` record's uuid.
+    id: str
+    session_id: str
+    source: str
+    # None for a message delivered before the thread's first prompt, such as a task's notice.
+    turn_id: str | None
+    # The record's own timestamp: when it was typed where Claude Code queued it with one, and
+    # when it was delivered otherwise.
+    timestamp: datetime
+    sender: Sender
+    # The message whole. A prompt written as blocks is its text blocks joined by blank lines,
+    # each picture standing as `[image]`.
+    text: str
+    replayed: bool
+
+
 @dataclass(frozen=True)
 class PrLink:
     """A pull request the session opened or touched, as Claude Code recorded it."""
@@ -321,6 +358,7 @@ class LiveRows:
     tool_calls: list[ToolCall]
     agent_runs: list[AgentRun]
     compactions: list[Compaction]
+    interjections: list[Interjection]
 
 
 @dataclass(frozen=True)
@@ -338,6 +376,7 @@ class SessionTrace:
     tool_calls: list[ToolCall]
     agent_runs: list[AgentRun]
     compactions: list[Compaction]
+    interjections: list[Interjection]
     pr_links: list[PrLink]
     offload_files: list[OffloadFile]
     raw_records: list[RawRecord]
@@ -357,4 +396,5 @@ class SessionTrace:
             tool_calls=[call for call in self.tool_calls if not call.replayed],
             agent_runs=list(self.agent_runs),
             compactions=[row for row in self.compactions if not row.replayed],
+            interjections=[row for row in self.interjections if not row.replayed],
         )

@@ -655,6 +655,7 @@ def test_a_record_with_no_timestamp_crashes_naming_the_kind_it_was(
         ("invented-no-pr-url", "prUrl", "pr-link"),
         ("invented-no-pr-repository", "prRepository", "pr-link"),
         ("invented-no-duration", "durationMs", "system"),
+        ("invented-no-origin", "origin", "attachment"),
     ],
 )
 def test_a_record_missing_a_field_a_reader_needs_crashes_naming_that_field(

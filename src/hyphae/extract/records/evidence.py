@@ -16,6 +16,7 @@ COMPACTION = "tests/fixtures/compaction/"
 DUP_UUID = "tests/fixtures/dup_uuid/"
 FORK_BYREF = "tests/fixtures/fork_byref/"
 FORK_ORIGIN = "tests/fixtures/fork_origin/"
+INTERJECTION = "tests/fixtures/interjection/"
 LEGACY_ENTRYPOINT = "tests/fixtures/legacy_entrypoint/"
 LEGACY_TITLE = "tests/fixtures/legacy_title/"
 MODEL_ONLY = "tests/fixtures/model_only/"
@@ -30,6 +31,11 @@ WORKFLOW = "tests/fixtures/workflow/"
 # The scan behind every claim no fixture holds: `hp extract`'s own archive, read field by field.
 # The counts beside those claims are its counts, so re-running it is how they are checked.
 CENSUS = "the canonical store, 705,431 records in 630 sessions, scanned 2026-09-04"
+# The same archive grown, read for what a mid-turn message carries: every `attachment` record and
+# every `origin` a `user` record writes.
+ATTACHMENT_CENSUS = (
+    "the canonical store, 86,166 `attachment` records in 1,469 sessions, scanned 2026-09-25"
+)
 
 
 @dataclass(frozen=True)

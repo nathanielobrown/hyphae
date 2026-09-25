@@ -19,7 +19,7 @@ from hyphae.store.trace_store import (
     StoreExporter,
     open_trace_store,
 )
-from tests.conftest import MODEL_ONLY, NO_WAIT, TraceFactory, stored_rows
+from tests.conftest import INTERJECTION, MODEL_ONLY, NO_WAIT, TraceFactory, stored_rows
 
 SPINE = "4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b"
 DUPS = "8ee00a94-b01a-4394-b447-b065f74b11af"
@@ -82,10 +82,14 @@ def test_a_trace_round_trips(db: Path, fixture_trace: TraceFactory):
     trace = fixture_trace("spine", SPINE)
     # The spine session never compacted, so the compactions come from the session that did.
     compacted = fixture_trace("compaction", COMPACTED)
+    # Nor did it queue a message mid-turn, so the interjections come from the one that did,
+    # whose first message landed before any prompt and so under no turn.
+    interjected = fixture_trace("interjection", INTERJECTION)
 
     exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")
     exporter.export(compacted, "fingerprint-2")
+    exporter.export(interjected, "fingerprint-3")
 
     # If a trace is exported, then each table holds exactly its entities, field for
     # field — including the `command_name`/`command_args` nulls on a plain prompt.
@@ -99,11 +103,14 @@ def test_a_trace_round_trips(db: Path, fixture_trace: TraceFactory):
         ("agent_runs", trace.agent_runs),
         ("pr_links", trace.pr_links),
         ("compactions", compacted.compactions),
+        ("interjections", interjected.interjections),
     ):
         assert rows(exporter, table, type(entities[0]), entities[0].session_id) == sorted(
             dataclasses.astuple(entity) for entity in entities
         )
-    assert counts(exporter)["raw_records"] == len(trace.raw_records) + len(compacted.raw_records)
+    assert counts(exporter)["raw_records"] == sum(
+        len(one.raw_records) for one in (trace, compacted, interjected)
+    )
 
 
 def test_re_exporting_a_session_replaces_it_wholly(db: Path, fixture_trace: TraceFactory):
@@ -124,6 +131,7 @@ def test_re_exporting_a_session_replaces_it_wholly(db: Path, fixture_trace: Trac
         "tool_calls": 12,
         "agent_runs": 2,
         "compactions": 0,
+        "interjections": 0,
         "pr_links": 2,
         "offload_files": 0,
         "raw_records": 58,
@@ -152,6 +160,7 @@ def test_re_exporting_a_session_replaces_it_wholly(db: Path, fixture_trace: Trac
         "tool_calls": 1,
         "agent_runs": 1,
         "compactions": 0,
+        "interjections": 0,
         "pr_links": 0,
         "offload_files": 0,
         "raw_records": 3,
@@ -321,15 +330,17 @@ def test_a_rollup_counts_replayed_work_once(db: Path, fixture_trace: TraceFactor
 
 
 # What `fork_origin` holds per kind: rows in the base table, then rows the trace calls live.
-# Four of the five shrink and `agent_runs` does not, so one recorded session discriminates
-# every field of `LiveRows` at once — and a `live()` that filtered nothing could not pass by
-# agreeing with a view that filtered nothing either.
+# Every kind but `agent_runs` shrinks, so one recorded session discriminates every field of
+# `LiveRows` at once — and a `live()` that filtered nothing could not pass by agreeing with a
+# view that filtered nothing either.
 FORK_ROWS = {
     "turns": (2, 1),
     "api_calls": (4, 3),
     "tool_calls": (11, 7),
     "agent_runs": (2, 2),
     "compactions": (2, 1),
+    # A task's notice borrowed into the copied prefix: no recording holds a copied one.
+    "interjections": (2, 1),
 }
 
 
@@ -340,7 +351,7 @@ def test_the_live_views_hold_what_the_trace_calls_live(
     """Each `live_*` view holds exactly the rows the trace itself calls live — the store's
     answer and the model's answer are one answer."""
     # If the fork fixture is written to a store — its own transcript and the run it forked
-    # from, so four of the five kinds hold a copy the other already recorded...
+    # from, so five of the six kinds hold a copy the other already recorded...
     trace = fixture_trace("fork_origin", ORIGIN)
     exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")

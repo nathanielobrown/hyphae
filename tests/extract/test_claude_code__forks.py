@@ -67,6 +67,12 @@ def test_a_copied_record_belongs_to_the_transcript_that_ran_it(fixture_source: S
         (AUDITOR, False),
         (FORK, True),
     }
+    # A task's notice the auditor heard mid-turn is copied the same way, so it is the fork's
+    # only as a replay.
+    assert {(row.source, row.replayed) for row in extracted.interjections} == {
+        (AUDITOR, False),
+        (FORK, True),
+    }
     # No row is flagged on both sides, which is what would make the work vanish.
     assert not [call for call in extracted.api_calls if call.source == AUDITOR and call.replayed]
 

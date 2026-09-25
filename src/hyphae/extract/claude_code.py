@@ -46,7 +46,7 @@ EXTRACTOR_NAME = "claude_code"
 
 # Bump on any change to what this parser produces: the version is folded into every
 # fingerprint, so bumping it re-extracts the whole corpus on the next refresh.
-EXTRACTOR_VERSION = "7"
+EXTRACTOR_VERSION = "8"
 
 
 @dataclass(frozen=True)
@@ -138,6 +138,7 @@ class ClaudeCodeExtractor:
                 source.id,
             ),
             compactions=[one for parsed_one in parsed for one in parsed_one.compactions],
+            interjections=[row for one in parsed for row in one.interjections],
             # Main-transcript only: no subagent in the corpus records one (2026-08-07).
             pr_links=pr_links(kept[MAIN_SOURCE], source.id),
             offload_files=[read_offload_file(path, source.id) for path in files.offloads],

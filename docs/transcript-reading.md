@@ -1,6 +1,6 @@
 # Reading transcript records
 
-Read a Claude Code transcript by these rules: which `user` records start a turn, where a slash command's output went, and which timestamps were measured rather than assigned.
+Read a Claude Code transcript by these rules: which `user` records start a turn, where a slash command's output went, which turn a mid-turn message belongs to, and which timestamps were measured rather than assigned.
 
 [The schema reference](schema.md) says what each field is. This document says what the fields mean together, which is where a query goes wrong without ever looking wrong.
 
@@ -32,6 +32,18 @@ The text between the tags can span lines, so don't stop at the first line. It ca
 A resumed session can replay the same output under the plain turn that now precedes it. The corpus contains 183 such records. If `parentUuid` points to a turn that ran no command, the output has no owning turn in that thread; the archive is not malformed.
 
 *Evidence:* `tests/fixtures/spine/`, CC 2.1.221, contains the `user` carrier; `tests/fixtures/model_only/`, CC 2.1.215, contains the `system` carrier and an empty `/clear` body; `tests/fixtures/resume_pair/`, CC 2.1.202, contains the replay.
+
+## File a mid-turn message by where it sits
+
+An `attachment` record whose `attachment.type` is `queued_command` carries a message Claude Code delivered while a turn was already running: what the person typed, what a coordinator or peer sent a running agent, or a background task's notice that it ended. It never starts a turn. It belongs to the turn open where the record sits in the file, the rule that places an api call, and one written before the thread's first prompt belongs to no turn. The extractor stores each as an interjection.
+
+Don't place it by its timestamp. Where `attachment.timestamp` is present, the record's own timestamp repeats it, and both say when the message was queued rather than when the model read it. A message can wait out the rest of one turn and land in the next: 18 records in the canonical store fall on different turns under the two rules ([the mid-turn messages design](../plans/mid-turn-messages/design.md#decisions), scanned 2026-09-25). A coordinator's message omits `attachment.timestamp`, and its record timestamp is when it was delivered.
+
+Tell the sender by `origin.kind`, not `commandMode`. A peer's message is `prompt`-mode like the person's, and a coordinator's has no mode at all. Only a task's notice is told by its mode, `task-notification`, because it carries no `origin`. The extractor refuses a session holding an `origin.kind` it has not seen.
+
+Only this carrier is read. The 706 `user` records that wrap a coordinator's or peer's message in `isMeta` markup start no turn and are not yet interjections either (the design's out-of-scope list).
+
+*Evidence:* `tests/fixtures/interjection/`, CC 2.1.220, contains a notice before the first prompt and a message the person typed mid-turn; CC 2.1.259 contains a coordinator's message without `attachment.timestamp`; CC 2.1.267 contains a notice queued during one turn and filed under the next.
 
 ## Start parallel local calls at the batch's first timestamp
 

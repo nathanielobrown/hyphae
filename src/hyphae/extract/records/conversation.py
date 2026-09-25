@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
+from hyphae.extract.records.attachments import Origin
 from hyphae.extract.records.base import MetaFlagged, SessionContext
 from hyphae.extract.records.evidence import (
     CENSUS,
@@ -80,14 +81,8 @@ class UserRecord(SessionContext, MetaFlagged):
         Cited(SPINE, "2.1.221"),
     ]
     origin: Annotated[
-        dict[str, Any] | None,
-        Field(
-            default=None,
-            description=(
-                "Where the record came from, as an object holding a `kind`. Nothing has opened "
-                "it, so its interior is undeclared"
-            ),
-        ),
+        Origin | None,
+        Field(default=None, description="Who sent the prompt"),
         Cited(SPINE, "2.1.221"),
     ]
     permissionMode: Annotated[
