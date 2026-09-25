@@ -15,6 +15,7 @@ from pydantic.dataclasses import dataclass
 
 from hyphae.models.enrichment import Level
 from hyphae.models.row import ROW
+from hyphae.models.trace import Sender
 
 # Between an item key's fields. Absent from every value it joins: a session id is a uuid, a turn
 # id is the prompt record's uuid (`model.Turn.id`), a run id is the hex stem of the run's own
@@ -55,12 +56,23 @@ class ApiCallRow:
 
 
 @dataclass(frozen=True, config=ROW)
+class HeardRow:
+    """One interjection as a prompt sees it: who sent it, and what it said, whole."""
+
+    sender: Sender
+    text: str
+
+
+@dataclass(frozen=True, config=ROW)
 class RunSection:
-    """One stretch of a run's transcript: one instruction, and the calls it drove."""
+    """One stretch of a run's transcript: one instruction, what it heard, and the calls it drove."""
 
     # None for the calls a run made before any turn of its own — a fork continuing a
     # conversation whose prompt lives in another transcript.
     prompt: str | None
+    # What the turn heard while it ran, in transcript order. Empty for a continuation, which
+    # is no turn of the run's own.
+    heard: tuple[HeardRow, ...]
     api_calls: tuple[ApiCallRow, ...]
 
 
@@ -131,6 +143,8 @@ class TurnItem(Item):
     # answer; "" means one did and it printed nothing. Most command turns drive no model
     # response, so this is the only thing the render can say about what happened.
     command_result: str | None
+    # What the turn heard while it ran, in transcript order, never a fork's replayed copy.
+    heard: tuple[HeardRow, ...]
     api_calls: tuple[ApiCallRow, ...]
 
     @property

@@ -20,11 +20,13 @@ from hyphae.models.enrichment import (
 from hyphae.models.items import (
     AgentRunItem,
     ApiCallRow,
+    HeardRow,
     SessionChild,
     SessionItem,
     ToolCallRow,
     TurnItem,
 )
+from hyphae.models.trace import Sender
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,9 @@ class Budgets:
     # A slash command's own printed output — for most command turns, the whole of what
     # happened. 315 of the 316 recorded bodies fit it; the median is 71 characters.
     command_result: int = 2_000
+    # A background task's notice of how it ended: the id, summary and status its tags open
+    # on, which close by character 340, without the result payload that runs to 30,000.
+    task_notice: int = 400
 
 
 _ANSWER = """Answer with one JSON object recording what you just read, and say nothing else:
@@ -159,7 +164,7 @@ def render_turn(item: TurnItem, budgets: Budgets) -> str:
         head += ["", _command_result_block(item.command_result, budgets)]
     else:
         head += ["## Prompt", _cap(item.prompt, budgets.prompt)]
-    lines: list[str] = []
+    lines = _heard_lines(item.heard, budgets)
     for call in item.api_calls:
         lines += ["", "## Response"]
         text = _cap(call.text.strip(), budgets.text)
@@ -192,6 +197,7 @@ def render_run(item: AgentRunItem, budgets: Budgets) -> str:
         # Only the opening of the first section is protected from elision; its calls, and
         # everything after it, are the sequence `_fit` trims.
         (head if index == 0 else lines).extend(["", *opening])
+        lines += _heard_lines(section.heard, budgets)
         for call in section.api_calls:
             lines += ["", "## Response"]
             text = _cap(call.text.strip(), budgets.text)
@@ -235,6 +241,26 @@ def _unwrap_teammate(prompt: str) -> str:
     """An instruction from another agent, without the XML the transcript stores it in."""
     match = _TEAMMATE_MESSAGE.fullmatch(prompt.strip())
     return match.group(1).strip() if match else prompt
+
+
+# Who sent a message the turn heard while it ran, in the words the model reads it under.
+_HEARD_FROM = {
+    Sender.PERSON: "## Mid-turn message from the person",
+    Sender.AGENT: "## Mid-turn message from another agent",
+    Sender.TASK: "## Mid-turn notice from a background task",
+}
+
+
+def _heard_lines(heard: Sequence[HeardRow], budgets: Budgets) -> list[str]:
+    """Each message the turn heard, under the prompt it amends and headed by its sender.
+
+    Empty for a turn nobody spoke into, so its render — and its hash — stay as they were.
+    """
+    lines: list[str] = []
+    for row in heard:
+        limit = budgets.task_notice if row.sender is Sender.TASK else budgets.prompt
+        lines += ["", _HEARD_FROM[row.sender], _cap(row.text, limit)]
+    return lines
 
 
 def _tool_line(tool: ToolCallRow, budgets: Budgets) -> str:

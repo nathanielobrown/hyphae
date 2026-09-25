@@ -19,7 +19,7 @@ from hyphae.enrich.levels import LEVELS, render
 from hyphae.enrich.prompts import render_run, render_session, render_turn
 from hyphae.enrich.stamp import input_hash
 from hyphae.models.enrichment import Level
-from tests.conftest import enriching
+from tests.conftest import SENDERS, enriching
 from tests.enrich.conftest import (
     SERVER_TOOLS,
     SPINE,
@@ -166,6 +166,14 @@ def test_input_hash_reads_the_rendered_content_and_nothing_else(mutable_db: Path
             "UPDATE api_calls SET request_id = 'req_rewritten' WHERE session_id = ?", [SPINE]
         )
         assert input_hash(render(turn(store, SPINE, "818588ad"))) == renamed
+        # A message the turn heard is content too: if the person had typed something else
+        # while `interjection/`'s turn ran, that turn re-enriches.
+        heard = input_hash(render(turn(store, SENDERS, "bc846857")))
+        store.connection.execute(
+            "UPDATE interjections SET text = 'stop' WHERE session_id = ? AND sender = 'person'",
+            [SENDERS],
+        )
+        assert input_hash(render(turn(store, SENDERS, "bc846857"))) != heard
 
 
 def test_an_over_budget_turn_drops_the_middle_of_its_work(fixture_db: Path) -> None:
