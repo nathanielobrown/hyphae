@@ -364,12 +364,18 @@ def test_a_sender_no_mapping_names_crashes_naming_the_value(
             "Unknown lead line `The auditor sent a message while you were working, and it be`"
             " on a relayed message",
         ),
+        # ...as is a known lead with more on its line, since only the whole line names a sender...
+        (
+            "invented-near-miss-lead",
+            "Unknown lead line `The coordinator sent a message while you were working: and m`"
+            " on a relayed message",
+        ),
         # ...a task's lead over a body its notice's tag is missing from quotes nothing...
         ("invented-untagged-task-notice", "A task's relayed notice with no <task-notification>"),
         # ...and nor does a message written as blocks, where no lead line can be read.
         ("invented-relayed-blocks", "A relayed message written as blocks"),
     ],
-    ids=["unknown-lead", "untagged-task", "blocks"],
+    ids=["unknown-lead", "near-miss-lead", "untagged-task", "blocks"],
 )
 def test_a_relayed_message_we_cannot_read_crashes_quoting_none_of_what_it_said(
     fixture_source: SourceFactory, fixture: str, message: str
