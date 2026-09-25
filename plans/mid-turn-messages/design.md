@@ -144,7 +144,7 @@ Slices 3 and 4 are decoupled from each other; both depend on slice 2.
 
 ## Open questions
 
-1. For enrichment rendering, should the `Sender` header distinguish between "the coordinator" and "another session", or label both as "an agent"? The underlying `Origin.kind` persists on the row in either case; adjusting this is a localized change in `prompts.py`.
+1. For enrichment rendering, should the `Sender` header distinguish between "the coordinator" and "another session", or label both as "an agent"? The row does not keep `Origin.kind`: the extractor folds coordinator and peer into `Sender.AGENT` (`extract/parse.py:_SENDERS`), and `interjections` stores only the sender. Telling them apart takes a new `Sender` value, an `EXTRACTOR_VERSION` bump and a re-extract, not just an edit to `prompts.py`.
 2. Exact primitive types for `Origin` attributes will be finalized from live store census distributions (`json_type` checks per key: strings, one array, one integer); slice 1 will codify the observed types.
 
 ## Glossary changes
