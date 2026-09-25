@@ -540,10 +540,10 @@ ENRICHMENT_FIXTURES = (
 
 @pytest.fixture(scope="session")
 def corpus_db(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Path:
-    """The fixture corpus as one trace store: 13 mycelia sessions and three outside them.
+    """The fixture corpus as one trace store: every transcript `corpus_transcripts` finds.
 
     Built once for the whole run and read by every tier that queries a store — the analysis
-    queries and the viewer's routes ask their questions of the same 16 sessions. Read-only:
+    queries and the viewer's routes ask their questions of the same sessions. Read-only:
     a test that plants or deletes a row copies the file first.
     """
     return shared_store(

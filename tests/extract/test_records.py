@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from hyphae import extract
 from hyphae.extract.records import (
+    attachments,
     base,
     blocks,
     bookkeeping,
@@ -49,6 +50,8 @@ REPO = FIXTURES.parent.parent
 ZOO = "tests/fixtures/registry_zoo/"
 # The whole-object fixture: a session with its subagents, the widest set of shapes in one place.
 SPINE = "tests/fixtures/spine/"
+# The session whose attachments hold mid-turn messages beside another attachment kind.
+INTERJECTION = "tests/fixtures/interjection/"
 
 
 class _Missing:
@@ -172,7 +175,7 @@ def test_no_reason_is_left_for_a_shape_that_no_longer_exists() -> None:
     ("kind", "subtype", "spelled"),
     [
         (SystemSubtype.API_ERROR, None, "api_error"),
-        (ArchiveRecordType.ATTACHMENT, RecordType.SYSTEM, "system/attachment"),
+        (ArchiveRecordType.QUEUE_OPERATION, RecordType.SYSTEM, "system/queue-operation"),
     ],
     ids=["a-subtype-spelled-as-a-type", "a-type-spelled-as-a-subtype"],
 )
@@ -181,9 +184,9 @@ def test_a_kind_borrowed_from_the_other_registry_is_unknown(
 ) -> None:
     # The two registries name different levels of the same envelope, and one excuse list holds
     # both — so a name from one, read at the other's level, must not be quietly archived.
-    # `api_error` as a top-level type or `attachment` as a `system` subtype would be Claude Code
-    # moving a kind up or down the envelope, which is the schema change this answers `None` for:
-    # the caller archives the record and tallies the kind, or stops if a person is looking.
+    # `api_error` as a top-level type or `queue-operation` as a `system` subtype would be Claude
+    # Code moving a kind up or down the envelope, which is the schema change this answers `None`
+    # for: the caller archives the record and tallies the kind, or stops if a person is looking.
     # These are kind names rather than recorded records: no session writes either shape, which
     # is the claim.
     record = {"type": subtype or kind} | ({"subtype": kind} if subtype else {})
@@ -195,17 +198,17 @@ def test_a_kind_borrowed_from_the_other_registry_is_unknown(
 
 def test_an_archived_kind_keeps_its_envelope_and_carries_the_rest_whole() -> None:
     # `ArchivedRecord` is the model for a kind no reader opens, and what it declares is exactly
-    # what `raw_record` writes: the type, the uuid and the timestamp. An `attachment` — 24k of
-    # them in the store — carries all three, and everything else it holds rides along as extras
-    # rather than as a claim. A `file-history-snapshot` carries neither uuid nor timestamp, which
-    # is why those two are optional and why the model claims nothing about which kinds have them.
-    zoo = {record["type"]: record for record in zoo_records()}
+    # what `raw_record` writes: the type, the uuid and the timestamp. A thin `system/informational`
+    # carries all three, and everything else it holds rides along as extras rather than as a
+    # claim. A `file-history-snapshot` carries neither uuid nor timestamp, which is why those two
+    # are optional and why the model claims nothing about which kinds have them.
+    zoo = {record.get("subtype") or record["type"]: record for record in zoo_records()}
 
-    attachment = shapes.ArchivedRecord.model_validate(zoo["attachment"])
-    assert attachment.type == "attachment"
-    assert attachment.uuid == zoo["attachment"]["uuid"]
-    assert attachment.timestamp == zoo["attachment"]["timestamp"]
-    assert attachment.model_extra, "the attachment's own keys were dropped rather than kept"
+    informational = shapes.ArchivedRecord.model_validate(zoo["informational"])
+    assert informational.type == "system"
+    assert informational.uuid == zoo["informational"]["uuid"]
+    assert informational.timestamp == zoo["informational"]["timestamp"]
+    assert informational.model_extra, "the record's own keys were dropped rather than kept"
 
     snapshot = shapes.ArchivedRecord.model_validate(zoo["file-history-snapshot"])
     assert snapshot.uuid is None
@@ -261,7 +264,6 @@ def test_an_opaque_model_declares_only_the_fields_a_reader_opens() -> None:
     ("model", "field"),
     [
         (conversation.UserRecord, "thinkingMetadata"),
-        (conversation.UserRecord, "origin"),
         (system.CompactMetadata, "preservedSegment"),
         (messages.AssistantMessage, "stop_details"),
         (messages.AssistantMessage, "context_management"),
@@ -290,6 +292,53 @@ def test_a_field_claude_code_adds_later_rides_along() -> None:
     assert parsed.model_extra["whateverIsNext"] == 7
 
 
+def test_a_queued_command_is_modelled_and_every_other_attachment_kind_rides_as_a_dict() -> None:
+    # An `attachment` record holds one of dozens of kinds, and only a mid-turn message is read,
+    # so the `attachment` field dispatches on its kind: a `queued_command` validates into its
+    # model and anything else stays the dict it was recorded as. The interjection session holds
+    # queued commands beside an `output_style`, and the zoo holds a `deferred_tools_delta`.
+    recorded = [
+        r
+        for r in [*fixture_records(INTERJECTION), *zoo_records()]
+        if r["type"] == RecordType.ATTACHMENT
+    ]
+
+    assert {shapes.model_for(r) for r in recorded} == {attachments.AttachmentRecord}
+    arms = [
+        (r["attachment"]["type"], type(attachments.AttachmentRecord.model_validate(r).attachment))
+        for r in recorded
+    ]
+
+    assert arms == [
+        ("queued_command", attachments.QueuedCommand),
+        ("queued_command", attachments.QueuedCommand),
+        ("output_style", dict),
+        ("queued_command", attachments.QueuedCommand),
+        ("deferred_tools_delta", dict),
+    ]
+
+
+def test_an_attachment_kind_no_model_names_validates_as_a_dict() -> None:
+    # The dict arm is open: a kind Claude Code adds tomorrow validates as whatever it holds rather
+    # than raising, the same posture a record's own extra keys take.
+    recorded = next(r for r in zoo_records() if r["type"] == RecordType.ATTACHMENT)
+    renamed = recorded | {"attachment": recorded["attachment"] | {"type": "whatever_is_next"}}
+
+    parsed = attachments.AttachmentRecord.model_validate(renamed)
+
+    assert parsed.attachment == renamed["attachment"]
+
+
+def test_a_prompt_and_a_queued_command_say_who_sent_them_through_one_model() -> None:
+    # A sender is one idea wherever Claude Code writes it: on the `user` record that opens a turn
+    # and on the queued command that arrives inside one. One model means one set of rows in
+    # `docs/schema.md` and one reading of `kind` for both.
+    assert conversation.UserRecord.model_fields["origin"].annotation == (attachments.Origin | None)
+    assert attachments.QueuedCommand.model_fields["origin"].annotation == (
+        attachments.Origin | None
+    )
+
+
 def test_a_shared_field_is_declared_on_one_mixin() -> None:
     # Shared fields live once, on the mixin that says which records carry them: `uuid` belongs to
     # every conversation record, so no record model may redeclare it...
@@ -299,7 +348,7 @@ def test_a_shared_field_is_declared_on_one_mixin() -> None:
         assert "uuid" in model.model_fields
     # ...and the row the generator derives from that inheritance names every record that has one.
     uuid_row = next(doc for doc in field_tables.documentation() if doc.path == "uuid")
-    assert field_tables.spell(uuid_row.carriers) == ("user", "assistant", "system")
+    assert field_tables.spell(uuid_row.carriers) == ("user", "assistant", "attachment", "system")
 
 
 def test_a_record_type_with_no_uuid_does_not_inherit_one() -> None:

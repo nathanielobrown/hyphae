@@ -70,9 +70,9 @@ class Scenario(NamedTuple):
 # fourth item (`tests/conftest.py:planted_enrichment`) — so the two fetches behind a described
 # pane need an item that has both. Found by asking the described store for a row whose
 # `friction` is not null.
-DESCRIBED_SESSION = FORK_ORIGIN
+DESCRIBED_SESSION = COMPACTED
 DESCRIBED_RUN = SPINE_RUN
-DESCRIBED_TURN = "5b848af7-f86e-4950-b474-cd98125fad24"
+DESCRIBED_TURN = "30aad8e5-21f8-486d-b9d9-e118c703a5a1"
 
 # The two reasons more than one scenario carries, said once each. Both are about the 404 the
 # other URL would have served: a pass writes about some items and not others, and only the

@@ -77,6 +77,7 @@ ENTRIES = (
     Entry("docs/", None),
     Entry("docs/analysis.md", Doc("docs/analysis.md")),
     Entry("docs/schema.md", Doc("docs/schema.md")),
+    Entry("docs/schema-attachments.md", Doc("docs/schema-attachments.md")),
     Entry("docs/transcript-reading.md", Doc("docs/transcript-reading.md")),
     Entry("docs/session-layout.md", Doc("docs/session-layout.md")),
     Entry("docs/store.md", Doc("docs/store.md")),

@@ -51,6 +51,7 @@ tools/                    The repo's own tooling: what the code already owns wri
 docs/
   analysis.md             Follow this process to turn the trace store into evidence-backed findings about how an AI coding agent behaved on a project
   schema.md               Every Claude Code telemetry field hyphae reads, what it means, and the recording that proves it
+  schema-attachments.md   The fields of an `attachment` record, what each means, and the recording that proves it
   transcript-reading.md   Read a Claude Code transcript by these rules: which `user` records start a turn, where a slash command's output went, and which timestamps were measured rather than assigned
   session-layout.md       Where a Claude Code session's files sit on disk, and how the extractor joins them: a subagent transcript to the call that spawned it, a fan-out agent to its launcher, a copied record to the transcript that ran it first
   store.md                The trace store is one DuckDB file at `~/.hyphae/traces.duckdb`, shared by every checkout: the archive `hp extract` writes to and every query reads

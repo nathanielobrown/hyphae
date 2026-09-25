@@ -193,7 +193,7 @@
   },
   {
     "route": "/fragment/description/session/{session_id}/thread/{source}/turn/{turn_id}",
-    "url": "/fragment/description/session/4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b/thread/main/turn/5b848af7-f86e-4950-b474-cd98125fad24",
+    "url": "/fragment/description/session/4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b/thread/main/turn/30aad8e5-21f8-486d-b9d9-e118c703a5a1",
     "title": "What a pass wrote about a turn",
     "group": "Enrichment fetches",
     "note": "At an item the fixture pass described, so this answers a value and not a 404.",
@@ -201,7 +201,7 @@
   },
   {
     "route": "/fragment/friction/session/{session_id}/thread/{source}/turn/{turn_id}",
-    "url": "/fragment/friction/session/4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b/thread/main/turn/5b848af7-f86e-4950-b474-cd98125fad24",
+    "url": "/fragment/friction/session/4208c1bd-78a0-46ef-9d3c-269b9b7a8e2b/thread/main/turn/30aad8e5-21f8-486d-b9d9-e118c703a5a1",
     "title": "The friction a pass saw in a turn",
     "group": "Enrichment fetches",
     "note": "At an item the fixture pass described, so this answers a value and not a 404.",
@@ -225,7 +225,7 @@
   },
   {
     "route": "/fragment/description/session/{session_id}",
-    "url": "/fragment/description/session/5a88789c-1da7-4f32-b631-40a7e243334b",
+    "url": "/fragment/description/session/1de7cf38-b28a-4c7d-9a6d-66ebe002cfa9",
     "title": "What a pass wrote about a session",
     "group": "Enrichment fetches",
     "note": "At an item the fixture pass described, so this answers a value and not a 404.",
@@ -233,7 +233,7 @@
   },
   {
     "route": "/fragment/friction/session/{session_id}",
-    "url": "/fragment/friction/session/5a88789c-1da7-4f32-b631-40a7e243334b",
+    "url": "/fragment/friction/session/1de7cf38-b28a-4c7d-9a6d-66ebe002cfa9",
     "title": "The friction a pass saw in a session",
     "group": "Enrichment fetches",
     "note": "At an item the fixture pass described, so this answers a value and not a 404.",
