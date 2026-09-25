@@ -241,6 +241,8 @@ COMPACTED = "1de7cf38-b28a-4c7d-9a6d-66ebe002cfa9"
 COMPACTED_BOUNDARY = "459d0d29-cb67-477a-9cf1-f9bb19417c49"
 # Its agent run, the corpus's one thread that compacted outside `main`.
 COMPACTED_RUN = "a003de2a5c1985f71"
+# `interjection/`'s session, whose three turns hold one queued message of each attribution.
+INTERJECTION = "27a459ba-1251-4b25-8a3a-66cb888223b5"
 # `parallel_tools/`'s session, which issued a batch each way — two calls in one record, and
 # two a record apart — and addressed two of its own runs by id.
 PARALLEL = "5f4b59fb-a9a8-4ca1-af62-a64b9d0ce515"

@@ -29,6 +29,7 @@ from hyphae.models.trace import (
     AgentRun,
     ApiCall,
     Compaction,
+    Interjection,
     LiveRows,
     OffloadFile,
     PrLink,
@@ -150,6 +151,18 @@ CREATE TABLE IF NOT EXISTS compactions (
     pre_tokens BIGINT NOT NULL,
     post_tokens BIGINT NOT NULL,
     duration_ms BIGINT NOT NULL,
+    replayed BOOLEAN NOT NULL,
+    PRIMARY KEY (session_id, source, id)
+);
+CREATE TABLE IF NOT EXISTS interjections (
+    id VARCHAR NOT NULL,
+    session_id VARCHAR NOT NULL,
+    source VARCHAR NOT NULL,
+    -- NULL for a message delivered before the thread's first prompt.
+    turn_id VARCHAR,
+    timestamp TIMESTAMPTZ NOT NULL,
+    sender VARCHAR NOT NULL,
+    text VARCHAR NOT NULL,
     replayed BOOLEAN NOT NULL,
     PRIMARY KEY (session_id, source, id)
 );
@@ -351,6 +364,7 @@ TABLES: dict[str, TableSpec] = {
     "tool_calls": TableSpec(ToolCall, session_key="session_id", order=("source", "id")),
     "agent_runs": TableSpec(AgentRun, session_key="session_id", order=("id",)),
     "compactions": TableSpec(Compaction, session_key="session_id", order=("source", "id")),
+    "interjections": TableSpec(Interjection, session_key="session_id", order=("source", "id")),
     "pr_links": TableSpec(PrLink, session_key="session_id", order=("line_no",)),
     "offload_files": TableSpec(OffloadFile, session_key="session_id", order=("name",)),
     "raw_records": TableSpec(RawRecord, session_key="session_id", order=("source", "line_no")),

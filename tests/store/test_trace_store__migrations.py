@@ -93,7 +93,8 @@ OLDEST_MIGRATABLE = min(MIGRATIONS) - 1
 
 
 def old_store(path: Path, *traces: SessionTrace) -> dict[str, list[str]]:
-    """A store as schema 7 left it: `agent_runs.description`, no `replayed`, no `session_tags`.
+    """A store as schema 7 left it: `agent_runs.description`, no `replayed`, no `session_tags`,
+    no `interjections`.
 
     Built by inverting every step rather than by checking out the old code. They are the whole
     difference between that version and this one, so the file this leaves is what a version-7
@@ -107,6 +108,7 @@ def old_store(path: Path, *traces: SessionTrace) -> dict[str, list[str]]:
         aged.execute("ALTER TABLE agent_runs RENAME brief TO description")
         aged.execute("ALTER TABLE compactions DROP COLUMN replayed")
         aged.execute("DROP TABLE session_tags")
+        aged.execute("DROP TABLE interjections")
         aged.execute("UPDATE meta SET schema_version = ?", [OLDEST_MIGRATABLE])
     return shape(path)
 
@@ -186,10 +188,10 @@ def test_an_older_store_is_migrated_and_keeps_its_rows(db: Path, fixture_trace: 
     """A store of an older vintage is carried forward on open, with every row still readable.
 
     Version 8 renamed `agent_runs.description` to `brief`; version 9 gave a compaction the
-    `replayed` flag every other copied row already carried; version 10 added `session_tags`.
-    Opening a version-7 store applies all three in place: the archive can hold the only copy
-    of a session Claude Code has pruned, so a schema change has to move a store forward
-    rather than ask for a fresh one.
+    `replayed` flag every other copied row already carried; version 10 added `session_tags`
+    and version 11 `interjections`. Opening a version-7 store applies all four in place: the
+    archive can hold the only copy of a session Claude Code has pruned, so a schema change has
+    to move a store forward rather than ask for a fresh one.
     """
     # Every version between that store and this one has a step to reach it — the gap the
     # refusal below would otherwise turn a routine bump into.
@@ -204,12 +206,12 @@ def test_an_older_store_is_migrated_and_keeps_its_rows(db: Path, fixture_trace: 
     # spells has a case that fails when it goes...
     boundary_rows(db)
 
-    # ...then opening it migrates the file...
-    exporter = StoreExporter(db, wait=NO_WAIT)
+    # ...then opening it for write migrates the file — through the opener that runs no DDL,
+    # because the exporter's `CREATE TABLE IF NOT EXISTS` would build a table a step forgot...
+    with open_trace_store(db, read_only=False, wait=NO_WAIT):
+        pass
     # ...leaving every brief readable under the name the code now reads...
-    stored = stored_rows(
-        exporter.path, "SELECT brief FROM agent_runs WHERE session_id = ?", [SPINE]
-    )
+    stored = stored_rows(db, "SELECT brief FROM agent_runs WHERE session_id = ?", [SPINE])
     assert sorted(str(brief) for (brief,) in stored) == briefs
     # ...and the copies flagged, which the migration has to derive from the rows alone: the
     # transcript line numbers the extractor reads are not in a store on disk. Against the
@@ -218,23 +220,24 @@ def test_an_older_store_is_migrated_and_keeps_its_rows(db: Path, fixture_trace: 
     # fixture's copy, and the planted fork whose copy sits at the instant its own work
     # starts — the tie the rule is written to include...
     assert stored_rows(
-        exporter.path, "SELECT source FROM compactions WHERE replayed ORDER BY source"
+        db, "SELECT source FROM compactions WHERE replayed ORDER BY source"
     ) == sorted([(FORK_RUN,), (TIE_RUN,)])
     # ...while the planted run that forked nothing keeps its compaction, whatever its
     # timestamp says: a live compaction wrongly flagged would shrink a migrated corpus...
-    assert stored_rows(
-        exporter.path, "SELECT source FROM live_compactions ORDER BY source"
-    ) == sorted([(FORK_ORIGIN_RUN,), (PLAIN_RUN,)])
-    # ...and the table version 10 added present, empty and shaped the way a fresh store's is:
-    # `check_shape` runs against the DDL at every open, so a migration that spelled a column
-    # differently would open fine here and die at the first insert...
-    assert stored_rows(exporter.path, "SELECT count(*) FROM session_tags") == [(0,)]
-    assert set(shape(db)["session_tags"]) == declared_shape(TRACE_SCHEMA)["session_tags"]
-    # ...keyed the way the DDL keys it, which its columns cannot say: a migrated store missing
-    # the key takes a session's tag twice, and `tagged()` then answers that session twice.
-    assert stored_keys(db)["session_tags"] == declared_keys(TRACE_SCHEMA)["session_tags"]
+    assert stored_rows(db, "SELECT source FROM live_compactions ORDER BY source") == sorted(
+        [(FORK_ORIGIN_RUN,), (PLAIN_RUN,)]
+    )
+    # ...and the tables versions 10 and 11 added present, empty and shaped the way a fresh
+    # store's are: `check_shape` runs against the DDL at every open, so a migration that spelled
+    # a column differently would open fine here and die at the first insert...
+    for added in ("session_tags", "interjections"):
+        assert stored_rows(db, f"SELECT count(*) FROM {added}") == [(0,)]
+        assert set(shape(db)[added]) == declared_shape(TRACE_SCHEMA)[added]
+        # ...keyed the way the DDL keys it, which its columns cannot say: a migrated store
+        # missing the key takes a session's tag twice, and `tagged()` then answers it twice...
+        assert stored_keys(db)[added] == declared_keys(TRACE_SCHEMA)[added]
     # ...and the store stamped at the version this build writes.
-    assert stored_rows(exporter.path, "SELECT schema_version FROM meta") == [(SCHEMA_VERSION,)]
+    assert stored_rows(db, "SELECT schema_version FROM meta") == [(SCHEMA_VERSION,)]
     assert stamped_version(db) == SCHEMA_VERSION
 
 

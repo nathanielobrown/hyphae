@@ -15,7 +15,7 @@ from typing import Any
 import duckdb
 import pytest
 
-from hyphae.models.trace import SessionTrace
+from hyphae.models.trace import Sender, SessionTrace
 from hyphae.pipeline import SessionSource
 from hyphae.store.trace_reader import (
     StoreExtractor,
@@ -26,6 +26,7 @@ from hyphae.store.trace_store import TABLES, open_trace_store
 from tests.conftest import (
     FIXTURE_TAG,
     FIXTURES,
+    INTERJECTION,
     MYCELIA,
     NO_PROJECT_SESSION,
     NO_WAIT,
@@ -98,6 +99,15 @@ def test_a_recorded_trace_round_trips_through_the_store(
     # carry no stop reason.
     assert {call.fallback_from for call in trace.api_calls} == {None}
     assert None in {call.stop_reason for call in trace.api_calls}
+
+
+def test_an_interjections_sender_reads_back_as_a_sender(
+    store: duckdb.DuckDBPyConnection,
+) -> None:
+    """Who sent a message comes back as a `Sender`, not the bare string its column holds."""
+    # A `StrEnum` equals its own value, so the whole-trace comparison above cannot see this.
+    trace = StoreExtractor(store).extract(source(INTERJECTION))
+    assert [type(row.sender) for row in trace.interjections] == [Sender] * 3
 
 
 @pytest.mark.parametrize(

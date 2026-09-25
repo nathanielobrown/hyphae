@@ -21,6 +21,8 @@ What one session recorded. Entities: `src/hyphae/models/trace.py`; relationships
 - **Tool call** — one tool the model asked for, plus its result; `tool_use` is Claude Code's spelling, not ours
 - **Agent run** — one subagent execution; its own turns, calls and tools form the thread keyed by the run id
 - **Compaction** — where Claude Code summarized the conversation to free context; the transcript after one is lossy
+- **Interjection** — a message delivered to the model while a turn was already running: what the person typed mid-turn, what a coordinator or peer sent a running agent, or a background task's completion notice; it belongs to the turn open where it landed in the transcript, or to none before the thread's first prompt
+- **Sender** — who an interjection came from: a person, an agent, or a task (`src/hyphae/models/trace.py:Sender`)
 - **Record** — one verbatim transcript line; the flat archive every normalized row derives from
 - **Record model** — the pydantic class the parser reads one record kind through, in `src/hyphae/extract/records/`; every field it declares is one the parser may read, and every field it does not is unknown
 - **Offload file** — tool output Claude Code wrote to a file instead of the transcript

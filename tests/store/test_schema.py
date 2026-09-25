@@ -44,7 +44,7 @@ DDL_OWNERS = [
     pytest.param(
         "hyphae.store.trace_store",
         TRACE_SCHEMA,
-        "766a1fa0a3cfe5826ef17bd7a36ba8b9d48facd73e018ae80428c5c51f8f7380",
+        "1af056ca096b462ff01506605a6ce6a9d662e421d3df5db4c85b04aa7a9dc228",
         id="trace",
     ),
     pytest.param(
