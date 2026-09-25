@@ -1,6 +1,6 @@
 # Testing plan: mid-turn messages (HP-26)
 
-The design binds this plan: [design.md](design.md). Scope follows Nathaniel's approval. The work runs slices 1–4, and slice 4 renders interjections from all three senders, with a task notification capped at 400 characters. The 706 `user`-record interjections go to a separate stacked PR, and this plan does not cover them.
+The design binds this plan: [design.md](design.md). Scope follows Nathaniel's approval. The work runs slices 1–4, and slice 4 renders interjections from all three senders, with a task notification capped at 400 characters. Slice 5, the 1,068 interjections written as `user` records, landed later in a stacked PR; its leaves sit beside slice 2's in `tests/extract/test_claude_code__interjections.py`, and this plan does not list them.
 
 Every fixture source and line number below was read from the on-disk transcripts under `~/.claude/projects` on 2026-09-25, printing shapes only (type, `commandMode`, `origin.kind`, lengths, tag offsets) and never text. The canonical store was not opened. Where a line number feeds a trim, the implementer re-reads it before cutting.
 
@@ -111,7 +111,6 @@ Every bolded leaf names its red-check above. Beyond those:
 
 ## Not covered, and why
 
-- **The 706 `user`-record interjections.** Deferred to the stacked follow-up PR at Nathaniel's direction.
 - **The nine in-file rewinds.** `resolve_duplicates` collapses them before any parser runs, and `test_a_duplicate_uuid_resolves_to_its_last_occurrence` already proves that. `_interjections` reads only the collapsed lines, so a leaf here would retest the collapse.
 - **A transcript rebuilt from `raw_records` by line number.** That extractor belongs to the canonical-model stack and does not exist yet. The design's claim that `_interjections` reads only transcript lines and the session's own files is inferred. The stack's own round-trip will test it.
 - **The `EXTRACTOR_VERSION` bump.** A test would only restate the constant. `test_a_bumped_extractor_version_re_extracts_everything` covers what a bump does, and review of the diff covers that it happened.

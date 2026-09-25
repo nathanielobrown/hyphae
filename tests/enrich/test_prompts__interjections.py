@@ -1,7 +1,8 @@
 """What a turn or a run heard while it ran, as the enrichment prompt reads it.
 
 Rows come from `interjection/`'s factory session, recorded with a message from every sender:
-the person, another agent, and a background task. Split from `test_prompts.py` by topic, for
+the person, another agent, and a background task, and from its relayed session, whose run
+heard every sender as `user` records. Split from `test_prompts.py` by topic, for
 the file budget.
 """
 
@@ -10,9 +11,10 @@ from pathlib import Path
 from hyphae.enrich.levels import LEVELS, render
 from hyphae.models.enrichment import Level
 from hyphae.models.trace import Sender
-from tests.conftest import SENDERS, SENDERS_RUN, enriching
+from tests.conftest import RELAYED_RUN, SENDERS, SENDERS_RUN, enriching
 from tests.enrich.conftest import AUDITOR_RUN, ORIGIN_RUN
 from tests.enrich.items import run, turn
+from tests.redaction import padded
 from tests.view.plants import REWOUND, rewound
 
 # The main turn a task's notice reached, and the one the person and a peer both spoke into.
@@ -20,11 +22,6 @@ NOTICED = "11b672e8"
 SPOKEN_INTO = "bc846857"
 # The widths a pass really cuts at: every leaf here reads a recorded length against them.
 TURN_BUDGETS = LEVELS[Level.turn].budgets
-
-
-def padded(length: int) -> str:
-    """A redacted leaf tag's text: `[redacted] ` repeated to the length it was recorded at."""
-    return ("[redacted] " * (length // 11 + 1))[:length]
 
 
 def test_a_turn_renders_what_it_heard_under_its_prompt_headed_by_who_sent_it(
@@ -126,6 +123,74 @@ def test_a_run_renders_what_its_instruction_heard_before_the_work(mutable_db: Pa
     )
 
 
+def test_a_run_renders_a_message_written_as_a_user_record_as_it_renders_a_queued_one(
+    fixture_db: Path,
+) -> None:
+    """A message a run heard as a `user` record reads under the same heading a queued one
+    would, without the lead line that named its sender."""
+    # If a run heard a task, its coordinator, the person and a second task, each as a `user`
+    # record rather than a queued command...
+    with enriching(fixture_db) as store:
+        rendered = render(run(store, RELAYED_RUN))
+    # ...then each notice opens on its tag, as a queued notice does, and every other message
+    # keeps the advice Claude Code wrote beneath it.
+    assert rendered == (
+        "# Agent run: implementer\n"
+        "\n"
+        "## Task\n"
+        "[redacted]\n"
+        "\n"
+        "## Mid-turn notice from a background task\n"
+        "<task-notification>\n"
+        "<task-id>b7wvq7981</task-id>\n"
+        "<tool-use-id>toolu_01NgyUbKksrk5HLMwKUihbAR</tool-use-id>\n"
+        f"<output-file>{padded(110)}</output-file>\n"
+        "<status>completed</status>\n"
+        f"<summary>{padded(83)}</summary>\n"
+        "</task-notification>\n"
+        "\n"
+        "## Mid-turn message from another agent\n"
+        "[redacted]\n"
+        "\n"
+        "Address this before completing your current task.\n"
+        "\n"
+        "## Mid-turn message from the person\n"
+        "[redacted]\n"
+        "\n"
+        "This is how Claude Code surfaces messages the user sends mid-turn — within the running"
+        " turn, often alongside the next tool result, rather than as a separate conversation"
+        " turn. Address the message above as you continue this turn.\n"
+        "\n"
+        # The second task's event and finish came in one message, and each notice is capped on
+        # its own, so both arrive whole and the finish keeps its status.
+        "## Mid-turn notice from a background task\n"
+        "<task-notification>\n"
+        "<task-id>b0nigvf8u</task-id>\n"
+        f"<summary>{padded(46)}</summary>\n"
+        f"<event>{padded(82)}</event>\n"
+        "If this event is something the user would act on now, send a PushNotification."
+        " Routine or benign output doesn't need one.\n"
+        "</task-notification>\n"
+        "\n"
+        "<task-notification>\n"
+        "<task-id>b0nigvf8u</task-id>\n"
+        "<tool-use-id>toolu_01KrTz8b6UDEFA6wBfCmrs16</tool-use-id>\n"
+        f"<output-file>{padded(110)}</output-file>\n"
+        "<status>completed</status>\n"
+        f"<summary>{padded(52)}</summary>\n"
+        "</task-notification>\n"
+        "\n"
+        "## Response\n"
+        '- Agent (input 84 chars, result 10 chars) {"subagent_type": "[redacted]", '
+        '"description": "[redacted]", "prompt": "[redacted]"}\n'
+        "\n"
+        "## Response\n"
+        "[redacted]\n"
+        "\n"
+        "## Ended: not recorded"
+    )
+
+
 def test_a_task_notice_keeps_how_the_task_ended_and_drops_what_it_returned(
     fixture_db: Path,
 ) -> None:
@@ -143,6 +208,29 @@ def test_a_task_notice_keeps_how_the_task_ended_and_drops_what_it_returned(
     assert len(notice) == TURN_BUDGETS.task_notice == 400
     assert "<status>completed</status>" in notice
     assert "<result>" not in notice
+
+
+def test_each_notice_a_message_batches_keeps_how_its_task_ended(mutable_db: Path) -> None:
+    """A message batching several notices is cut notice by notice, so every task keeps its
+    status however many arrived together."""
+    # If the recorded 839-character notice arrived three times in one message — synthetic: the
+    # recorded batches are redacted short enough to arrive whole...
+    with enriching(mutable_db) as store:
+        store.connection.execute(
+            "UPDATE interjections SET text = text || '\n\n' || text || '\n\n' || text"
+            " WHERE session_id = ? AND sender = ?",
+            [SENDERS, Sender.TASK.value],
+        )
+        rendered = render(turn(store, SENDERS, NOTICED))
+    section = rendered.split("## Mid-turn notice from a background task\n")[1]
+    notices = section.split("\n\n## ")[0].split("\n\n")
+    # ...then each of the three is cut to 400 as a lone notice is, its status inside and its
+    # result outside.
+    assert [len(notice) for notice in notices] == [TURN_BUDGETS.task_notice] * 3
+    for notice in notices:
+        assert notice.startswith("<task-notification>")
+        assert "<status>completed</status>" in notice
+        assert "<result>" not in notice
 
 
 def test_a_message_is_capped_at_the_width_a_prompt_gets(mutable_db: Path) -> None:

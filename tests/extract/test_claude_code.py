@@ -656,6 +656,7 @@ def test_a_record_with_no_timestamp_crashes_naming_the_kind_it_was(
         ("invented-no-pr-repository", "prRepository", "pr-link"),
         ("invented-no-duration", "durationMs", "system"),
         ("invented-no-origin", "origin", "attachment"),
+        ("invented-relayed-no-content", "message.content", "user"),
     ],
 )
 def test_a_record_missing_a_field_a_reader_needs_crashes_naming_that_field(
@@ -664,10 +665,12 @@ def test_a_record_missing_a_field_a_reader_needs_crashes_naming_that_field(
     """A row a reader cannot build is a crash naming the field, never a filled-in default.
 
     INVENTED fixtures — all 3,096 `pr-link` records on the recording machine carry all four
-    fields, and all 3,592 `turn_duration` records carry a `durationMs` (scanned 2026-09-04),
-    so none of these has a recorded example. One file per field, because the reader stops at
-    the first field it cannot read and never reaches the next. A defaulted `durationMs` would
-    be worse than a crash: `active_ms` would come back short and still look like a number.
+    fields, and all 3,592 `turn_duration` records carry a `durationMs` (scanned 2026-09-04);
+    all 1,100 mid-turn messages written as `user` records carry `message.content` (scanned
+    2026-09-25). So none of these has a recorded example. One file per field, because the
+    reader stops at the first field it cannot read and never reaches the next. A defaulted
+    `durationMs` would be worse than a crash: `active_ms` would come back short and still look
+    like a number.
     """
     with pytest.raises(TranscriptSchemaError) as excinfo:
         ClaudeCodeExtractor().extract(fixture_source("invented", fixture))

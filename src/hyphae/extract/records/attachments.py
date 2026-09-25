@@ -15,7 +15,8 @@ from hyphae.extract.records.evidence import ATTACHMENT_CENSUS, INTERJECTION, Cit
 from hyphae.extract.records.registry import ContentBlock, RecordType
 
 # What the peer-only keys below have in common: 9 queued commands and 43 `user` records carry
-# them, so no fixture holds one.
+# them. A citation is checked at the queued command's path, where no fixture holds one;
+# `interjection/`'s relayed session holds two on `user` records.
 _PEER_EVIDENCE = Cited(scan=ATTACHMENT_CENSUS, note="peer messages only")
 
 
@@ -27,9 +28,9 @@ class Origin(Described):
         Field(
             default=None,
             description=(
-                "The sender, as `human`, `coordinator` or `peer` on a queued command. A `user` "
-                "record also writes `task-notification` (3,949 records) and "
-                "`auto-continuation` (1)"
+                "The sender, as `human`, `coordinator` or `peer`. A `user` record also writes "
+                "`task-notification` (3,949 records: 371 of them a mid-turn notice flagged "
+                "`isMeta`) and `auto-continuation` (1)"
             ),
         ),
         Cited(INTERJECTION, "2.1.220", note="`human`, on a prompt and on a queued command"),

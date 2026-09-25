@@ -11,6 +11,7 @@ from hyphae.extract.records.evidence import (
     COMPACTION,
     DUP_UUID,
     FORK_ORIGIN,
+    INTERJECTION,
     LEGACY_ENTRYPOINT,
     OFFLOAD,
     SERVER_TOOLS,
@@ -82,8 +83,15 @@ class UserRecord(SessionContext, MetaFlagged):
     ]
     origin: Annotated[
         Origin | None,
-        Field(default=None, description="Who sent the prompt"),
+        Field(
+            default=None,
+            description=(
+                "Who sent the prompt; on an `isMeta` record, who sent the mid-turn message its "
+                "lead line announces"
+            ),
+        ),
         Cited(SPINE, "2.1.221"),
+        Cited(INTERJECTION, "2.1.221", note="`isMeta`, every mid-turn sender"),
     ]
     permissionMode: Annotated[
         str | None,

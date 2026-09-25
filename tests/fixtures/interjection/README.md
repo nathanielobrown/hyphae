@@ -27,6 +27,20 @@ Its companion subagent log, `subagents/agent-aaceab3ee53af97d8.jsonl`, retains l
 
 The assistant records that originally sat between the prompt and the notification were omitted because 2.1.267 writes fields on them that no record model declares yet.
 
+## The relayed session: every sender as a `user` record
+
+Besides the `queued_command` attachment, Claude Code writes a mid-turn message to an agent run as a `user` record with `isMeta: true`, an `origin`, and a fixed first line naming the sender. Agent runs on disk carry this spelling from 2.1.195 through 2.1.280 (scanned 2026-09-25). `bccd8048-2f6d-42f0-a221-b072563afbc1.jsonl` is a redacted excerpt of a session from `~/.claude/projects/-Users-nob-repos-hyphae/`, recorded on 2026-08-26 with **Claude Code 2.1.221** while the project still lived at `/Users/nob/repos/aiobserve`. It keeps host lines 1, 7, 215, 216 and 253 out of 378:
+
+- Line 7 opens the session's one turn, the `/manager` command.
+- Lines 215 and 216 hold the `Agent` call that spawned the implementer run below, and its result.
+- Line 253 is a message another session wrote into this one after its work had stopped. Its first line is `Another Claude session sent a message:`, without the mid-turn lead's `while you were working`.
+
+Its subagent log `subagents/agent-ae43615953608c70b.jsonl` keeps lines 1, 23, 25, 74, 102 and 189 of that run's 189, plus two borrowed records between 102 and 189. The run's one turn hears a task notice (74), its coordinator (102), the person (borrowed), and a second task (borrowed) whose event and finish arrived as two notices in one message. That record replaces line 185, a single notice. Lines 23 and 25 hold the `Agent` call that spawned the doc-writer run nested under it, and its result.
+
+`subagents/agent-a0621f9014147e13c.jsonl` keeps lines 1, 131 and 141 of the nested run's 141: its instruction, a message from another session (line 131, `origin.senderTaskId` naming the implementer run), and its closing reply. Its `.meta.json` carries `parentAgentId` and `spawnDepth: 2`. Both `.meta.json` files are complete apart from a redacted `description`.
+
+Each of these messages keeps Claude Code's own text whole: the first line, and the advice paragraph after the sender's words, such as `Address this before completing your current task.`. A task notice keeps its `[SYSTEM NOTIFICATION - NOT USER INPUT]` preamble. The sender's own words are `[redacted]`, and on a peer's message so are `origin.body`, `origin.from` and `origin.name`, and the `from` attribute of the `<agent-message>` wrapper that repeats it. Every host record keeps the `parentUuid` it was recorded with, so most point at a dropped line.
+
 ## Pruned records and dangling references
 
 The excerpt strips all `task_reminder` attachments, bookkeeping entries (`mode`, `permission-mode`, `bridge-session`, `last-prompt`, `ai-title`, and `file-history-*`), and all but one of the 26 `output_style` attachments (preserving only the attachment directly following the queued command).
@@ -42,6 +56,8 @@ The borrowed records follow the same redaction pattern as the host. Their `sessi
 | Task notification (line 1) | `e684d4da-e05b-49a4-b91e-2c409568a934` line 6, mycelia | 2.1.220 | A `task-notification` queued prior to the session's first prompt, containing no `origin`. Its `parentUuid` is set to null, and `forkedFrom` is dropped. |
 | Block-list prompt (line 18) | `480206e4-d851-460a-8770-7d8a7bda290e` line 62, hyphae | 2.1.221 | The only recorded queued command whose `prompt` is a list: a `text` block and an `image` block, beside `imagePasteIds`. Its `parentUuid` is rechained to the third prompt. |
 | Peer message (`af7e1907` line 8) | `dc22318a-c21f-4c29-bfa7-547fc2ec771d` line 244, factory | 2.1.259 | A message another session wrote into this one: `commandMode: "prompt"`, as the person's is, with `origin.kind: "peer"`. `origin.name` is redacted, `parentUuid` is rechained to line 543, and both timestamps are set to 2026-09-07T13:49:58.000Z. |
+| Person's message (`bccd8048`'s implementer run, line 6) | `19d449bf-c39f-4fdb-8e2b-96f76e6f2f0f` `subagents/agent-a83050fa56493a5fa.jsonl` line 856, hyphae | 2.1.221 | A message the person typed into a running agent: an `isMeta` `user` record with `origin.kind: "human"` and the lead `The user sent a new message while you were working:`. Its `agentId` and `slug` were rewritten to the host run's too, `parentUuid` is rechained to the coordinator's message before it, and the timestamp is set to 2026-08-26T19:25:00.000Z. |
+| Two task notices in one message (`bccd8048`'s implementer run, line 7) | `ea5d66b4-0c9b-4f18-8a47-6cc1246f4ca7` `subagents/agent-aab8052e8edb0b308.jsonl` line 231, hyphae | 2.1.221 | One `isMeta` `user` record under the task lead that carries two `<task-notification>` blocks: an `<event>` the task reported, then the same task's finish. 28 of the 371 recorded task notices written as `user` records carry more than one (scanned 2026-09-25). Its `agentId` and `slug` were rewritten to the host run's, `parentUuid` is rechained to the person's message before it, and the timestamp is set to line 185's, 2026-08-26T19:32:22.984Z. `<event>` is redacted like `<summary>`. |
 
 ## Redaction rules
 

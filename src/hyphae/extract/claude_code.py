@@ -46,7 +46,7 @@ EXTRACTOR_NAME = "claude_code"
 
 # Bump on any change to what this parser produces: the version is folded into every
 # fingerprint, so bumping it re-extracts the whole corpus on the next refresh.
-EXTRACTOR_VERSION = "8"
+EXTRACTOR_VERSION = "9"
 
 
 @dataclass(frozen=True)
