@@ -133,7 +133,7 @@ A PR with passing CI workflow runs is ready to review or merge, even if Chromati
 
 Land only when directed.
 
-Every PR lands by squash. Use `gh stack merge --squash` or the merge button for a stack, and the merge button or `gh pr merge --squash` for a single branch. In a native stack, merging a mid-stack PR also merges every PR below it in one operation, after which GitHub retargets the next layer to `main`.
+Every PR lands by squash. Use `gh stack merge <pr-number> --squash --yes` or the merge button for a stack, and the merge button or `gh pr merge <pr-number> --squash` for a single branch. Without `--yes`, `gh stack merge` opens an interactive wizard. In a native stack, merging a mid-stack PR also merges every PR below it in one operation, after which GitHub retargets the next layer to `main`.
 
 Nothing on GitHub enforces green CI, by choice: this repository deliberately has no rulesets requiring checks, so a human may merge on red when necessary. An agent always waits for green CI, as described in [CI and checks](#ci-and-checks), on the target PR and every layer below it. It merges only when both workflows (`check`, `e2e`) pass, and never on a failing check.
 
