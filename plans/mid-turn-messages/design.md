@@ -104,8 +104,9 @@ Individual contract test leaves verify each requirement directly. Parsing tests 
 2. Core pipeline: `Interjection` entity, `_interjections` parser, store DDL, migration, reader roundtrip, `EXTRACTOR_VERSION` increment, glossary updates, `docs/store.md`, and OTLP documentation note.
 3. UI presentation: turn page view section, test scenario, layout bounds, and byte budgets.
 4. Enrichment integration: prompt rendering and item updates; document invalidation impacts in `docs/enrichment.md` (contingent on Nathaniel's sign-off).
+5. User records: read the `isMeta` + `origin` spelling of the same channel (1,068 records on agent threads, 2.1.195–2.1.267) into the same `Interjection`, under the lead-line rules in `docs/transcript-reading.md`, and increment `EXTRACTOR_VERSION`. No schema change.
 
-Slices 3 and 4 are decoupled from each other; both depend on slice 2.
+Slices 3 and 4 are decoupled from each other; both depend on slice 2, as slice 5 does.
 
 ## Decisions
 
@@ -132,7 +133,7 @@ Slices 3 and 4 are decoupled from each other; both depend on slice 2.
 ## Out of scope
 
 - The queue journal: `queue-operation` records (8,719 enqueues across 1,325 sessions, along with dequeue, remove, and popAll actions) trace queue timestamps and payloads without envelope UUIDs, and remain archived. Since 81 of the 83 `prompt`-mode messages align with an enqueue entry in the same session, this journal provides queue latency rather than missing user text, and is deferred to a future ticket.
-- Alternative `user`-record encodings of the channel: 706 `user` records carry `isMeta: true` and wrap messages in Claude Code's inline notification format (678 coordinator messages across 78 sessions on subagent threads from 2.1.195–2.1.267; 12 peer messages; 16 session notices). None starts a turn today. Although structurally compatible with `Interjection`, parsing them requires secondary unwrapping logic over `UserRecord` payloads.
+- `main`'s 3,578 task notices written as `user` records without `isMeta`, and the 32 peer messages to an idle session: neither is mid-turn, so both belong to the turn model rather than to interjections.
 - Exhaustive schema coverage for the remaining 48 attachment types: the canonical-model stack owns that registry and lands it after this ticket.
 - Rendering inline images from mid-turn content blocks: image blocks are extracted and marked inline, but not rendered as image assets.
 - Exporting mid-turn records over OTLP spans.
@@ -140,7 +141,7 @@ Slices 3 and 4 are decoupled from each other; both depend on slice 2.
 ## Decisions for Nathaniel
 
 1. **Slice 4 (enrichment).** Extends beyond core scope and triggers re-enrichment across all items containing any of the 1,227 records (affecting 108 sessions with task notifications and 65 with human or agent messages). Recommendation: adopt slice 4, including all three senders and the 400-character cap on task notifications. Mid-turn corrections capture critical prompt evolution, and aborted tasks leave no other trace in the trace log.
-2. **The 706 user-record interjections.** Decide whether to implement this as an additional slice or address it in a follow-up ticket. Recommendation: split into a separate ticket; the `Interjection` store entity is already compatible, while this ticket focuses specifically on the attachment format.
+2. **The user-record interjections.** Decided: slice 5, with the 371 task notices written the same way, and with coordinator and peer both `Sender.AGENT`.
 
 ## Open questions
 
