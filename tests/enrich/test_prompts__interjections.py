@@ -13,6 +13,7 @@ from hyphae.models.trace import Sender
 from tests.conftest import SENDERS, SENDERS_RUN, enriching
 from tests.enrich.conftest import AUDITOR_RUN, ORIGIN_RUN
 from tests.enrich.items import run, turn
+from tests.view.plants import REWOUND, rewound
 
 # The main turn a task's notice reached, and the one the person and a peer both spoke into.
 NOTICED = "11b672e8"
@@ -76,15 +77,17 @@ def test_a_turn_renders_what_it_heard_under_its_prompt_headed_by_who_sent_it(
     )
 
 
-def test_a_run_renders_what_its_instruction_heard_before_the_work(fixture_db: Path) -> None:
+def test_a_run_renders_what_its_instruction_heard_before_the_work(mutable_db: Path) -> None:
     """An agent run hears its coordinator and its own background tasks the way a main turn
     hears the person, under the instruction they arrived during."""
     # If the implementer run heard a task's notice, then its coordinator, then a second
-    # notice, all while its one instruction ran...
-    with enriching(fixture_db) as store:
+    # notice, all while its one instruction ran — the second rewound, so its record is also
+    # written before the first (synthetic, `tests/view/plants.py:rewound`)...
+    with enriching(mutable_db) as store:
+        store.connection.execute(*rewound(REWOUND))
         rendered = render(run(store, SENDERS_RUN))
-    # ...then each follows the task, in transcript order, each notice whole because it came
-    # in under the width.
+    # ...then each follows the task, in the order of the lines the extractor read, each notice
+    # whole because it came in under the width.
     assert rendered == (
         "# Agent run: implementer\n"
         "\n"
