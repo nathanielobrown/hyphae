@@ -1,7 +1,7 @@
 """The item models: what a pass describes, built strictly, and what they refuse.
 
 `tests/models/test_listing.py` pins the row config itself; this holds the models
-`store/enrichment.py` builds to it. The values themselves are the store's:
+`store/items.py` builds to it. The values themselves are the store's:
 `tests/store/test_enrichment.py` builds every item off recorded rows.
 """
 

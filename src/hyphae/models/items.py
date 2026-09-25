@@ -1,7 +1,7 @@
 """What enrichment describes: the rows each item is built from, keyed by its `Level`.
 
 An item is one thing that gets one enrichment row. The store reads these out of the trace
-store (`store/enrichment.py`), the renders turn them into prompt text (`enrich/prompts.py`), and
+store (`store/items.py`), the renders turn them into prompt text (`enrich/prompts.py`), and
 the enricher carries them between the two. Nothing here renders or queries, and nothing here
 imports outside `models` — so the store can select a row into its type without importing the
 pass that describes it. Every model is built under `row.ROW`: strict, so a column whose type

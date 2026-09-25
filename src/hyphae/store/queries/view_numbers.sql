@@ -98,7 +98,7 @@ WITH RECURSIVE calls AS (
     GROUP BY s.model_name
 ), runs AS (
     -- Every agent run of the session, what its own thread spent, and the node it hangs under.
-    -- The spawn join is `view_runs`'s, restated here for the same reason `store/enrichment.py`
+    -- The spawn join is `view_runs`'s, restated here for the same reason `store/items.py`
     -- restates it: this query answers one node and that one answers a page of rows, and a
     -- popover that reached through the other would deny the row it opened from on its own
     -- schedule. `above` is what the NavTree's ledger climbs (`view/nodes.py:ledger`) — the

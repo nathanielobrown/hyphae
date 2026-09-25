@@ -5,7 +5,7 @@
 -- `tc.source <> a.id` is load-bearing. A fork's own transcript holds an un-replayed copy of
 -- the call that spawned it, so without the exclusion the join matches that copy and the fork
 -- chips onto a turn of its own timeline — listing itself as its own child.
--- `store/enrichment.py:item_parents` applies the same rule for the same reason.
+-- `store/items.py:item_parents` applies the same rule for the same reason.
 -- The three display columns are cut to `$chip_chars`, one character past it: a run is a chip
 -- on someone else's page, and a page's size is arithmetic over its rows rather than an
 -- observation about the corpus. The extra character is what tells a value that ended from one
