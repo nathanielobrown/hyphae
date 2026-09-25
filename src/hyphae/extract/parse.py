@@ -18,7 +18,12 @@ from pathlib import PurePath
 from typing import NamedTuple
 
 from hyphae.extract.errors import TranscriptSchemaError
-from hyphae.extract.records.attachments import AttachmentRecord, PromptImage, QueuedCommand
+from hyphae.extract.records.attachments import (
+    AttachmentRecord,
+    Origin,
+    PromptImage,
+    QueuedCommand,
+)
 from hyphae.extract.records.blocks import (
     AdvisorToolResultBlock,
     Block,
@@ -520,8 +525,36 @@ def _compactions(
 
 # `commandMode` on a background task's notice, which carries no `origin` of its own.
 _TASK_NOTICE = "task-notification"
-# Every `origin.kind` a queued command has been recorded with (scanned 2026-09-25).
-_SENDERS = {"human": Sender.PERSON, "coordinator": Sender.AGENT, "peer": Sender.AGENT}
+# Every `origin.kind` a mid-turn message has been recorded with (scanned 2026-09-25); a task's
+# notice names itself only on a `user` record.
+_SENDERS = {
+    "human": Sender.PERSON,
+    "coordinator": Sender.AGENT,
+    "peer": Sender.AGENT,
+    _TASK_NOTICE: Sender.TASK,
+}
+# The first line of a mid-turn message written as a `user` record, and the `origin.kind` under
+# it (1,068 records, scanned 2026-09-25). The person's is the same notice Claude Code gives a
+# queued command; the task's opens a preamble above the notice's own markup.
+_MID_TURN_LEADS = {
+    "The coordinator sent a message while you were working:": "coordinator",
+    "Another Claude session sent a message while you were working:": "peer",
+    "The user sent a new message while you were working:": "human",
+    "[SYSTEM NOTIFICATION - NOT USER INPUT]": _TASK_NOTICE,
+}
+# A peer's message to a session that was idle: no turn was running to hear it (32 records).
+_IDLE_LEADS = frozenset({"Another Claude session sent a message:"})
+# Where a task's notice begins below the preamble, as a queued command's does.
+_TASK_NOTICE_TAG = "<task-notification>"
+# How much of an unknown lead line an error quotes: it may be the sender's own first line.
+_QUOTED_LEAD_CHARS = 60
+
+
+class _Heard(NamedTuple):
+    """One mid-turn message as its row stores it."""
+
+    sender: Sender
+    text: str
 
 
 def _interjections(
@@ -538,25 +571,37 @@ def _interjections(
     """
     interjections = []
     for line in lines:
-        record = line.record
-        if not isinstance(record, AttachmentRecord):
-            continue
-        command = record.attachment
-        if not isinstance(command, QueuedCommand):
+        heard = _heard(line, session_id)
+        if heard is None:
             continue
         interjections.append(
             Interjection(
-                id=required(record.uuid, line, session_id, "uuid"),
+                id=required(line.uuid, line, session_id, "uuid"),
                 session_id=session_id,
                 source=source,
                 turn_id=turn_by_line[line.line_no],
                 timestamp=required_timestamp(line, session_id),
-                sender=_sender(command, line, session_id),
-                text=_flattened(command, line, session_id),
+                sender=heard.sender,
+                text=heard.text,
                 replayed=line.line_no in replayed,
             )
         )
     return interjections
+
+
+def _heard(line: Line, session_id: str) -> _Heard | None:
+    """The mid-turn message a record carries, if it carries one.
+
+    Claude Code has written one two ways: as a `queued_command` attachment, and, before that
+    reached agent runs, as a `user` record flagged `isMeta` whose `origin` names the sender.
+    """
+    record = line.record
+    if isinstance(record, AttachmentRecord) and isinstance(record.attachment, QueuedCommand):
+        command = record.attachment
+        return _Heard(_sender(command, line, session_id), _flattened(command, line, session_id))
+    if isinstance(record, UserRecord) and record.isMeta and record.origin is not None:
+        return _relayed(record, record.origin, line, session_id)
+    return None
 
 
 def _sender(command: QueuedCommand, line: Line, session_id: str) -> Sender:
@@ -574,6 +619,42 @@ def _sender(command: QueuedCommand, line: Line, session_id: str) -> Sender:
             f"Unknown interjection sender `{kind}` in session {session_id}, line {line.line_no}"
         )
     return sender
+
+
+def _relayed(record: UserRecord, origin: Origin, line: Line, session_id: str) -> _Heard | None:
+    """A mid-turn message written as a `user` record, or None for one no turn was running for.
+
+    The lead line says what the message is and `origin.kind` who sent it; a record where the two
+    disagree is a shape nobody has recorded, so it crashes rather than pick one. A task's text
+    starts at its notice's tag, the shape a queued notice stores; anyone else's is everything
+    below the lead, Claude Code's closing advice included.
+    """
+    message = required(record.message, line, session_id, "message")
+    content = required(message.content, line, session_id, "message.content")
+    if not isinstance(content, str):
+        raise TranscriptSchemaError(
+            f"A relayed message written as blocks in session {session_id}, line {line.line_no}"
+        )
+    lead, _, body = content.partition("\n")
+    if lead in _IDLE_LEADS:
+        return None
+    where = f"in session {session_id}, line {line.line_no}"
+    expected = _MID_TURN_LEADS.get(lead)
+    if expected is None:
+        raise TranscriptSchemaError(
+            f"Unknown lead line `{lead[:_QUOTED_LEAD_CHARS]}` on a relayed message {where}"
+        )
+    if origin.kind != expected:
+        raise TranscriptSchemaError(
+            f"Interjection sender `{origin.kind}` under the lead line for `{expected}` {where}"
+        )
+    sender = _SENDERS[expected]
+    if sender is not Sender.TASK:
+        return _Heard(sender, body)
+    at = body.find(_TASK_NOTICE_TAG)
+    if at < 0:
+        raise TranscriptSchemaError(f"A task's relayed notice with no {_TASK_NOTICE_TAG} {where}")
+    return _Heard(sender, body[at:])
 
 
 def _flattened(command: QueuedCommand, line: Line, session_id: str) -> str:
