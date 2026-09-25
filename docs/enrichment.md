@@ -53,6 +53,10 @@ A main turn that ran a slash command includes the command's printed output, capp
 
 The prompt names all three output states: recorded output, "the command printed nothing," and "not recorded." Every recorded `/clear` falls into the second state. Claude Code stores slash-command output in either of two record shapes, as [reading transcript records](transcript-reading.md#attach-slash-command-output-to-the-command-turn) records. If the enricher finds a third shape, it stops rather than treating the answer as empty.
 
+Mid-turn messages—sent by the person, another agent, or a background task announcing completion—can arrive while a turn or an agent run's instruction executes. Each interjection appears beneath the prompt it amends in transcript order, labeled with a heading naming its sender. Character limits differ by source: content from the person or another agent is capped at the prompt's 4,000 characters, whereas task notices are limited to 400 characters. That 400-character ceiling preserves the tags identifying the task and its status while dropping the result payload. Because the invocation that launched a background task returned immediately without an error, this notice is the only trace left if that task fails. Furthermore, only the transcript that actually executed the turn renders these messages; a fork's replayed copy renders none.
+
+Because supporting these messages required no changes to instructions, `prompt_version` remains unchanged. However, the hash includes them. Consequently, any turn or run that received an interjection became stale once, while every other item retained its existing hash.
+
 `sweep_zombies` checks session rows against `describable_sessions`. The next pass removes enrichments written before this gate and reports how many it removed. The gate does not apply to turns, so a turn that made no API call keeps its row.
 
 ## Four values decide whether a row is stale

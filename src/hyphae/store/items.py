@@ -15,6 +15,7 @@ from hyphae.models.enrichment import Level
 from hyphae.models.items import (
     AgentRunItem,
     ApiCallRow,
+    HeardRow,
     Item,
     RunSection,
     SessionChild,
@@ -23,7 +24,7 @@ from hyphae.models.items import (
     TurnItem,
     item_key,
 )
-from hyphae.models.trace import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE, Sender
 from hyphae.projects import project_predicate
 
 
@@ -101,6 +102,7 @@ class ItemReader:
         )
         calls = self._api_calls(main=True, project=project)
         results = self._command_results(project=project)
+        heard = self._heard(main=True, project=project)
         by_turn: dict[tuple[str, str, str], list[ApiCallRow]] = {}
         for (session_id, source), sequence in calls.items():
             for turn_id, row in sequence:
@@ -116,6 +118,7 @@ class ItemReader:
                 command_name=command_name,
                 command_args=command_args,
                 command_result=results.get((session_id, source, turn_id)),
+                heard=tuple(heard.get((session_id, source, turn_id), ())),
                 api_calls=tuple(by_turn.get((session_id, source, turn_id), ())),
             )
             for session_id, source, turn_id, index, prompt, command_name, command_args in turns
@@ -194,6 +197,7 @@ class ItemReader:
         ):
             turns.setdefault((session_id, source), []).append((turn_id, prompt))
         calls = self._api_calls(main=False, project=project)
+        heard = self._heard(main=False, project=project)
         items: list[AgentRunItem] = []
         for session_id, run_id, agent_type in runs:
             local = turns.get((session_id, run_id), [])
@@ -205,10 +209,16 @@ class ItemReader:
                 if turn_id is not None and turn_id in local_ids:
                     by_turn.setdefault(turn_id, []).append(row)
             sections = (
-                [RunSection(prompt=None, api_calls=tuple(continuation))] if continuation else []
+                [RunSection(prompt=None, heard=(), api_calls=tuple(continuation))]
+                if continuation
+                else []
             )
             sections += [
-                RunSection(prompt=prompt, api_calls=tuple(by_turn.get(turn_id, ())))
+                RunSection(
+                    prompt=prompt,
+                    heard=tuple(heard.get((session_id, run_id, turn_id), ())),
+                    api_calls=tuple(by_turn.get(turn_id, ())),
+                )
                 for turn_id, prompt in local
             ]
             if not sections:
@@ -224,6 +234,29 @@ class ItemReader:
                 )
             )
         return items
+
+    def _heard(
+        self, *, main: bool, project: str | None
+    ) -> dict[tuple[str, str, str], list[HeardRow]]:
+        """What each turn of the selected sources heard while it ran, keyed by session, source
+        and turn, in the order its transcript holds them — the line the extractor read each
+        from, since a queued message's timestamp can fall inside the turn before."""
+        heard: dict[tuple[str, str, str], list[HeardRow]] = {}
+        for session_id, source, turn_id, sender, text in self._select(
+            f"""SELECT i.session_id, i.source, i.turn_id, i.sender, i.text
+                FROM live_interjections i
+                JOIN raw_records r
+                  ON r.session_id = i.session_id AND r.source = i.source AND r.uuid = i.id
+                JOIN sessions s ON s.id = i.session_id
+                WHERE i.turn_id IS NOT NULL AND {_source_clause("i", main=main)}{_PROJECT_SCOPE}
+                -- A rewound uuid has several lines; the extractor read the last.
+                GROUP BY i.session_id, i.source, i.turn_id, i.sender, i.text, i.id
+                ORDER BY i.session_id, i.source, max(r.line_no), i.id""",
+            project,
+        ):
+            row = HeardRow(sender=Sender(sender), text=text)
+            heard.setdefault((session_id, source, turn_id), []).append(row)
+        return heard
 
     def _api_calls(
         self, *, main: bool, project: str | None
