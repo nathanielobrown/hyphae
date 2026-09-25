@@ -21,7 +21,7 @@ Open a reviewable PR with the procedure below. The rules it relies on are in `do
    ```
 
    Keep the `< /dev/null`: without it, `pi -p` waits on input forever.
-5. **Review the body** for factual errors only, not style. Check it against the fact sheet and cut anything the fact sheet does not support, including any session data. If the errors are more than trivial, fix the fact sheet and recompose.
+5. **Review the body** for factual errors only, not style. Check it against the fact sheet and cut anything the fact sheet does not support, including any session data. If the errors are more than trivial, fix the fact sheet and recompose. A body a little over its word budget is fine. If the composer reports one more than a quarter over, tell the user in your report; don't trim it yourself.
 6. **Validate diagrams**: If the body contains Mermaid blocks, run `mise run diagram-check <file>`. PR bodies are not in git, so this is their only check before GitHub renders them.
 7. **Submit**: Push the branch once (`git push -u origin <topic>`), then open the PR:
 
