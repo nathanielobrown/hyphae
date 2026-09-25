@@ -238,15 +238,22 @@ def test_a_message_written_as_a_user_record_comes_out_like_a_queued_one(
             text=f"[redacted]\n\n{PERSON_TRAILER}",
             replayed=False,
         ),
-        # ...then a second task.
+        # ...then a second task, whose event and finish arrived as two notices in one message:
+        # the row is kept from the first tag on, so it holds both.
         Interjection(
-            id="1bcc625c-8915-4240-b18a-27a44c7a986a",
+            id="edf87c74-f2b8-44a0-9e40-129e1b7b3702",
             session_id=RELAYED,
             source=RELAYED_RUN,
             turn_id=run_turn,
             timestamp=datetime(2026, 8, 26, 19, 32, 22, 984000, tzinfo=UTC),
             sender=Sender.TASK,
-            text=task_notice("b3mlk4r2r", "toolu_01NWs2xaScQCQEbRXTN3R5XB", 72),
+            text=(
+                f"<task-notification>\n<task-id>b0nigvf8u</task-id>\n"
+                f"<summary>{padded(46)}</summary>\n<event>{padded(82)}</event>\n"
+                "If this event is something the user would act on now, send a PushNotification."
+                " Routine or benign output doesn't need one.\n</task-notification>\n\n"
+                + task_notice("b0nigvf8u", "toolu_01KrTz8b6UDEFA6wBfCmrs16", 52)
+            ),
             replayed=False,
         ),
     ]

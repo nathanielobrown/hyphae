@@ -47,7 +47,8 @@ CAP = bounds.INTERJECTIONS_WIDTHS.interjections
             ],
         ),
         # ...and another's heard a task, its coordinator, the person and a second task, each
-        # as a `user` record under a lead line naming the sender.
+        # as a `user` record under a lead line naming the sender; the second task's event and
+        # finish came as two notices in one message, which runs past the width.
         (
             RELAYED,
             RELAYED_RUN,
@@ -56,7 +57,7 @@ CAP = bounds.INTERJECTIONS_WIDTHS.interjections
                 ("c4fa6668-27bc-4a26-84f4-d70ab9ea80ab", "task", "19:16:38"),
                 ("63f2e609-c1cf-4603-acae-2c720f49520c", "agent", "19:18:10"),
                 ("28f67c95-2183-4e7f-8e2a-8d5a709c9fff", "person", "19:25:00"),
-                ("1bcc625c-8915-4240-b18a-27a44c7a986a", "task", "19:32:22"),
+                ("edf87c74-f2b8-44a0-9e40-129e1b7b3702", "task", "19:32:22"),
             ],
         ),
     ],
@@ -81,8 +82,8 @@ def test_a_turn_lists_what_it_heard_between_its_values_and_its_calls(
     assert keys == [key for key, _, _ in heard]
     assert fields(page, "class", "interjections")["interjections"] == str(len(heard))
     for key, sender, at in heard:
-        # ...each row whole: the message as the store holds it, which none ran past the width
-        # of — the notices' leaf tags are redacted to the lengths they were recorded at...
+        # ...each row the message as the store holds it — the notices' leaf tags are redacted
+        # to the lengths they were recorded at — cut and marked if it ran past the width...
         text, line_no = one(
             store,
             "SELECT i.text, max(r.line_no) FROM interjections i JOIN raw_records r"
@@ -90,20 +91,19 @@ def test_a_turn_lists_what_it_heard_between_its_values_and_its_calls(
             " WHERE i.session_id = ? AND i.source = ? AND i.id = ? GROUP BY i.text",
             [session, source, key],
         )
-        assert len(text) < CHARS
         assert fields(page, "data-interjection", key) == {
             "sender": sender,
             "at": at,
             "line": f"line {line_no}",
-            "text": text.strip(),
+            "text": (text if len(text) <= CHARS else text[:CHARS] + ELLIPSIS).strip(),
         }
         # ...and its link opens the records page on the line holding the whole record.
         (href,) = inside(page, "data-interjection", key, "href")
         records = client.get(href).text
         assert href.endswith(f"#L{line_no}")
         assert values(records, "data-record")[0] == str(line_no)
-    # Nothing was left off, so nothing says so, and the footer cites the read at the keys and
-    # widths it bound.
+    # No message was left off, so nothing says so, and the footer cites the read at the keys
+    # and widths it bound.
     assert 'data-field="dropped"' not in page
     assert fields(page, "id", "citation")["view_turn_interjections"] == (
         f"-- queries/view_turn_interjections.sql session_id={session} source={source}"
