@@ -52,6 +52,7 @@ class Budgets:
     command_result: int = 2_000
     # A background task's notice of how it ended: the id, summary and status its tags open
     # on, which close by character 340, without the result payload that runs to 30,000.
+    # Per notice: a message batching several caps each on its own.
     task_notice: int = 400
 
 
@@ -243,6 +244,9 @@ def _unwrap_teammate(prompt: str) -> str:
     return match.group(1).strip() if match else prompt
 
 
+# What opens each notice in a task's message; a message can batch several.
+_NOTICE_TAG = "<task-notification>"
+
 # Who sent a message the turn heard while it ran, in the words the model reads it under.
 _HEARD_FROM = {
     Sender.PERSON: "## Mid-turn message from the person",
@@ -258,9 +262,25 @@ def _heard_lines(heard: Sequence[HeardRow], budgets: Budgets) -> list[str]:
     """
     lines: list[str] = []
     for row in heard:
-        limit = budgets.task_notice if row.sender is Sender.TASK else budgets.prompt
-        lines += ["", _HEARD_FROM[row.sender], _cap(row.text, limit)]
+        text = (
+            _each_notice(row.text, budgets.task_notice)
+            if row.sender is Sender.TASK
+            else _cap(row.text, budgets.prompt)
+        )
+        lines += ["", _HEARD_FROM[row.sender], text]
     return lines
+
+
+def _each_notice(text: str, limit: int) -> str:
+    """A task's message with every notice it batches capped on its own, so each keeps the
+    status its tags open on; the whitespace between notices is kept as recorded."""
+    head, *notices = text.split(_NOTICE_TAG)
+    capped = []
+    for notice in notices:
+        whole = _NOTICE_TAG + notice
+        kept = whole.rstrip()
+        capped.append(_cap(kept, limit) + whole[len(kept) :])
+    return _cap(head, limit) + "".join(capped)
 
 
 def _tool_line(tool: ToolCallRow, budgets: Budgets) -> str:

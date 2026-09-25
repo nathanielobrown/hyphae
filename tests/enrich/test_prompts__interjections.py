@@ -161,8 +161,8 @@ def test_a_run_renders_a_message_written_as_a_user_record_as_it_renders_a_queued
         " turn, often alongside the next tool result, rather than as a separate conversation"
         " turn. Address the message above as you continue this turn.\n"
         "\n"
-        # The second task's event and finish came in one message, and the prompt's width cuts
-        # it inside the second notice.
+        # The second task's event and finish came in one message, and each notice is capped on
+        # its own, so both arrive whole and the finish keeps its status.
         "## Mid-turn notice from a background task\n"
         "<task-notification>\n"
         "<task-id>b0nigvf8u</task-id>\n"
@@ -173,7 +173,12 @@ def test_a_run_renders_a_message_written_as_a_user_record_as_it_renders_a_queued
         "</task-notification>\n"
         "\n"
         "<task-notification>\n"
-        "<task-id>b0[+333 chars]\n"
+        "<task-id>b0nigvf8u</task-id>\n"
+        "<tool-use-id>toolu_01KrTz8b6UDEFA6wBfCmrs16</tool-use-id>\n"
+        f"<output-file>{padded(110)}</output-file>\n"
+        "<status>completed</status>\n"
+        f"<summary>{padded(52)}</summary>\n"
+        "</task-notification>\n"
         "\n"
         "## Response\n"
         '- Agent (input 84 chars, result 10 chars) {"subagent_type": "[redacted]", '
@@ -203,6 +208,29 @@ def test_a_task_notice_keeps_how_the_task_ended_and_drops_what_it_returned(
     assert len(notice) == TURN_BUDGETS.task_notice == 400
     assert "<status>completed</status>" in notice
     assert "<result>" not in notice
+
+
+def test_each_notice_a_message_batches_keeps_how_its_task_ended(mutable_db: Path) -> None:
+    """A message batching several notices is cut notice by notice, so every task keeps its
+    status however many arrived together."""
+    # If the recorded 839-character notice arrived three times in one message — synthetic: the
+    # recorded batches are redacted short enough to arrive whole...
+    with enriching(mutable_db) as store:
+        store.connection.execute(
+            "UPDATE interjections SET text = text || '\n\n' || text || '\n\n' || text"
+            " WHERE session_id = ? AND sender = ?",
+            [SENDERS, Sender.TASK.value],
+        )
+        rendered = render(turn(store, SENDERS, NOTICED))
+    section = rendered.split("## Mid-turn notice from a background task\n")[1]
+    notices = section.split("\n\n## ")[0].split("\n\n")
+    # ...then each of the three is cut to 400 as a lone notice is, its status inside and its
+    # result outside.
+    assert [len(notice) for notice in notices] == [TURN_BUDGETS.task_notice] * 3
+    for notice in notices:
+        assert notice.startswith("<task-notification>")
+        assert "<status>completed</status>" in notice
+        assert "<result>" not in notice
 
 
 def test_a_message_is_capped_at_the_width_a_prompt_gets(mutable_db: Path) -> None:
