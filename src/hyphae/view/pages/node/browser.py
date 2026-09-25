@@ -76,6 +76,8 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
         )
         no_record: tuple[int | None, Ran] = (None, [])
         record, recorded = spec.record(store, corpus, at) if spec.record else no_record
+        no_messages: tuple[models.Heard | None, Ran] = (None, [])
+        heard, listened = spec.heard(store, corpus, at) if spec.heard else no_messages
         built = nav_tree.nav_tree(
             store,
             corpus,
@@ -112,6 +114,7 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
         *found.ran,
         *under.ran,
         *recorded,
+        *listened,
         *built.ran,
         *walked.ran,
     ]
@@ -141,6 +144,7 @@ def browse(db: Path, session_id: str, at: Ref, knobs: Knobs, page: int) -> NodeP
             archived=models.Archived(
                 thread_url=nodes.thread_url(session_id, source), line_no=record
             ),
+            heard=heard,
         ),
         bearings=models.Bearings(
             # Where the chain starts: the whole session list, and this session's project.

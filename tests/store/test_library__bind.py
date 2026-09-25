@@ -70,6 +70,7 @@ SURFACES: dict[str, bounds.Widths] = {
     "view_turn_description": bounds.HEADER_WIDTHS,
     "view_turn_friction": bounds.HEADER_WIDTHS,
     "view_turn_header": bounds.EXPANSION_WIDTHS,
+    "view_turn_interjections": bounds.INTERJECTIONS_WIDTHS,
     "view_turn_prompt": bounds.HEADER_WIDTHS,
     "view_turn_records": bounds.RECORDS_WIDTHS,
 }

@@ -159,7 +159,11 @@ PAGE_BYTES = 500_000
 # Raised to 6,580,000 when a fixture first answered in a model the price table lacks: a NavTree
 # row's cost then carries the unpriced mark, 25 B the row always drew and no sweep had weighed,
 # 80,425 B over 3,217 rows. The arithmetic comes to 6,564,687 B, with 15,313 B left.
-NODE_BYTES = 6_580_000
+#
+# Raised to 6,600,000 when a turn's page began listing the interjections it heard: eight
+# messages of 400 characters, each escaped and marked, under 2,983 B of senders, clocks and links
+# to their lines — 19,007 B once a page. The arithmetic comes to 6,583,694 B, with 16,306 B left.
+NODE_BYTES = 6_600_000
 # What one expansion may weigh: a node's body opened in place, inside someone else's children
 # log. It is over `PAGE_BYTES` and declared here rather than derived against it, for the reason
 # `bounds.OPENED_RECORD_CHARS` draws the same line the other way — a reader clicked. An
@@ -277,6 +281,11 @@ LOG_ROW_STRINGS = 3
 # on both of those URLs, where `worst_knob_bytes()` prices two digits: the widest pager there
 # can be is 2 B over this, which the node ceiling above absorbs many thousand times.
 MEASURED_PAGER_BYTES = 565
+# And what the section listing a turn's interjections costs with the messages taken off: its
+# heading and count, each row's sender, clock and link to the line holding the whole of it, and
+# the line saying how many it left off. Measured through the app by `test_bounds__node.py` on
+# turns planted a message past the cap, each past the width.
+MEASURED_HEARD_MARKUP = 2_983
 # And what the markup around one crumb of the chain down to the selection costs: the link, the
 # node's key, the mark saying what kind of node the step is, and the glyph saying who named it.
 # Measured the same way — 556 B less 200 B of title at `CRUMB_CHARS` and 50 B of knobs, leaving
@@ -546,14 +555,22 @@ def worst_details_bytes() -> int:
     )
 
 
+def worst_heard_bytes() -> int:
+    """What the interjections one turn's page lists can weigh: the section's markup, and a
+    message of `&` cut and marked on every row the section holds."""
+    widths = bounds.INTERJECTIONS_WIDTHS
+    message = widths.interjection_chars * ESCAPED_CHAR_BYTES + MARK_BYTES
+    return MEASURED_HEARD_MARKUP + widths.interjections * message
+
+
 def worst_node_bytes() -> int:
     """The largest node page any sizes a URL can carry produce.
 
     A page is its chrome, the crumbs down to the selection, the NavTree beside it, the values the
-    pane previews, and the log under it. The NavTree is the part that multiplies: every level of
-    the open path admits `KIN` children and a tail row saying what the cap left out, and the
-    path runs `DEPTH` levels deep — so `bounds.NAV_TREE_ROW_BYTES` is four fifths of the ceiling,
-    and the row is pinned rather than budgeted.
+    pane previews, the messages a turn heard, and the log under it. The NavTree is the part that
+    multiplies: every level of the open path admits `KIN` children and a tail row saying what the
+    cap left out, and the path runs `DEPTH` levels deep — so `bounds.NAV_TREE_ROW_BYTES` is four
+    fifths of the ceiling, and the row is pinned rather than budgeted.
 
     The sizes' own defaults spend it, and each of the three knobs only goes down from there —
     but a knob a reader turns down writes itself into every link on the page, so the rows are
@@ -566,6 +583,7 @@ def worst_node_bytes() -> int:
         + worst_log_bytes()
         + MEASURED_PAGER_BYTES
         + worst_details_bytes()
+        + worst_heard_bytes()
     )
 
 

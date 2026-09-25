@@ -15,6 +15,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import NamedTuple
 
+from hyphae.models.trace import Sender
 from hyphae.view.citation import Cited
 from hyphae.view.detail import Detail
 from hyphae.view.enrichment import Enrichment, EnrichmentLines
@@ -384,6 +385,31 @@ class Archived(NamedTuple):
     line_no: int | None
 
 
+class Interjection(NamedTuple):
+    """One message a turn heard while it ran: who sent it, when, and the start of what it said.
+
+    `line_no` is the transcript line holding the whole of it, a click away on the records page.
+    """
+
+    key: str
+    sender: Sender
+    # When it was typed where Claude Code queued it with a time, and when it landed otherwise.
+    at: dt.datetime
+    # Cut a character past the section's width where it ran on (`text/cuts.py:message`).
+    text: str
+    line_no: int
+
+
+class Heard(NamedTuple):
+    """The messages a turn heard, in the order the model read them: the first few, and a count.
+
+    `total` counts every one, so the section can say how many it left off.
+    """
+
+    rows: Sequence[Interjection]
+    total: int
+
+
 class Nav(NamedTuple):
     """The NavTree side: the preset control, the one open path, and the thread it was read for.
 
@@ -407,6 +433,8 @@ class Body(NamedTuple):
     said: Said | None
     details: Sequence[Detail]
     archived: Archived
+    # None for every kind but a turn, the one node a message is delivered into.
+    heard: Heard | None
 
 
 class Steps(NamedTuple):

@@ -16,7 +16,7 @@ from hyphae.view.nodes import Node
 from hyphae.view.pages.node.markup import body as node_body
 from hyphae.view.pages.node.markup import logs, nav_tree
 from hyphae.view.pages.node.markup.nav_tree import PANE_SWAP
-from hyphae.view.pages.node.models import Archived, NodePage, Trail, Walked
+from hyphae.view.pages.node.models import Archived, Heard, NodePage, Trail, Walked
 from hyphae.view.text import cuts
 from hyphae.view.text import format as fmt
 
@@ -91,6 +91,7 @@ def page(*, read: NodePage, dev: bool) -> Html:
                         # the whole of it.
                         [parts.detail(item=item) for item in read.body.details],
                         _raw(archived=read.body.archived),
+                        _heard(heard=read.body.heard, thread_url=read.body.archived.thread_url),
                         logs.log(
                             shape=read.children.shape,
                             rows=read.children.rows,
@@ -199,6 +200,50 @@ def _raw(*, archived: Archived) -> Html:
                 hx_target="find .value",
             )[[htpy.summary["archived record"], htpy.div(".value")]]
             if line
+            else None,
+        ]
+    ]
+
+
+def _heard(*, heard: Heard | None, thread_url: str) -> Html | None:
+    """The messages a turn heard while it ran, in the order the model read them.
+
+    Nothing where the turn heard none. Each row links to the record holding the whole of it,
+    and a turn that heard more than the section shows says how many it left off.
+    """
+    if heard is None or not heard.rows:
+        return None
+    dropped = heard.total - len(heard.rows)
+    return htpy.section(".interjections")[
+        [
+            htpy.h2[
+                [htpy.span(data_field="interjections")[fmt.count(heard.total)], " interjections"]
+            ],
+            htpy.ol[
+                (
+                    htpy.li(data_interjection=row.key)[
+                        [
+                            htpy.p[
+                                [
+                                    htpy.span(data_field="sender")[row.sender.value],
+                                    " at ",
+                                    htpy.span(data_field="at")[fmt.clock(row.at)],
+                                    " · ",
+                                    htpy.a(
+                                        data_field="line",
+                                        href=f"{thread_url}/records"
+                                        f"?after={row.line_no - 1}#L{row.line_no}",
+                                    )[f"line {fmt.count(row.line_no)}"],
+                                ]
+                            ],
+                            htpy.pre(data_field="text")[cuts.message(row.text)],
+                        ]
+                    ]
+                    for row in heard.rows
+                )
+            ],
+            htpy.p(".more")[["+", htpy.span(data_field="dropped")[fmt.count(dropped)], " more"]]
+            if dropped
             else None,
         ]
     ]

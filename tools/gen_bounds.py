@@ -221,6 +221,15 @@ def bound_rows() -> list[Row]:
             ("bounds.LOG.default", "bounds.LOG_WIDTHS.log_chars"),
         ),
         Row(
+            "A turn's interjections",
+            f"{text.count(bounds.INTERJECTIONS_WIDTHS.interjections)} messages, each cut to "
+            f"{text.count(bounds.INTERJECTIONS_WIDTHS.interjection_chars)} characters",
+            (
+                "bounds.INTERJECTIONS_WIDTHS.interjections",
+                "bounds.INTERJECTIONS_WIDTHS.interjection_chars",
+            ),
+        ),
+        Row(
             "Previewed value",
             f"{text.count(bounds.DETAIL.default)} characters, with the rest a fetch away",
             ("bounds.DETAIL.default",),
@@ -320,6 +329,19 @@ def node_rows() -> list[Row]:
                 "budgets.DEAR_PANE_DETAILS",
                 "budgets.worst_rendered_detail_bytes",
                 "budgets.worst_details_bytes",
+            ),
+        ),
+        Row(
+            "Interjections",
+            f"{text.count(bounds.INTERJECTIONS_WIDTHS.interjections)} messages cut to "
+            f"{text.count(bounds.INTERJECTIONS_WIDTHS.interjection_chars)} characters, under "
+            f"{text.count(budgets.MEASURED_HEARD_MARKUP)} of markup: "
+            f"{text.count(budgets.worst_heard_bytes())}",
+            (
+                "bounds.INTERJECTIONS_WIDTHS.interjections",
+                "bounds.INTERJECTIONS_WIDTHS.interjection_chars",
+                "budgets.MEASURED_HEARD_MARKUP",
+                "budgets.worst_heard_bytes",
             ),
         ),
         Row(

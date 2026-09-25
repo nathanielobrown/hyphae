@@ -25,6 +25,8 @@ from tests.conftest import (
     MAIN,
     OFFLOAD_FILE,
     RESUME,
+    SENDERS,
+    SENDERS_RUN,
     SLASH_TURN,
     SPINE,
     SPINE_RUN,
@@ -59,7 +61,8 @@ class Scenario(NamedTuple):
     """Why this URL and not another, where the title cannot say it."""
 
     served: str = ""
-    """The route the app declares for this URL, where the key is that route with a slot filled.
+    """The route the app declares for this URL, where the key is that route with a slot filled
+    or renamed.
 
     Empty for every entry whose key is the route itself, which is all of them but the node page.
     """
@@ -73,6 +76,9 @@ class Scenario(NamedTuple):
 DESCRIBED_SESSION = COMPACTED
 DESCRIBED_RUN = SPINE_RUN
 DESCRIBED_TURN = "8cdceb31-385c-42d4-9dae-137958b09b88"
+# The one turn of the agent run in `interjection/af7e1907` (`tests/conftest.py:SENDERS_RUN`),
+# which heard a task's notice, its coordinator, then a second notice while it ran.
+INTERJECTED_TURN = "a77c360d-c02d-45a8-89c9-5ded4c9c2f55"
 
 # The two reasons more than one scenario carries, said once each. Both are about the 404 the
 # other URL would have served: a pass writes about some items and not others, and only the
@@ -119,6 +125,16 @@ SCENARIOS: dict[str, Scenario] = {
         Group.NODES,
         note="The corpus's one turn whose three bands each have ground of their own, so the "
         "navy ramp can be read off a page rather than argued about.",
+        served=NODE_PAGE,
+    ),
+    # And a turn on an agent run's own thread, which is where the corpus records a turn hearing
+    # messages while it ran: the thread slot is renamed for it rather than filled.
+    "/session/{session_id}/thread/{run_id}/turn/{turn_id}": Scenario(
+        f"/session/{SENDERS}/thread/{SENDERS_RUN}/turn/{INTERJECTED_TURN}",
+        "Turn, hearing messages while it ran",
+        Group.NODES,
+        note="An agent run's one turn, which heard a task's notice, its coordinator and a "
+        "second notice, so the section listing them can be read off a page.",
         served=NODE_PAGE,
     ),
     "/session/{session_id}/run/{run_id}": Scenario(

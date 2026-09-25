@@ -271,6 +271,13 @@ class Errors(NamedTuple):
     errors: int
 
 
+class Interjections(NamedTuple):
+    """The messages a turn heard while it ran, in the section under its facts."""
+
+    interjection_chars: int
+    interjections: int
+
+
 class Records(NamedTuple):
     """The records browser, whose row is a preview of the record it opens."""
 
@@ -296,6 +303,7 @@ Widths = (
     | SessionList
     | Projects
     | Errors
+    | Interjections
     | Records
     | Enrichment
 )
@@ -380,6 +388,17 @@ PROJECTS_WIDTHS = Projects(
     projects=PROJECTS.default,
 )
 ERRORS_WIDTHS = Errors(nav_chars=_NAV_CHARS, errors=ERRORS.default)
+INTERJECTIONS_WIDTHS = Interjections(
+    # How much of one message a row shows. A task's notice is XML, and 400 keeps its id and its
+    # status — the status closes by the 340th character on every notice in the canonical store —
+    # and leaves the result it carries to the record, a click away. The same cap an enrichment
+    # prompt holds a notice to.
+    interjection_chars=400,
+    # How many rows the section shows before it says how many it left: the header lists' cap
+    # rather than a page, because a person or another agent has spoken at most three times in
+    # one turn, and a turn holding more than this is a task's notices, which read alike.
+    interjections=8,
+)
 RECORDS_WIDTHS = Records(
     # How much of a raw record one browser row shows. Long enough to tell a `user` record from an
     # `assistant` one and to recognise a line already read; short enough that a hundred of them is

@@ -30,6 +30,7 @@ from tests.view.budgets import (
     fits,
     worst_crumb_bytes,
     worst_expansion_bytes,
+    worst_heard_bytes,
     worst_log_row_bytes,
     worst_rendered_detail_bytes,
     worst_stored_detail_bytes,
@@ -43,6 +44,7 @@ from tests.view.conftest import (
     planter,
     values,
 )
+from tests.view.plants import heard
 
 # What a node page's arithmetic prices row by row, which chrome is the page without: a crumb of
 # the chain down to the selection, a row of the NavTree, a row of the pane's children log, and one
@@ -60,6 +62,9 @@ PRICED_ROWS = {
     # match reads the whole attribute: a pattern pinned to `detail"` would stop pricing a prose
     # preview the moment one was walled.
     "detail": r'<section class="detail[^"]*".*?</section>',
+    # The messages a turn heard, once a page: the section is the row, since what it holds is
+    # capped rather than paged.
+    "heard": r'<section class="interjections".*?</section>',
 }
 
 
@@ -84,6 +89,7 @@ def priced(html: str) -> tuple[str, dict[str, list[str]]]:
     # twice, and a wrapper taken out hides part of the page this measures.
     assert not values(html, "data-crumb") and not values(html, "data-nav-tree")
     assert not values(html, "data-child") and not values(html, "data-detail")
+    assert not values(html, "data-interjection")
     assert 'id="nav-tree-rows"' in html and 'id="reading-pane"' in html
     return html, rows
 
@@ -197,6 +203,11 @@ def escaped_at_every_cap() -> tuple[Statement, ...]:
             "UPDATE turns SET prompt = ? WHERE id = (SELECT min(id) FROM turns)",
             [f"```sql\n{tokens}"],
         ),
+        # And every turn heard a message past what its section lists, each past the width.
+        *heard(
+            bounds.INTERJECTIONS_WIDTHS.interjections + 1,
+            "&" * (bounds.INTERJECTIONS_WIDTHS.interjection_chars + 1),
+        ),
         *DESCRIBED_AT_EVERY_CAP,
     )
 
@@ -251,17 +262,20 @@ def found_rows(split: list[Split], name: str) -> list[str]:
 
 
 def weighed(split: list[Split], *, widest_of: frozenset[str]) -> None:
-    """A crumb, a NavTree row and a log row of this sweep each weigh what the arithmetic budgets.
+    """A crumb, a NavTree row, a log row and a turn's interjections each weigh their budget.
 
     `widest_of` names the kinds this sweep renders the corpus's widest row of, which is a fact
     about the fixtures recorded by weighing the three sweeps apart rather than reasoned from the
     knobs. There a budget is held from below as well; everywhere else it is only a ceiling, and a
     template that grows a row still reds in the one sweep that prices that kind exactly.
     """
-    for name, budget, pinned in (
-        ("crumb", worst_crumb_bytes(), exact_pins()),
-        ("nav_tree", bounds.NAV_TREE_ROW_BYTES, True),
+    for name, budget, exact in (
+        ("crumb", worst_crumb_bytes(), exact_pins() and "crumb" in widest_of),
+        ("nav_tree", bounds.NAV_TREE_ROW_BYTES, "nav_tree" in widest_of),
         ("log", worst_log_row_bytes(), False),
+        # No knob reaches the section — its links carry no suffix — so every sweep renders
+        # the widest one and every sweep holds it exactly under the exact-pin mode.
+        ("heard", worst_heard_bytes(), exact_pins()),
     ):
         found = found_rows(split, name)
         assert found, name
@@ -273,7 +287,6 @@ def weighed(split: list[Split], *, widest_of: frozenset[str]) -> None:
         # slack there is 3,217 bytes the ceiling keeps for nothing, and `NODE_BYTES` now has room
         # to hide one — and the crumb's under the exact-pin mode, which is what keeps a
         # hand-written pin from outliving the measurement it stood for.
-        exact = pinned and name in widest_of
         assert widest_row == budget if exact else widest_row <= budget, (name, widest_row)
         if name == "nav_tree":
             # And the row it priced drew a context bar at its widest spelling: three edges of
@@ -497,6 +510,11 @@ def test_an_expansion_weighs_a_body_and_the_one_page_of_rows_it_lists(
             [head] * 4,
         ),
         ("UPDATE turns SET prompt = ?, command_name = ?", [head, head]),
+        # And every turn heard a message past what its section lists, each past the width.
+        *heard(
+            bounds.INTERJECTIONS_WIDTHS.interjections + 1,
+            "&" * (bounds.INTERJECTIONS_WIDTHS.interjection_chars + 1),
+        ),
         *DESCRIBED_AT_EVERY_CAP,
     )
     at = f"/session/{session_id}/thread/{source}"

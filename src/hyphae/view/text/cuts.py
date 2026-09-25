@@ -83,3 +83,11 @@ def member(value: str) -> str:
     surface's `item_chars`, which nothing said until here.
     """
     return fmt.cut(value, bounds.HEADER_WIDTHS.item_chars)
+
+
+def message(value: str) -> str:
+    """One interjection a turn's page lists, marked where the query cut it.
+
+    The whole of it is the record, which the row links to by its line.
+    """
+    return fmt.cut(value, bounds.INTERJECTIONS_WIDTHS.interjection_chars)
