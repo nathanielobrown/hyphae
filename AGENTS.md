@@ -36,7 +36,6 @@ Change the tooling or add tools when they make the work easier or enforce projec
 # Layout
 
 <!-- aigarden:cog sh "uv run python -m tools.gen_layout" -->
-
 ```
 src/hyphae/               Analyze AI coding agents from their telemetry
   extract/                Extractors: recorded agent sessions in, `SessionTrace` out
@@ -74,7 +73,6 @@ reports/                  One analysis pass, written down
 handoffs/                 Gitignored: scratch one agent run leaves for the next (`docs/handoffs.md`)
 data/                     Gitignored: analysis scratch, and any store `--db` pointed an extract at — the canonical one is `~/.hyphae/traces.duckdb` (`docs/store.md`)
 ```
-
 <!-- aigarden:end -->
 
 # Instructions
