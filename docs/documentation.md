@@ -47,7 +47,7 @@ A table a reader needs spelled out — the viewer's routes, the fields a record 
 
 The command runs from the repository root, and everything between the markers is replaced by what it prints. Run `mise run cogs` after changing a generator or the code it reads; `mise run check` runs the same command and fails when what the document holds is not what it prints, so a generated block cannot be stale and green at once. Never edit between the markers by hand — the next write erases it, and until then the check is red.
 
-A generator exposes `generate()`, which returns the block's body with no trailing newline, and a `main()` that prints it. Everything the block needs to say goes in the generator, including any heading or fence.
+A generator exposes `generate()`, which returns the block's body, and a `main()` that prints it. Everything the block needs to say goes in the generator, including any heading or fence. A body ends without a trailing newline, because `print` adds one, unless it is a fence. A fence comes from `text.fence` in `tools/text.py`, which adds the blank line either side that aigarden's markdown style requires, so a fenced body starts and ends with a newline.
 
 ## Make references work where readers find them
 

@@ -166,7 +166,7 @@ def generate() -> str:
     drawn = lines()
     width = max(len(label) for label, _ in drawn) + 2
     tree = [f"{label:<{width}}{gloss}".rstrip() for label, gloss in drawn]
-    return "```\n" + "\n".join(tree) + "\n```"
+    return text.fence("", tree)
 
 
 def main() -> None:

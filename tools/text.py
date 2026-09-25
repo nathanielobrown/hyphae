@@ -1,4 +1,4 @@
-"""Shared shapes for the generators: a markdown table, a number, and a lifted gloss.
+"""Shared shapes for the generators: a markdown table, a fenced block, a number, and a lifted gloss.
 
 Nothing here decides what a table says — only how the generated text is written, so three
 generators splice tables a reader cannot tell apart. Every helper crashes on a shape it did
@@ -34,6 +34,15 @@ def _row(cells: tuple[str, ...]) -> str:
         if "|" in cell or "\n" in cell:
             raise ValueError(f"cell would break the table: {cell!r}")
     return "| " + " | ".join(cells) + " |"
+
+
+def fence(info: str, lines: Iterable[str]) -> str:
+    """A fenced block with a blank line either side, as the cog splice keeps it.
+
+    aigarden's markdown-style rule (MD031) wants a blank line around every fence, and the splice
+    puts a block right against its markers, so the blank lines are the generator's to write.
+    """
+    return f"\n```{info}\n" + "\n".join(lines) + "\n```\n"
 
 
 def count(value: int) -> str:

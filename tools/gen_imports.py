@@ -9,6 +9,8 @@ import itertools
 
 import grimp
 
+from tools import text
+
 ROOT_PACKAGE = "hyphae"
 
 # Left off the graph: `cli`, which imports every package, and the leaves any package may import
@@ -40,7 +42,7 @@ def edges() -> list[tuple[str, str]]:
 def generate() -> str:
     """The graph as the cog block splices it, fence and all."""
     lines = [f"  {importer} --> {imported}" for importer, imported in edges()]
-    return "```mermaid\ngraph TD\n" + "\n".join(lines) + "\n```"
+    return text.fence("mermaid", ["graph TD", *lines])
 
 
 def main() -> None:

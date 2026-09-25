@@ -212,6 +212,36 @@ def test_the_hook_dispatcher_drops_an_inherited_virtualenv(
     assert "VIRTUAL_ENV=unset" in committed.stderr
 
 
+def test_the_gate_lints_markdown_with_the_aigarden_mise_pins(
+    tmp_path: Path, primary: Path, env: dict[str, str]
+) -> None:
+    # The real gate, over a checkout whose venv holds do-nothing stand-ins, so staging only
+    # Markdown takes it straight to aigarden.
+    shutil.copy2(ROOT / "tools" / "pre-commit", primary / "tools" / "pre-commit")
+    venv_bin = primary / ".venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    for tool in ("ruff", "pyrefly", "lint-imports"):
+        (venv_bin / tool).write_text("#!/usr/bin/env bash\n")
+        (venv_bin / tool).chmod(0o755)
+
+    # Two aigardens: the one the pin resolves to passes, and the one a shell mise activated
+    # in some other directory left first on PATH fails. mise answers `which` with the pinned one.
+    def stub(path: Path, body: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"#!/usr/bin/env bash\n{body}\n")
+        path.chmod(0o755)
+
+    pinned = tmp_path / "pinned" / "aigarden"
+    stub(pinned, "exit 0")
+    stub(tmp_path / "bin" / "aigarden", 'echo "the aigarden first on PATH ran" >&2; exit 1')
+    stub(tmp_path / "bin" / "mise", f'[[ "$*" == "which aigarden" ]] && echo {pinned}')
+
+    (primary / "NOTES.md").write_text("# Notes\n")
+    git(primary, "add", "NOTES.md", env=env)
+    committed = git(primary, "commit", "-q", "-m", "notes", env=env)
+    assert (committed.returncode, committed.stderr) == (0, "")
+
+
 def test_every_path_worktreeinclude_names_is_gitignored() -> None:
     """A tracked path needs no copy, and a path listed by mistake would be copied forever."""
     lines = (ROOT / ".worktreeinclude").read_text().splitlines()
