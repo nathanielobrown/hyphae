@@ -13,8 +13,9 @@ this reader.
 """
 
 from dataclasses import fields
+from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, get_type_hints
 
 import duckdb
 
@@ -117,7 +118,19 @@ class StoreExtractor:
             f"SELECT {columns} FROM {table} WHERE {spec.session_key} = ? ORDER BY {order}",
             [session_id],
         ).fetchall()
-        return [spec.model(*row) for row in rows]
+        # DuckDB hands an enum column back as its string, which equals the member and so
+        # passes a whole-object comparison while `.name` would fail; a value no member
+        # names raises here instead of reaching a page.
+        hints = get_type_hints(spec.model)
+        enums = {
+            index: hint
+            for index, field in enumerate(fields(spec.model))
+            if isinstance(hint := hints[field.name], type) and issubclass(hint, Enum)
+        }
+        return [
+            spec.model(*(enums[i](value) if i in enums else value for i, value in enumerate(row)))
+            for row in rows
+        ]
 
     def _refuse_unplaceable_content(self) -> None:
         """Crash when a session with no `project_dir` holds work this filter would drop.

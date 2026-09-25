@@ -293,11 +293,6 @@ class Interjection:
     text: str
     replayed: bool
 
-    def __post_init__(self) -> None:
-        # The store reads `sender` back as its column's string; a value no `Sender` names
-        # raises here rather than reaching a page.
-        object.__setattr__(self, "sender", Sender(self.sender))
-
 
 @dataclass(frozen=True)
 class PrLink:
