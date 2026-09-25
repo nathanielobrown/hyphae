@@ -490,7 +490,7 @@ def test_a_session_with_no_turn_and_no_run_is_never_enriched(fixture_db: Path) -
     assert empty == {DUP_UUID, RESUME}
     assert described & empty == set()
     # `interjection/`'s writer session is the one other left out: its excerpt kept no api call.
-    assert len(described) == 11
+    assert len(described) == 12
 
 
 def test_an_api_call_carries_the_stop_reason_as_recorded(fixture_db: Path) -> None:
@@ -595,7 +595,7 @@ def test_the_run_and_session_views_left_join_too(mutable_db: Path) -> None:
         # ...and the sessions view reads coverage honestly for a corpus nothing has described.
         assert store.connection.execute(
             "SELECT count(*), count(description) FROM enriched_sessions"
-        ).fetchone() == (15, 0)
+        ).fetchone() == (16, 0)
 
 
 def test_zombies_are_swept_at_all_three_levels(mutable_db: Path) -> None:

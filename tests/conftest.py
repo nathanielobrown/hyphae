@@ -236,10 +236,13 @@ TEAMMATE_RUN = "aarchitect-5144001ac50718bc"
 COMPACTED = "1de7cf38-b28a-4c7d-9a6d-66ebe002cfa9"
 COMPACTED_BOUNDARY, COMPACTED_RUN = "459d0d29-cb67-477a-9cf1-f9bb19417c49", "a003de2a5c1985f71"
 # `interjection/`'s sessions: three turns with a queued message of each attribution; main and
-# a run hearing all three senders; a task's notice stamped in one turn, written in the next.
+# a run hearing all three senders; a task's notice stamped in one turn, written in the next; and
+# a run and the run it spawned hearing every sender in the older spelling, as `user` records.
 INTERJECTION = "27a459ba-1251-4b25-8a3a-66cb888223b5"
 SENDERS, SENDERS_RUN = "af7e1907-fa0b-42b2-a8b2-9eea773aa7a6", "aaceab3ee53af97d8"
 WAITED = "1d58565d-b635-46e0-bb78-4a64a8eecf1a"
+RELAYED, RELAYED_RUN = "bccd8048-2f6d-42f0-a221-b072563afbc1", "ae43615953608c70b"
+RELAYED_NESTED = "a0621f9014147e13c"
 # `parallel_tools/`'s session, which issued a batch each way — two calls in one record, and
 # two a record apart — and addressed two of its own runs by id.
 PARALLEL = "5f4b59fb-a9a8-4ca1-af62-a64b9d0ce515"
