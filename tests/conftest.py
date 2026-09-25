@@ -237,7 +237,7 @@ COMPACTED = "1de7cf38-b28a-4c7d-9a6d-66ebe002cfa9"
 COMPACTED_BOUNDARY, COMPACTED_RUN = "459d0d29-cb67-477a-9cf1-f9bb19417c49", "a003de2a5c1985f71"
 # `interjection/`'s sessions: three turns with a queued message of each attribution; main and
 # a run hearing all three senders; a task's notice stamped in one turn, written in the next; and
-# a run and the run it spawned hearing every sender in the older spelling, as `user` records.
+# a run and the run it spawned hearing every sender as `user` records.
 INTERJECTION = "27a459ba-1251-4b25-8a3a-66cb888223b5"
 SENDERS, SENDERS_RUN = "af7e1907-fa0b-42b2-a8b2-9eea773aa7a6", "aaceab3ee53af97d8"
 WAITED = "1d58565d-b635-46e0-bb78-4a64a8eecf1a"

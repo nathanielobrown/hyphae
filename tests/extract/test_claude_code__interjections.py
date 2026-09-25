@@ -176,8 +176,8 @@ def test_a_message_belongs_to_the_turn_open_where_it_sits_not_when_it_was_stampe
 def test_a_message_written_as_a_user_record_comes_out_like_a_queued_one(
     fixture_source: SourceFactory,
 ):
-    """Until 2.1.267 an agent run heard its mid-turn messages as `user` records, each opening
-    on a line that names its sender. Each comes out as a queued command's would — whole, under
+    """An agent run can hear its mid-turn messages as `user` records, each opening on a line
+    that names its sender. Each comes out as a queued command's would — whole, under
     the turn it landed in, on its own thread — and none of them opens a turn."""
     trace = ClaudeCodeExtractor().extract(fixture_source("interjection", RELAYED))
 

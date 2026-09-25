@@ -104,7 +104,7 @@ Individual contract test leaves verify each requirement directly. Parsing tests 
 2. Core pipeline: `Interjection` entity, `_interjections` parser, store DDL, migration, reader roundtrip, `EXTRACTOR_VERSION` increment, glossary updates, `docs/store.md`, and OTLP documentation note.
 3. UI presentation: turn page view section, test scenario, layout bounds, and byte budgets.
 4. Enrichment integration: prompt rendering and item updates; document invalidation impacts in `docs/enrichment.md` (contingent on Nathaniel's sign-off).
-5. User records: read the `isMeta` + `origin` spelling of the same channel (1,068 records on agent threads, 2.1.195–2.1.267) into the same `Interjection`, under the lead-line rules in `docs/transcript-reading.md`, and increment `EXTRACTOR_VERSION`. No schema change.
+5. User records: read the `isMeta` + `origin` spelling of the same channel (1,068 records on agent threads in the store; still written at 2.1.280, beside queued commands) into the same `Interjection`, under the lead-line rules in `docs/transcript-reading.md`, and increment `EXTRACTOR_VERSION`. No schema change.
 
 Slices 3 and 4 are decoupled from each other; both depend on slice 2, as slice 5 does.
 
@@ -141,7 +141,7 @@ Slices 3 and 4 are decoupled from each other; both depend on slice 2, as slice 5
 ## Decisions for Nathaniel
 
 1. **Slice 4 (enrichment).** Extends beyond core scope and triggers re-enrichment across all items containing any of the 1,227 records (affecting 108 sessions with task notifications and 65 with human or agent messages). Recommendation: adopt slice 4, including all three senders and the 400-character cap on task notifications. Mid-turn corrections capture critical prompt evolution, and aborted tasks leave no other trace in the trace log.
-2. **The user-record interjections.** Decided: slice 5, with the 371 task notices written the same way, and with coordinator and peer both `Sender.AGENT`.
+2. **The user-record interjections.** Decided: slice 5, with the 371 task notices written the same way, and with coordinator and peer both `Sender.AGENT`. Claude Code still writes this spelling at 2.1.280, so the exact lead-line match is live exposure: a reworded lead refuses the whole session on its next extract.
 
 ## Open questions
 

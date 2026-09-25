@@ -128,8 +128,8 @@ def test_a_run_renders_a_message_written_as_a_user_record_as_it_renders_a_queued
 ) -> None:
     """A message a run heard as a `user` record reads under the same heading a queued one
     would, without the lead line that named its sender."""
-    # If a run heard a task, its coordinator, the person and a second task, as the `user`
-    # records agent runs heard them as until 2.1.267...
+    # If a run heard a task, its coordinator, the person and a second task, each as a `user`
+    # record rather than a queued command...
     with enriching(fixture_db) as store:
         rendered = render(run(store, RELAYED_RUN))
     # ...then each notice opens on its tag, as a queued notice does, and every other message

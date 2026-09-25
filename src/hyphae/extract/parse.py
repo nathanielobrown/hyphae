@@ -592,8 +592,8 @@ def _interjections(
 def _heard(line: Line, session_id: str) -> _Heard | None:
     """The mid-turn message a record carries, if it carries one.
 
-    Claude Code has written one two ways: as a `queued_command` attachment, and, before that
-    reached agent runs, as a `user` record flagged `isMeta` whose `origin` names the sender.
+    Claude Code writes one two ways, and an agent run still hears both: as a `queued_command`
+    attachment, and as a `user` record flagged `isMeta` whose `origin` names the sender.
     """
     record = line.record
     if isinstance(record, AttachmentRecord) and isinstance(record.attachment, QueuedCommand):

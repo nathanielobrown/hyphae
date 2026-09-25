@@ -27,9 +27,9 @@ Its companion subagent log, `subagents/agent-aaceab3ee53af97d8.jsonl`, retains l
 
 The assistant records that originally sat between the prompt and the notification were omitted because 2.1.267 writes fields on them that no record model declares yet.
 
-## The relayed session: every sender in the older spelling
+## The relayed session: every sender as a `user` record
 
-Before Claude Code wrote a mid-turn message as a `queued_command` attachment, it wrote it as a `user` record with `isMeta: true`, an `origin`, and a fixed first line naming the sender. `bccd8048-2f6d-42f0-a221-b072563afbc1.jsonl` is a redacted excerpt of a session from `~/.claude/projects/-Users-nob-repos-hyphae/`, recorded on 2026-08-26 with **Claude Code 2.1.221** while the project still lived at `/Users/nob/repos/aiobserve`. It keeps host lines 1, 7, 215, 216 and 253 out of 378:
+Besides the `queued_command` attachment, Claude Code writes a mid-turn message to an agent run as a `user` record with `isMeta: true`, an `origin`, and a fixed first line naming the sender. Agent runs on disk carry this spelling from 2.1.195 through 2.1.280 (scanned 2026-09-25). `bccd8048-2f6d-42f0-a221-b072563afbc1.jsonl` is a redacted excerpt of a session from `~/.claude/projects/-Users-nob-repos-hyphae/`, recorded on 2026-08-26 with **Claude Code 2.1.221** while the project still lived at `/Users/nob/repos/aiobserve`. It keeps host lines 1, 7, 215, 216 and 253 out of 378:
 
 - Line 7 opens the session's one turn, the `/manager` command.
 - Lines 215 and 216 hold the `Agent` call that spawned the implementer run below, and its result.
