@@ -13,6 +13,7 @@ from hyphae.models.trace import Sender
 from tests.conftest import SENDERS, SENDERS_RUN, enriching
 from tests.enrich.conftest import AUDITOR_RUN, ORIGIN_RUN
 from tests.enrich.items import run, turn
+from tests.redaction import padded
 from tests.view.plants import REWOUND, rewound
 
 # The main turn a task's notice reached, and the one the person and a peer both spoke into.
@@ -20,11 +21,6 @@ NOTICED = "11b672e8"
 SPOKEN_INTO = "bc846857"
 # The widths a pass really cuts at: every leaf here reads a recorded length against them.
 TURN_BUDGETS = LEVELS[Level.turn].budgets
-
-
-def padded(length: int) -> str:
-    """A redacted leaf tag's text: `[redacted] ` repeated to the length it was recorded at."""
-    return ("[redacted] " * (length // 11 + 1))[:length]
 
 
 def test_a_turn_renders_what_it_heard_under_its_prompt_headed_by_who_sent_it(
