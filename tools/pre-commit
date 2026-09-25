@@ -9,7 +9,8 @@
 # committing worktree. Binaries are called straight out of `.venv/bin` rather
 # than through `uv run`, which is what keeps a clean tree under a second.
 # Whatever a gate needs and does not find it installs once before giving up,
-# so a fresh clone can commit before anyone runs `mise run setup`.
+# so a fresh clone can commit before anyone runs `mise run setup` — given mise
+# itself, which the hook asks for the pinned aigarden.
 #
 # Skip with `git commit --no-verify` only when you really mean it.
 
@@ -80,20 +81,22 @@ if ((${#staged_md[@]} > 0)); then
   # and the author runs `mise run lint-docs`. Every aigarden rule applies, not
   # just prose style — a link this commit breaks fails here instead of in CI.
   #
-  # A mise [tools] binary, so it resolves off PATH; `mise which` is the
-  # fallback for a shell mise never activated, such as a GUI git client's.
-  aigarden_bin="$(command -v aigarden || true)"
-  if [[ -z "$aigarden_bin" ]] && command -v mise >/dev/null; then
+  # The version mise.toml pins, asked of mise from the repo root, never
+  # `command -v`: mise re-resolves PATH only at an interactive prompt, so a
+  # shell it activated in another directory keeps that one's aigarden first.
+  if ! command -v mise >/dev/null; then
+    echo "pre-commit: mise not found — install it, then run 'mise run setup'." >&2
+    exit 1
+  fi
+  aigarden_bin="$(mise which aigarden 2>/dev/null || true)"
+  if [[ -z "$aigarden_bin" ]]; then
+    # The pin is declared but not installed. One tool, not a bare `mise
+    # install`, which would fetch node and shellcheck to gate one document.
+    # Spelled as mise.toml spells it: aigarden is not in mise's registry, so
+    # the bare name would not resolve.
+    echo "pre-commit: aigarden missing — bootstrapping it with mise…" >&2
+    mise install github:nathanielobrown/aigarden >&2 || true
     aigarden_bin="$(mise which aigarden 2>/dev/null || true)"
-    if [[ -z "$aigarden_bin" ]]; then
-      # The pin is declared but not installed. One tool, not a bare `mise
-      # install`, which would fetch node and shellcheck to gate one document.
-      # Spelled as mise.toml spells it: aigarden is not in mise's registry, so
-      # the bare name would not resolve.
-      echo "pre-commit: aigarden missing — bootstrapping it with mise…" >&2
-      mise install github:nathanielobrown/aigarden >&2 || true
-      aigarden_bin="$(mise which aigarden 2>/dev/null || true)"
-    fi
   fi
   if [[ -z "$aigarden_bin" ]]; then
     echo "pre-commit: aigarden not found — run 'mise install'." >&2
