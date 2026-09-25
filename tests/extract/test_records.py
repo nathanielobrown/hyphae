@@ -295,8 +295,9 @@ def test_a_field_claude_code_adds_later_rides_along() -> None:
 def test_a_queued_command_is_modelled_and_every_other_attachment_kind_rides_as_a_dict() -> None:
     # An `attachment` record holds one of dozens of kinds, and only a mid-turn message is read,
     # so the `attachment` field dispatches on its kind: a `queued_command` validates into its
-    # model and anything else stays the dict it was recorded as. The interjection session holds
-    # queued commands beside an `output_style`, and the zoo holds a `deferred_tools_delta`.
+    # model and anything else stays the dict it was recorded as. The interjection sessions hold
+    # queued commands beside an `output_style`, and the zoo holds a `deferred_tools_delta`. The
+    # pairs are a set, so a queued command that slipped into the dict arm is a pair of its own.
     recorded = [
         r
         for r in [*fixture_records(INTERJECTION), *zoo_records()]
@@ -309,13 +310,11 @@ def test_a_queued_command_is_modelled_and_every_other_attachment_kind_rides_as_a
         for r in recorded
     ]
 
-    assert arms == [
-        ("queued_command", attachments.QueuedCommand),
+    assert set(arms) == {
         ("queued_command", attachments.QueuedCommand),
         ("output_style", dict),
-        ("queued_command", attachments.QueuedCommand),
         ("deferred_tools_delta", dict),
-    ]
+    }
 
 
 def test_an_attachment_kind_no_model_names_validates_as_a_dict() -> None:
@@ -419,6 +418,12 @@ def test_every_citation_shows_the_field_in_the_fixture_it_names(
         assert kin, f"{doc.path} cites {cite.fixture}, which holds no record that could carry it"
         shown = [r for r in kin if next(resolve(r, doc.locate), MISSING) is not MISSING]
         if cite.absent:
+            # An absence dates a field, so it holds only at the version cited: one fixture can
+            # keep a later session that writes the field beside the older one that does not.
+            shown = [r for r in shown if r.get("version") == cite.version]
+            assert any(r.get("version") == cite.version for r in kin), (
+                f"{doc.path} is cited as absent at CC {cite.version}, unwritten in {cite.fixture}"
+            )
             assert not shown, f"{doc.path} is cited as absent from {cite.fixture}, but it is there"
             continue
         assert shown, f"{doc.path} is not in {cite.fixture}"

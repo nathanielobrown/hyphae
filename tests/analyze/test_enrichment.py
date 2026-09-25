@@ -9,9 +9,11 @@ category in front of a validation reader instead of the common ones.
 
 The rows come from `enriched_db`, which plants through the real writer: the keys are a
 pass's own, the four model-written fields are invented, and the last item of each level is
-left undescribed so coverage has a gap to report.
+left undescribed. That gap can fall outside the project these queries read, so the coverage leaf
+plants its own.
 """
 
+import shutil
 from pathlib import Path
 
 import duckdb
@@ -21,6 +23,7 @@ from tests.analyze.conftest import (
     AS_OF_WHOLE,
     QueryRunner,
     mappings,
+    query,
     scalar,
 )
 from tests.conftest import MYCELIA, PLANTED_MODELS, SPINE
@@ -60,33 +63,44 @@ def digest(run: QueryRunner, session_id: str, *arguments: str) -> list[dict[str,
 
 
 def test_coverage_counts_the_items_a_pass_could_have_described(
-    enriched_query: QueryRunner, enriched_db: Path
+    enriched_db: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """A level's denominator is its enrichable items, and the undescribed ones are one row."""
-    # If the corpus holds agent runs, all of which a pass would describe...
+    # If a pass has described every mycelia agent run but one — the corpus's own gap is the
+    # last run of all, which a later project can hold, so this one is planted...
+    db = tmp_path / "gap.duckdb"
+    shutil.copyfile(enriched_db, db)
+    with duckdb.connect(str(db)) as store:
+        store.execute(
+            "DELETE FROM agent_run_enrichments WHERE (session_id, agent_run_id) IN ("
+            " SELECT a.session_id, a.id FROM corpus_agent_runs a"
+            " JOIN sessions s ON s.id = a.session_id WHERE starts_with(s.project_dir, ?)"
+            " ORDER BY a.session_id, a.id LIMIT 1)",
+            [MYCELIA],
+        )
     runs = scalar(
-        enriched_db,
+        db,
         "SELECT count(*) FROM corpus_agent_runs a"
         " JOIN sessions s ON s.id = a.session_id WHERE starts_with(s.project_dir, ?)",
         MYCELIA,
     )
     described = scalar(
-        enriched_db,
+        db,
         "SELECT count(*) FROM agent_run_enrichments e"
         " JOIN corpus_agent_runs a ON a.session_id = e.session_id AND a.id = e.agent_run_id"
         " JOIN sessions s ON s.id = a.session_id WHERE starts_with(s.project_dir, ?)",
         MYCELIA,
     )
-    assert 0 < described < runs
-    rows = coverage(enriched_query, AGENT_RUN)
+    assert described == runs - 1 > 0
+    rows = coverage(lambda *arguments: query(db, capsys, *arguments), AGENT_RUN)
     # ...then every row of the level carries the same denominator, which is that count...
     assert {int(row["level_items"]) for row in rows} == {runs}
     # ...the described rows add up to the rows a pass wrote...
     assert sum(int(row["items"]) for row in rows if row["category"]) == described
-    # ...and the ones it has not reached are one row with no category, so a reader sees the
-    # gap without subtracting anything.
+    # ...and the one it has not reached is a row with no category, so a reader sees the gap
+    # without subtracting anything.
     gap = [row for row in rows if not row["category"]]
-    assert [int(row["items"]) for row in gap] == [runs - described]
+    assert [int(row["items"]) for row in gap] == [1]
 
 
 def test_coverage_leaves_out_the_sessions_enrichment_never_describes(

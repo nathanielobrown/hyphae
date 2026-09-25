@@ -330,18 +330,17 @@ def test_a_rollup_counts_replayed_work_once(db: Path, fixture_trace: TraceFactor
 
 
 # What `fork_origin` holds per kind: rows in the base table, then rows the trace calls live.
-# Four of the first five shrink and `agent_runs` does not, so one recorded session discriminates
-# every field of `LiveRows` at once — and a `live()` that filtered nothing could not pass by
-# agreeing with a view that filtered nothing either.
+# Every kind but `agent_runs` shrinks, so one recorded session discriminates every field of
+# `LiveRows` at once — and a `live()` that filtered nothing could not pass by agreeing with a
+# view that filtered nothing either.
 FORK_ROWS = {
     "turns": (2, 1),
     "api_calls": (4, 3),
     "tool_calls": (11, 7),
     "agent_runs": (2, 2),
     "compactions": (2, 1),
-    # No recording holds a queued message a fork copied, so this case proves only that the
-    # view exists: `(2, 1)` waits on a message borrowed into the fixture's copied prefix.
-    "interjections": (0, 0),
+    # A task's notice borrowed into the copied prefix: no recording holds a copied one.
+    "interjections": (2, 1),
 }
 
 
@@ -352,7 +351,7 @@ def test_the_live_views_hold_what_the_trace_calls_live(
     """Each `live_*` view holds exactly the rows the trace itself calls live — the store's
     answer and the model's answer are one answer."""
     # If the fork fixture is written to a store — its own transcript and the run it forked
-    # from, so four of the five kinds hold a copy the other already recorded...
+    # from, so five of the six kinds hold a copy the other already recorded...
     trace = fixture_trace("fork_origin", ORIGIN)
     exporter = StoreExporter(db, wait=NO_WAIT)
     exporter.export(trace, "fingerprint-1")

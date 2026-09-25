@@ -72,7 +72,7 @@ class Scenario(NamedTuple):
 # `friction` is not null.
 DESCRIBED_SESSION = COMPACTED
 DESCRIBED_RUN = SPINE_RUN
-DESCRIBED_TURN = "30aad8e5-21f8-486d-b9d9-e118c703a5a1"
+DESCRIBED_TURN = "8cdceb31-385c-42d4-9dae-137958b09b88"
 
 # The two reasons more than one scenario carries, said once each. Both are about the 404 the
 # other URL would have served: a pass writes about some items and not others, and only the

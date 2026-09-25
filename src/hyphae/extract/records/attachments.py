@@ -180,11 +180,13 @@ class QueuedCommand(Described):
         Field(
             default=None,
             description=(
-                "When the message was typed, which is earlier than the record's own timestamp "
-                "when it waited for the turn. Omitted where `commandMode` is"
+                "When the message was queued. Every fixture record repeats it as its own "
+                "timestamp, even a notice written 48 seconds later, in the next turn. Omitted "
+                "where `commandMode` is"
             ),
         ),
         Cited(INTERJECTION, "2.1.220"),
+        Cited(INTERJECTION, "2.1.267", note="the notice that waited"),
     ]
     origin: Annotated[
         Origin | None,
@@ -204,6 +206,7 @@ class QueuedCommand(Described):
             ),
         ),
         Cited(scan=ATTACHMENT_CENSUS, note="`2.1.206`–`2.1.280`"),
+        Cited(INTERJECTION, "2.1.263"),
     ]
     isMeta: Annotated[
         bool | None,
@@ -215,6 +218,7 @@ class QueuedCommand(Described):
             ),
         ),
         Cited(scan=ATTACHMENT_CENSUS),
+        Cited(INTERJECTION, "2.1.259", note="a coordinator's and a peer's"),
     ]
     imagePasteIds: Annotated[
         list[int] | None,
@@ -260,6 +264,7 @@ class AttachmentRecord(SessionContext):
         list[dict[str, Any]] | None,
         Field(default=None, description=_RENDERED),
         Cited(scan=ATTACHMENT_CENSUS, note="48,753 records"),
+        Cited(INTERJECTION, "2.1.259"),
         Cited(INTERJECTION, "2.1.220", absent=True),
     ]
     renderedInHumanTurn: Annotated[
@@ -272,5 +277,6 @@ class AttachmentRecord(SessionContext):
             ),
         ),
         Cited(scan=ATTACHMENT_CENSUS, note="749 records, from `2.1.259`"),
+        Cited(INTERJECTION, "2.1.259", note="task notices only"),
         Cited(INTERJECTION, "2.1.220", absent=True),
     ]

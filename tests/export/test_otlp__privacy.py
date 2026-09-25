@@ -40,6 +40,9 @@ EXCLUDED = {
     ("pr_links", "pr_url"): "planted-leak-pr-link-url",
     ("pr_links", "pr_repository"): "planted-leak-pr-repository",
 }
+# Text no span carries under any policy, planted the same way: a message sent mid-turn stays
+# in the store even when text is opted in.
+UNSHIPPED = {("interjections", "text"): "planted-leak-interjection-text"}
 
 
 @pytest.fixture
@@ -48,7 +51,7 @@ def planted(exportable_db: Path, tmp_path: Path) -> Iterator[duckdb.DuckDBPyConn
     path = tmp_path / "planted.duckdb"
     path.write_bytes(exportable_db.read_bytes())
     with open_trace_store(path, read_only=False, wait=NO_WAIT) as connection:
-        for (table, column), sentinel in EXCLUDED.items():
+        for (table, column), sentinel in (EXCLUDED | UNSHIPPED).items():
             # A column with no rows would make its sentinel unfalsifiable, so each one is
             # checked to have landed somewhere.
             connection.execute(f'UPDATE {table} SET "{column}" = ?', [sentinel])
@@ -85,7 +88,7 @@ def test_the_default_ship_set_carries_metadata_and_no_transcript_text(
     # prompt is caught as surely as an attribute is.
     leaked = {
         f"{table}.{column_name}"
-        for (table, column_name), sentinel in EXCLUDED.items()
+        for (table, column_name), sentinel in (EXCLUDED | UNSHIPPED).items()
         if any(sentinel.encode() in body for body in receiver.bodies)
     }
     assert leaked == set()
@@ -185,3 +188,7 @@ def test_include_text_widens_the_ship_set_by_exactly_the_named_fields(
         prefix = sentinel[:TRUNCATED].encode()
         assert any(prefix in body for body in receiver.bodies), f"{sentinel} never shipped"
         assert not any(sentinel.encode() in body for body in receiver.bodies), sentinel
+    # ...while what no span carries stays home, not even a prefix of it riding along.
+    for sentinel in UNSHIPPED.values():
+        prefix = sentinel[:TRUNCATED].encode()
+        assert not any(prefix in body for body in receiver.bodies), sentinel

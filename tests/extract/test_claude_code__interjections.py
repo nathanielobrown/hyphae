@@ -3,13 +3,21 @@ shapes that stop an extract rather than lose one."""
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
 from hyphae.extract.claude_code import ClaudeCodeExtractor
 from hyphae.extract.errors import TranscriptSchemaError
 from hyphae.models.trace import MAIN_SOURCE, Interjection, Sender
-from tests.conftest import FIXTURES, INTERJECTION, SourceFactory
+from tests.conftest import (
+    FIXTURES,
+    INTERJECTION,
+    SENDERS,
+    SENDERS_RUN,
+    WAITED,
+    SourceFactory,
+)
 
 
 def test_each_message_comes_out_whole_under_the_turn_it_landed_in(
@@ -62,6 +70,112 @@ def test_each_message_comes_out_whole_under_the_turn_it_landed_in(
             replayed=False,
         ),
     ]
+
+
+def test_every_sender_is_heard_on_main_and_inside_an_agent_run(fixture_source: SourceFactory):
+    """A task, the person and another agent each reach a turn, and a run's own messages stay
+    on its own thread."""
+    trace = ClaudeCodeExtractor().extract(fixture_source("interjection", SENDERS))
+
+    main, thread = [
+        FIXTURES / "interjection" / path
+        for path in (f"{SENDERS}.jsonl", f"{SENDERS}/subagents/agent-{SENDERS_RUN}.jsonl")
+    ]
+    assert trace.interjections == [
+        # A task's notice lands in the first turn with its 839 characters whole: the cap is the
+        # enrichment prompt's business, not the store's...
+        Interjection(
+            id="30f794f4-8007-408a-9d00-29bcacd245e0",
+            session_id=SENDERS,
+            source=MAIN_SOURCE,
+            turn_id="11b672e8-dc44-4771-8d7a-610d029da5f4",
+            timestamp=datetime(2026, 9, 7, 1, 56, 58, 844000, tzinfo=UTC),
+            sender=Sender.TASK,
+            text=recorded_prompt(main, "30f794f4-8007-408a-9d00-29bcacd245e0"),
+            replayed=False,
+        ),
+        # ...the person types into the second turn...
+        Interjection(
+            id="4ddb7877-e9fc-4af2-808a-d923fac88547",
+            session_id=SENDERS,
+            source=MAIN_SOURCE,
+            turn_id="bc846857-b679-41ce-996f-4ff1d319da0c",
+            timestamp=datetime(2026, 9, 7, 13, 49, 52, 395000, tzinfo=UTC),
+            sender=Sender.PERSON,
+            text="[redacted]",
+            replayed=False,
+        ),
+        # ...and another session writes into the same turn. Its mode is `prompt`, as the
+        # person's is, so only `origin.kind` says it was not the person.
+        Interjection(
+            id="32e86765-01c6-406f-859f-8a8fa5c4d5f8",
+            session_id=SENDERS,
+            source=MAIN_SOURCE,
+            turn_id="bc846857-b679-41ce-996f-4ff1d319da0c",
+            timestamp=datetime(2026, 9, 7, 13, 49, 58, tzinfo=UTC),
+            sender=Sender.AGENT,
+            text="[redacted]",
+            replayed=False,
+        ),
+        # The agent run hears from two tasks and, between them, its coordinator. The
+        # coordinator's record carries no queued-at time of its own, so the envelope's is the
+        # only one it has.
+        Interjection(
+            id="82fd7a6b-8d3a-48a0-8f8e-03155431f1b7",
+            session_id=SENDERS,
+            source=SENDERS_RUN,
+            turn_id="a77c360d-c02d-45a8-89c9-5ded4c9c2f55",
+            timestamp=datetime(2026, 9, 7, 10, 33, 4, 281000, tzinfo=UTC),
+            sender=Sender.TASK,
+            text=recorded_prompt(thread, "82fd7a6b-8d3a-48a0-8f8e-03155431f1b7"),
+            replayed=False,
+        ),
+        Interjection(
+            id="fbfb2868-7ea4-40de-b485-2ad619cb0a22",
+            session_id=SENDERS,
+            source=SENDERS_RUN,
+            turn_id="a77c360d-c02d-45a8-89c9-5ded4c9c2f55",
+            timestamp=datetime(2026, 9, 7, 10, 40, 22, 817000, tzinfo=UTC),
+            sender=Sender.AGENT,
+            text="[redacted]",
+            replayed=False,
+        ),
+        Interjection(
+            id="057236c4-540e-4422-ada0-8df8be93943a",
+            session_id=SENDERS,
+            source=SENDERS_RUN,
+            turn_id="a77c360d-c02d-45a8-89c9-5ded4c9c2f55",
+            timestamp=datetime(2026, 9, 7, 10, 41, 23, 244000, tzinfo=UTC),
+            sender=Sender.TASK,
+            text=recorded_prompt(thread, "057236c4-540e-4422-ada0-8df8be93943a"),
+            replayed=False,
+        ),
+    ]
+
+
+def test_a_message_belongs_to_the_turn_open_where_it_sits_not_when_it_was_stamped(
+    fixture_source: SourceFactory,
+):
+    """A task finished during a `/compact`, and its notice waited in the queue until the next
+    prompt's turn was running. The file puts it in that turn, and so does the row."""
+    trace = ClaudeCodeExtractor().extract(fixture_source("interjection", WAITED))
+
+    command, prompt = trace.turns
+    (notice,) = trace.interjections
+    # The stamp falls inside the command's turn, so a reader going by the clock would file it
+    # there...
+    assert command.started_at < notice.timestamp < prompt.started_at
+    # ...but it was written after the prompt, and it belongs to the prompt's turn.
+    assert notice.turn_id == prompt.id == "0365e7c5-d09a-44eb-9f95-b2595a57ba9f"
+
+
+def recorded_prompt(transcript: Path, uuid: str) -> str:
+    """The queued command's text as the fixture holds it, for a row that keeps it verbatim."""
+    for line in transcript.read_text().splitlines():
+        record = json.loads(line)
+        if record.get("uuid") == uuid:
+            return record["attachment"]["prompt"]
+    raise AssertionError(f"{uuid} is not in {transcript}")
 
 
 def test_a_malformed_queued_command_crashes_rather_than_riding_as_another_attachment(
