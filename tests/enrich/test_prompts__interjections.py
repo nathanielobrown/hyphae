@@ -173,15 +173,27 @@ def test_a_message_is_capped_at_the_width_a_prompt_gets(mutable_db: Path) -> Non
     )
 
 
-def test_a_replayed_message_renders_only_under_the_run_that_heard_it(fixture_db: Path) -> None:
+def test_a_replayed_message_renders_only_under_the_run_that_heard_it(mutable_db: Path) -> None:
     """A fork that copied the auditor's turn copied the notice it heard, and the copy is not
     the fork's to describe, any more than the turn is (`test_prompts.py`)."""
     # If `fork_origin/`'s auditor heard a task's notice, and its fork replayed that turn...
-    with enriching(fixture_db) as store:
+    with enriching(mutable_db) as store:
         auditor = render(run(store, AUDITOR_RUN))
         fork = render(run(store, ORIGIN_RUN))
-    # ...then the auditor renders it under its task, and the fork renders no message at all.
+        # ...and — synthetic: a recorded copy only sits under a copied turn — the person's
+        # message into a live turn is marked a copy...
+        store.connection.execute(
+            "UPDATE interjections SET replayed = true"
+            " WHERE session_id = ? AND starts_with(turn_id, ?) AND sender = ?",
+            [SENDERS, SPOKEN_INTO, Sender.PERSON.value],
+        )
+        spoken_into = render(turn(store, SENDERS, SPOKEN_INTO))
+    # ...then the auditor renders it under its task, and the fork renders no message at all...
     assert auditor.startswith(
         "# Agent run: auditor\n\n## Task\n[redacted]\n\n## Mid-turn notice from a background task\n"
     )
     assert "Mid-turn" not in fork
+    # ...and the live turn keeps the peer's message and drops the copied one: the filter is
+    # on the message, not only on the turn it belongs to.
+    assert "## Mid-turn message from the person" not in spoken_into
+    assert "## Mid-turn message from another agent\n[redacted]" in spoken_into
