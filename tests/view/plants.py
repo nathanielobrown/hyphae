@@ -42,3 +42,21 @@ def heard(count: int, text: str) -> tuple[Statement, ...]:
             [PLANTED_LINES, SENDERS, HEARD_TEMPLATE],
         ),
     )
+
+
+# The agent run's second notice, at line 6 of its transcript: last of the three it heard.
+REWOUND = "057236c4-540e-4422-ada0-8df8be93943a"
+
+
+def rewound(uuid: str) -> Statement:
+    """`uuid`'s record is also written at line 0, before every line its thread recorded.
+
+    Invented: no fixture holds a rewound message, and a rewind rewrites a record under the
+    uuid it already used (`extract/transcript.py:resolve_duplicates`), so the uuid sits on two
+    lines and the extractor read the last.
+    """
+    return (
+        "INSERT INTO raw_records SELECT session_id, source, 0, uuid, timestamp, type, raw"
+        " FROM raw_records WHERE session_id = ? AND uuid = ?",
+        [SENDERS, uuid],
+    )

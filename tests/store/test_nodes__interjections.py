@@ -31,7 +31,7 @@ from tests.conftest import (
 )
 from tests.store.test_sessions import rows_of
 from tests.view.conftest import MISSING, planter
-from tests.view.plants import PLANTED_LINES, heard
+from tests.view.plants import PLANTED_LINES, REWOUND, heard, rewound
 from tests.view.scenarios import INTERJECTED_TURN
 
 # One expensive store, built once per worker: every leaf here reads the enriched corpus.
@@ -60,11 +60,16 @@ def at(clock: str) -> dt.datetime:
 
 
 def test_a_turn_hears_its_messages_in_transcript_order_cut_to_the_sections_width(
-    store: Store, repository: NodeRepository
+    enriched_db: Path, tmp_path: Path
 ) -> None:
     """The agent run's one turn heard a task's notice, then its coordinator, then a second
-    notice — each at the line its record sits on, cited with the keys and widths it bound."""
-    answer = repository.interjections(**HEARD, widths=WIDTHS)
+    notice — each at the line its record sits on, cited with the keys and widths it bound.
+
+    A rewound record sits on two lines, and the extractor read the last, so that is the one a
+    row reports and sorts by; the second notice is written a copy at line 0 to show it."""
+    rewind = planter(enriched_db, tmp_path)(rewound(REWOUND))
+    with open_store(rewind, read_only=True, wait=NO_WAIT) as store:
+        answer = store.nodes.interjections(**HEARD, widths=WIDTHS)
     # The notices' text is redacted leaf tags; what the row owes the page is the length the
     # width left it, and both came in under it, so they are whole.
     texts = [row.text for row in answer.rows]
