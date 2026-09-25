@@ -133,7 +133,6 @@ Read `docs/documentation.md` before editing or creating documentation. It define
 
 ## Keep branches and commits focused
 
-- Plain `git` owns branches and commits; `gh` owns PRs. Work on one branch per task, make atomic commits, keep history linear, and land branches on `main` by fast-forward only
-- A plan (or any file) the branch will add must not remain untracked on `main` after it is committed on the branch — leftover copies block the fast-forward
+- Plain `git` owns branches and commits; `gh` owns PRs. Work on one branch per task, make atomic commits, keep history linear, and land each PR on `main` by squash (`docs/pull-requests.md`)
 - Before committing, invoke the `commit` skill for the message format and hygiene rules in `docs/commits.md`
-- Before opening a PR, invoke the `pr` skill. It enforces the flow in `docs/pull-requests.md` and runs `doc-sync` so the docs land in the same PR
+- Before opening a PR, invoke the `pr` skill. It carries the steps, and runs `doc-sync` so the docs land in the same PR

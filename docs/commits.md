@@ -1,10 +1,10 @@
 # Commits
 
-Each commit is a review unit. Keep it to one change and write a subject a reviewer can understand without opening the diff. See [the PR guide](pull-requests.md) for branches, fixups, rebases, and landing.
+Each commit is a review unit. Keep it to one change and write a subject a reviewer can understand without opening the diff. See [the PR guide](pull-requests.md) for branches, review fixes, rebases, and landing.
 
 ## Make each commit one change
 
-Commit as often as you need while working. Before review, shape the branch into a few atomic commits. The reviewed commits land on `main` unchanged, without a squash.
+Commit as often as you need while working. Before review, shape the branch into a few atomic commits. Each commit is a review unit on the branch; the PR lands on `main` by squash, under the PR's title.
 
 A pre-commit hook holds the staged Python and Markdown to the gates, so a commit can fail before it lands (`tools/pre-commit`, installed by `mise run setup`). Fix what it reports rather than passing `--no-verify`.
 
