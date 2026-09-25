@@ -84,10 +84,10 @@ def test_a_package_with_no_docstring_crashes_the_generator() -> None:
         gen_layout.glossed(gen_layout.Module("tests.tools.undescribed"))
 
 
-def test_the_tree_is_fenced_with_a_blank_line_either_side() -> None:
+def test_the_tree_is_fenced_flush_against_the_markers() -> None:
     # The fence is inside the cog block, because a marker inside a fence is an example rather
-    # than a live block — so the generator owns both fence lines and the blank lines that keep
-    # them off the markers, which aigarden's MD031 asks for. `print` adds the closing newline.
+    # than a live block — so the generator owns both fence lines. aigarden counts a marker as
+    # the blank line MD031 wants, so none pads them, and `print` adds the closing newline.
     tree = gen_layout.generate()
-    assert tree.startswith("\n```\n")
-    assert tree.endswith("\n```\n")
+    assert tree.startswith("```\n")
+    assert tree.endswith("\n```")

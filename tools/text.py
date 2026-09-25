@@ -37,12 +37,11 @@ def _row(cells: tuple[str, ...]) -> str:
 
 
 def fence(info: str, lines: Iterable[str]) -> str:
-    """A fenced block with a blank line either side, as the cog splice keeps it.
+    """A fenced block with no trailing newline, flush against the cog markers.
 
-    aigarden's markdown-style rule (MD031) wants a blank line around every fence, and the splice
-    puts a block right against its markers, so the blank lines are the generator's to write.
+    aigarden's MD031 counts a cog marker as the blank line a fence needs, so none is written.
     """
-    return f"\n```{info}\n" + "\n".join(lines) + "\n```\n"
+    return f"```{info}\n" + "\n".join(lines) + "\n```"
 
 
 def count(value: int) -> str:

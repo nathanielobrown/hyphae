@@ -112,9 +112,9 @@ def test_each_edge_is_one_unlabelled_arrow(graph: str) -> None:
     assert body == sorted(body)
 
 
-def test_the_graph_is_fenced_with_a_blank_line_either_side(graph: str) -> None:
+def test_the_graph_is_fenced_flush_against_the_markers(graph: str) -> None:
     # The fence is inside the cog block, because a marker inside a fence is an example rather
-    # than a live block — so the generator owns both fence lines and the blank lines that keep
-    # them off the markers, which aigarden's MD031 asks for. `print` adds the closing newline.
-    assert graph.startswith("\n```mermaid\ngraph TD\n")
-    assert graph.endswith("\n```\n")
+    # than a live block — so the generator owns both fence lines. aigarden counts a marker as
+    # the blank line MD031 wants, so none pads them, and `print` adds the closing newline.
+    assert graph.startswith("```mermaid\ngraph TD\n")
+    assert graph.endswith("\n```")
