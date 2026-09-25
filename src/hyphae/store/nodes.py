@@ -6,7 +6,8 @@ URL asked; a detail's fetch calls `value` with the header's model and the field 
 cut, and reads the whole of it back with the citation the fragment's footer quotes. A
 children log pages through `children` and the two timelines, the NavTree reads the bucket
 row those timelines keep off every page, a NavTree row's popover reads its numbers, and the
-pane joins a turn to its transcript line and reads one line whole.
+pane joins a turn to its transcript line, reads one line whole, and lists the messages a turn
+heard while it ran.
 """
 
 from collections.abc import Mapping
@@ -19,6 +20,7 @@ from hyphae.models.node import (
     CallRow,
     CompactionNumbers,
     CompactionRow,
+    InterjectionRow,
     NodeHeader,
     NodeNumbers,
     RunHeader,
@@ -85,6 +87,8 @@ NUMBERS = "view_numbers"
 TOOL_NUMBERS = "view_numbers_tool"
 COMPACTION_NUMBERS = "view_numbers_compaction"
 TURN_RECORDS = "view_turn_records"
+# Capped rather than paged, and why, is the statement's own header.
+TURN_INTERJECTIONS = "view_turn_interjections"
 RECORD = "view_record"
 
 
@@ -280,3 +284,19 @@ class NodeRepository:
         )
         row = library.one(self.store, RECORD, bindings)
         return None if row is None else WholeRecord(citation=Citation(RECORD, bindings), **row)
+
+    # --- the messages a turn heard -------------------------------------------------------
+
+    def interjections(
+        self, *, session_id: str, source: str, turn_id: str, widths: Mapping[str, int]
+    ) -> Listed[InterjectionRow]:
+        """The messages one turn heard while it ran, in transcript order, up to the surface's
+        cap — with how many it heard in all, so the section can say what it left."""
+        bindings = library.bind(
+            TURN_INTERJECTIONS, widths, {}, session_id=session_id, source=source, turn_id=turn_id
+        )
+        rows = [
+            InterjectionRow(**row)
+            for row in library.fetch(self.store, library.load(TURN_INTERJECTIONS), bindings)
+        ]
+        return Listed(rows, library.matched(rows), Citation(TURN_INTERJECTIONS, bindings))

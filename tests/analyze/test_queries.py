@@ -42,12 +42,14 @@ from tests.conftest import (
     OFFLOAD_FILE,
     RESUME,
     RESUME_LONG_RECORD,
+    SENDERS,
+    SENDERS_RUN,
     SERVER_TOOLS,
     SLASH_TURN,
     SPINE,
     SPINE_RUN,
 )
-from tests.view.scenarios import FETCHED
+from tests.view.scenarios import FETCHED, INTERJECTED_TURN
 
 # What a surface states when it runs a viewer query, at fixture size. No `view_` query
 # declares a default — the surface that prints a value owns its width (`view/bounds.py`) —
@@ -68,6 +70,7 @@ VIEW_SIZES = {
     "description_chars": "40",
     "preview_chars": "40",
     "detail_chars": "40",
+    "interjection_chars": "40",
     "chunk_chars": "500",
     # Rows and members a page shows. Above one, so a level with several children answers with
     # more than the single row this tier's own assertion would accept.
@@ -76,6 +79,7 @@ VIEW_SIZES = {
     "page_tools": "10",
     "errors": "10",
     "projects": "10",
+    "interjections": "10",
     "head_items": "3",
     "head_kinds": "3",
     "head_projects": "3",
@@ -181,6 +185,12 @@ FIXTURE_BINDINGS: dict[str, dict[str, str]] = {
     # the default page of 100 answers with more than one row and the turn join with several.
     "view_records": {"session_id": ANCESTOR, "source": MAIN},
     "view_turn_records": {"session_id": ANCESTOR, "source": MAIN},
+    # The one turn that heard a message from each kind of sender but a person.
+    "view_turn_interjections": {
+        "session_id": SENDERS,
+        "source": SENDERS_RUN,
+        "turn_id": INTERJECTED_TURN,
+    },
     # The corpus holds exactly one offloaded tool result, and this is it.
     "view_offload": {"session_id": CONFIG_ONLY, "name": OFFLOAD_FILE},
     # The per-value queries answer with one row apiece, whatever is bound.

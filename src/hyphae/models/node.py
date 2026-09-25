@@ -4,10 +4,11 @@ The four headers are one node read whole for its own page — one per kind that 
 of its own; a bucket has none, and a compaction reads out of `view_compactions` — and
 `WholeValue` is one fat value of a node, the rest of what its header cut. Under them are the
 rows a children log lists a page of, the bucket its timeline lists beside them, a thread's
-compactions, the numbers a NavTree row's popover prints, and the join from a turn to the
-transcript line it was read from. Each is built by column name off the statement that answers
-it (`store/nodes.py`), under `row.ROW`, so a column the statement gains or loses raises at the
-read and not on a reader's page. The rows they are built from stay in the store.
+compactions, the numbers a NavTree row's popover prints, the join from a turn to the
+transcript line it was read from, and the messages a turn heard while it ran. Each is built by
+column name off the statement that answers it (`store/nodes.py`), under `row.ROW`, so a column
+the statement gains or loses raises at the read and not on a reader's page. The rows they are
+built from stay in the store.
 """
 
 import datetime as dt
@@ -379,3 +380,24 @@ class TurnRecord:
 
     turn_id: str
     line_no: int
+
+
+# --- the messages a turn heard ----------------------------------------------------------------
+
+
+@dataclass(frozen=True, config=ROW)
+class InterjectionRow:
+    """One message delivered while a turn was running: a `view_turn_interjections` row."""
+
+    id: str
+    # Who sent it, as the statement spells it — the `trace.Sender` value. A string rather than
+    # the enum because the row config is strict, and strict mode reads a value into an enum
+    # only from a member.
+    sender: str
+    # When it was typed where Claude Code queued it with a time, and when it landed otherwise.
+    timestamp: dt.datetime
+    # The message cut to the section's width, a character past it where it ran on.
+    text: str
+    # The transcript line the row was read from: where the whole record is.
+    line_no: int
+    matched_rows: int

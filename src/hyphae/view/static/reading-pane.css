@@ -75,6 +75,13 @@ ul.prs { margin: var(--space-2) 0; padding: 0; list-style: none; overflow-wrap: 
    from. Quiet, because it is the exit from the page rather than the page. */
 .raw { color: var(--dim); }
 .raw > summary { cursor: pointer; }
+/* The messages a turn heard while it ran: who sent each and when, as a dim label over the
+   message walled like the node's own values, since it is someone else's writing too. */
+.interjections ol { margin: var(--space-2) 0; padding: 0; list-style: none; }
+.interjections li > p { margin: var(--space-2) 0 0; font-size: var(--type-label);
+  color: var(--dim); }
+.interjections pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: var(--space-1) 0;
+  border-left: 2px solid var(--line); padding-left: var(--space-2); }
 
 /* Reading in order: back on the left, on to the next on the right, with whatever room is
    between them. Each control carries the neighbour's own title rather than the word "next",

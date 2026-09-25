@@ -57,6 +57,7 @@ Full-value requests are the declared exception. Each returns one whole value —
 | A session's errors | 100 failed tool calls; each title is cut to 110 characters |
 | NavTree | 200 children per open level, 16 levels deep, each title cut to 110 characters |
 | Children log | 100 rows a page, each string cut to 300 characters |
+| A turn's interjections | 8 messages, each cut to 400 characters |
 | Previewed value | 4,000 characters, with the rest a fetch away |
 | Raw records | 100 rows by default, at most 200; each row previews 160 characters of its record |
 | Offload | 50,000 characters by default, at most 60,000 |
@@ -68,7 +69,7 @@ Each page is weighed against its ceiling at the widest response its route can be
 <!-- aigarden:cog sh "uv run python -m tools.gen_bounds pages" -->
 | Page | Worst case, in bytes |
 | --- | --- |
-| Node page | 6,564,687 of the 6,580,000 it is allowed |
+| Node page | 6,583,694 of the 6,600,000 it is allowed |
 | Expansion | 621,164 of 625,000 |
 | Session list | 499,427 of 500,000 |
 | Projects | 301,575 of 500,000 |
@@ -84,10 +85,11 @@ The node page is weighed against a budget of its own rather than the 500,000 the
 | NavTree | 3,217 rows at 1,728: 5,558,976 |
 | Children log | 100 rows at 6,165: 616,500 |
 | Previewed values | 3 rendered at 120,550: 361,650 |
+| Interjections | 8 messages cut to 400 characters, under 2,983 of markup: 19,007 |
 | Crumbs | 16 titles cut to 40 characters, at 556: 8,896 |
 | Pager | 565 |
 | Chrome | 18,100 |
-| Spare | 15,313 |
+| Spare | 16,306 |
 <!-- aigarden:end -->
 
 The NavTree is what multiplies: an open path is a row for the root and one for every child of every level it descends through, and those rows are most of the page. `NAV_TREE_ROW_BYTES` is measured through the app rather than budgeted, at a title of nothing but `&` and the longest query string a link can carry, and pinned with no slack in either direction — a byte of slack there is a byte on every row of the widest page, and the room above is spoken for. Nearly all of a row is its URL, written three times: the `href` a reader follows, the `hx-get` htmx fetches, and the popover's own path under a prefix. What the click does with its response is written once on `#nav-tree-rows` and inherited; what the popover does with its own cannot be, because htmx walks up from the element that fetched, and a swap written on the row would be taken by the link inside it — so its five attributes are spelled out on every row, and a store whose agent runs carry longer ids than the recorded corpus does is a re-measure. `NODE_BYTES` in `tests/view/budgets.py` records what each raise of the ceiling bought, and the spare in the table above is what the next thing a row grows by will be measured against.

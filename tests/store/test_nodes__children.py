@@ -472,6 +472,12 @@ def test_every_read_binds_through_the_binder(
     )
     repository.turn_records(session_id=SPINE, source=MAIN)
     repository.record(session_id=SPINE, source=MAIN, line_no=3)
+    repository.interjections(
+        session_id=SPINE,
+        source=MAIN,
+        turn_id=SLASH_TURN,
+        widths=bounds.INTERJECTIONS_WIDTHS._asdict(),
+    )
     assert seen == [
         "view_turn_calls",
         "view_call_tools",
@@ -485,6 +491,7 @@ def test_every_read_binds_through_the_binder(
         "view_numbers_compaction",
         "view_turn_records",
         "view_record",
+        "view_turn_interjections",
     ]
 
 

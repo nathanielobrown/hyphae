@@ -41,6 +41,7 @@ PROFILES: dict[str, bounds.Widths] = {
     "PROJECTS_WIDTHS": bounds.Projects(recent_days=7, window_days=30, head_chars=100, projects=100),
     "ERRORS_WIDTHS": bounds.Errors(nav_chars=110, errors=100),
     "RECORDS_WIDTHS": bounds.Records(preview_chars=160),
+    "INTERJECTIONS_WIDTHS": bounds.Interjections(interjection_chars=400, interjections=8),
     "ENRICHMENT_WIDTHS": bounds.Enrichment(description_chars=200, tag_chars=20, head_chars=100),
 }
 

@@ -27,7 +27,7 @@ from hyphae.models.node import (
     ToolRow,
     TurnHeader,
 )
-from hyphae.models.trace import MAIN_SOURCE
+from hyphae.models.trace import MAIN_SOURCE, Sender
 from hyphae.store.handle import Store
 from hyphae.view import bounds, builders, detail, nodes
 from hyphae.view.citation import Ran
@@ -37,7 +37,7 @@ from hyphae.view.nodes import Kind, Node, Ref, Row
 from hyphae.view.pages.node import nav_tree, reads
 from hyphae.view.pages.node.columns import Shape
 from hyphae.view.pages.node.knobs import skipped
-from hyphae.view.pages.node.models import Logged
+from hyphae.view.pages.node.models import Heard, Interjection, Logged
 
 
 class Read(NamedTuple):
@@ -85,6 +85,7 @@ Trail = Callable[[Ref, Row], list[Ref]]
 Logs = Callable[[Store, nav_tree.Corpus, Ref, int, int], Log]
 Details = Callable[[nav_tree.Corpus, Ref, Row, int], list[Detail]]
 Record = Callable[[Store, nav_tree.Corpus, Ref], tuple[int | None, Ran]]
+Hears = Callable[[Store, nav_tree.Corpus, Ref], tuple[Heard, Ran]]
 Titled = Callable[[nav_tree.Corpus, Ref, Row], Node]
 Describe = Callable[[Descriptions, Ref], Enrichment | None]
 
@@ -117,6 +118,9 @@ class KindSpec(NamedTuple):
     log: Logs | None
     details: Details | None
     record: Record | None
+    # The messages delivered into the node while it ran — a turn's alone, since a message is
+    # filed into the turn that heard it.
+    heard: Hears | None
     # The pane's own node, named from its own header rather than from the NavTree row it stands
     # on: a NavTree row is cut to a third of what a title has to spend (`nodes.Node.pane_title`).
     # None where no cut reaches the name — a session is read from its own header already, a
@@ -415,6 +419,27 @@ def _turn_record(store: Store, corpus: nav_tree.Corpus, at: Ref) -> tuple[int | 
     return archived.get(at.node_id), [answer.citation]
 
 
+def _turn_heard(store: Store, corpus: nav_tree.Corpus, at: Ref) -> tuple[Heard, Ran]:
+    """The messages the turn heard while it ran, the first few at the section's widths."""
+    answer = store.nodes.interjections(
+        session_id=corpus.session_id,
+        source=str(at.source),
+        turn_id=at.node_id,
+        widths=bounds.INTERJECTIONS_WIDTHS._asdict(),
+    )
+    rows = [
+        Interjection(
+            key=row.id,
+            sender=Sender(row.sender),
+            at=row.timestamp,
+            text=row.text,
+            line_no=row.line_no,
+        )
+        for row in answer.rows
+    ]
+    return Heard(rows, answer.total), [answer.citation]
+
+
 def _turn_titled(corpus: nav_tree.Corpus, at: Ref, row: Row) -> Node:
     return builders.turn_node(
         corpus.session_id,
@@ -451,6 +476,7 @@ KINDS: dict[Kind, KindSpec] = {
         log=_timeline_log,
         details=None,
         record=None,
+        heard=None,
         titled=None,
         describe=lambda descriptions, at: descriptions.session,
         listed_as=None,
@@ -466,6 +492,7 @@ KINDS: dict[Kind, KindSpec] = {
         log=_calls_log,
         details=_turn_details,
         record=_turn_record,
+        heard=_turn_heard,
         titled=_turn_titled,
         describe=lambda descriptions, at: descriptions.turns.get(at.node_id),
         listed_as=Shape.TURNS,
@@ -481,6 +508,7 @@ KINDS: dict[Kind, KindSpec] = {
         log=_run_timeline_log,
         details=_run_details,
         record=None,
+        heard=None,
         titled=_run_titled,
         describe=lambda descriptions, at: descriptions.runs.get(at.node_id),
         listed_as=Shape.RUNS,
@@ -496,6 +524,7 @@ KINDS: dict[Kind, KindSpec] = {
         log=_tools_log,
         details=_call_details,
         record=None,
+        heard=None,
         titled=_call_titled,
         describe=None,
         listed_as=Shape.CALLS,
@@ -511,6 +540,7 @@ KINDS: dict[Kind, KindSpec] = {
         log=None,
         details=_tool_details,
         record=None,
+        heard=None,
         titled=_tool_titled,
         describe=None,
         listed_as=Shape.TOOLS,
@@ -526,6 +556,7 @@ KINDS: dict[Kind, KindSpec] = {
         log=None,
         details=None,
         record=None,
+        heard=None,
         titled=None,
         describe=None,
         listed_as=None,
@@ -541,6 +572,7 @@ KINDS: dict[Kind, KindSpec] = {
         log=_calls_log,
         details=None,
         record=None,
+        heard=None,
         titled=None,
         describe=None,
         listed_as=None,
@@ -556,6 +588,7 @@ KINDS: dict[Kind, KindSpec] = {
         log=_unattached_log,
         details=None,
         record=None,
+        heard=None,
         titled=None,
         describe=None,
         listed_as=None,
